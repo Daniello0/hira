@@ -227,6 +227,9 @@ packages/contracts/src/
 │   ├── skill-importance.enum.ts
 │   ├── memory-kind.enum.ts
 │   ├── message-role.enum.ts
+│   ├── match-factor.enum.ts
+│   ├── language.enum.ts
+│   ├── rate-unit.enum.ts
 │   └── favorite-status.enum.ts
 └── common/dto/
     ├── vacancy/
@@ -235,6 +238,8 @@ packages/contracts/src/
     ├── memory/
     └── error/
 ```
+
+`favorite-status.enum.ts` в пакете пока нет: у избранного в [04-data-model.md](04-data-model.md) нет статуса (трекер отклика снят, Q15), значения для enum не заданы. `MatchFactor`, `Language` и `RateUnit` добавлены вместе с каркасом: факторы объяснения из [02-retrieval-layer.md](02-retrieval-layer.md), язык и единица ставки — из модели вакансии.
 
 Конвенция проекта запрещает дублировать доменные значения строковыми литеральными юнионами — только `enum` из этой папки, и на бэкенде, и на фронтенде.
 
