@@ -1,0 +1,8 @@
+node_modules
+dist
+.next
+coverage
+Wiki
+cpu-tei-benchmark
+package-lock.json
+Предыдущий_Курсач_2026

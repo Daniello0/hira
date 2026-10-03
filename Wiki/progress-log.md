@@ -6,12 +6,12 @@
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~10%
+**Общий прогресс (среднее по этапам):** ~15%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
 | 1 | **Проектирование и Wiki** | Vision, architecture, retrieval, ADR **001–027**, продукт **Hira** ([11-hira.md](11-hira.md)), схемы, Q28 benchmark | **95** |
-| 2 | **Monorepo и инфраструктура** | npm workspaces, `packages/contracts`, `docker-compose.yml` (PostgreSQL, Redis, TEI, сервисы), `.env.example`, health checks | 0 |
+| 2 | **Monorepo и инфраструктура** | npm workspaces, `packages/contracts`, `docker-compose.yml` (PostgreSQL, Redis, TEI, сервисы), `.env.example`, health checks | **90** |
 | 3 | **База данных** | TypeORM entities, миграции, `vector`, `pg_trgm`, `pg_textsearch`, HNSW/BM25-индексы, seed для dev | 0 |
 | 4 | **Auth и core-api (фундамент)** | Register/login, JWT + refresh, argon2id, demo session, rate limits Redis (3 / 20 day), Swagger | 0 |
 | 5 | **llm-service** | OpenRouter, `/understand` + json_schema, `/generate` (SSE), Redis cache, ретраи | 0 |
@@ -71,4 +71,4 @@
 
 ## Следующий шаг
 
-**Этап 2** — scaffold monorepo + Docker Compose. Этап **6** — benchmark закрыт; TEI Docker — по желанию перед prod.
+**Этап 3** — TypeORM, миграции, индексы, seed. Этап 2 поднят: workspaces, `packages/contracts`, Compose, health. Образ PostgreSQL включает `vector`, `pg_trgm`, `uuid-ossp`, `pg_textsearch` v1.3.0. Контейнеры `tei` и `tei-rerank` описаны в Compose; первый запуск качает модели и нужен перед retrieval.

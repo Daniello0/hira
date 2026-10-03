@@ -48,7 +48,7 @@ cd Wiki/diagrams && dot -Tpng -Gdpi=150 architecture.dot -o architecture.png
                 ▼                                          ▼
    ┌────────────────────────┐                 ┌────────────────────────┐
    │ retrieval-service      │                 │ llm-service            │
-   │ (Express)  :4100       │                 │ (Express)  :4200       │
+   │ (Express)  :4001       │                 │ (Express)  :4002       │
    │ BM25 + dense + graph   │                 │ провайдер-агностик     │
    │ RRF · rerank · explain │                 │ query understanding    │
    └──────┬─────────┬───────┘                 │ generation · memory    │
@@ -56,8 +56,8 @@ cd Wiki/diagrams && dot -Tpng -Gdpi=150 architecture.dot -o architecture.png
           │         ▼                                     │
           │  ┌──────────────────┐                         ▼
           │  │ embedding-runtime│               ┌──────────────────────┐
-          │  │ (HF TEI)  :8080  │               │ OpenRouter (внешний) │
-          │  │ encoder+reranker │               │ dev + prod           │
+          │  │ (HF TEI)  :80    │               │ OpenRouter (внешний) │
+          │  │ tei + tei-rerank │               │ dev + prod           │
           │  └──────────────────┘               └──────────────────────┘
           │
           ▼
@@ -69,7 +69,7 @@ cd Wiki/diagrams && dot -Tpng -Gdpi=150 architecture.dot -o architecture.png
                               ▲
                               │
    ┌──────────────────────────┴──────────────────────────┐
-   │ ingestion-service (Express + node-cron)  :4300      │
+   │ ingestion-service (Express + node-cron)  :4003      │
    │ rabota.by · ГСЗ · Хабр Карьера · praca.by ·         │
    │ LinkedIn · Indeed                                    │
    │ нормализация → извлечение навыков → граф → векторы  │
@@ -133,7 +133,7 @@ cd Wiki/diagrams && dot -Tpng -Gdpi=150 architecture.dot -o architecture.png
 
 ### 2.6 `embedding-runtime` — Hugging Face Text Embeddings Inference
 
-Отдельный контейнер (CPU-образ), поднимающий энкодер `BAAI/bge-m3` и лёгкий cross-encoder по HTTP (`/embed`, `/rerank`). Модели в формате ONNX с INT8-квантованием. Это позволяет не писать ни строчки Python и при этом использовать современные модели.
+Два контейнера TEI (CPU-образ), по одной модели. `tei` поднимает энкодер `BAAI/bge-m3` (`/embed`), `tei-rerank` — `BAAI/bge-reranker-v2-m3` (`/rerank`). Внутри сети Compose оба слушают порт 80. Модели в формате ONNX с INT8-квантованием. Это позволяет не писать ни строчки Python и при этом использовать современные модели.
 
 Машина разработки — Intel i9-9880H, инференс только на CPU. Prod-реранкер — `BAAI/bge-reranker-v2-m3` (ADR-022): на top-20 это несколько секунд, и это принято. Модель ~278M — абляция, не прод. Подробности — [02-retrieval-layer.md](02-retrieval-layer.md), п. 4.2.
 
@@ -261,7 +261,7 @@ job-finder-ai/
 
 ## 6. Развёртывание
 
-`docker-compose.yml` поднимает: `postgres`, **`redis`**, `tei`, `core-api`, `retrieval-service`, `llm-service`, `ingestion-service`, `web`. Наружу торчат только `web:3000` и `core-api:4000` (для Swagger).
+`docker-compose.yml` поднимает: `postgres`, **`redis`**, `tei`, `tei-rerank`, `core-api`, `retrieval-service`, `llm-service`, `ingestion-service`, `web`. Внутри сети: retrieval `4001`, llm `4002`, ingestion `4003`, оба TEI — `80`. Наружу торчат только `web:3000` и `core-api:4000` (для Swagger).
 
 ### Redis
 

@@ -1,0 +1,10 @@
+import type { Server } from 'node:http';
+import type { Express } from 'express';
+
+/** Starts the HTTP server and resolves once it is accepting connections. */
+export function listen(app: Express, port: number): Promise<Server> {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, () => resolve(server));
+    server.once('error', reject);
+  });
+}
