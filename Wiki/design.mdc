@@ -114,15 +114,15 @@ Grouped by domain; full column-level detail in `Wiki/04-data-model.md`.
 
 **Dialogue:** `chats` (title, rolling summary), `messages` (role, content, `intent jsonb`, `diagnostics jsonb`), `message_vacancies` (rank, score, `explanation jsonb`, `retrieved_by`), `search_logs`.
 
-**Favorites:** `collections`, `favorites` (note, application status).
+**Favorites:** `collections`, `favorites` (note, who added the row). No application-status tracker.
 
-**Vacancies:** `vacancies` (source, external id, document `language`, normalized salary in BYN, freelance rate and project duration, seniority/format/employment enums, status, `content_hash`, `embedding vector(1024)`, generated `search_vector tsvector` whose text-search configuration is chosen per language), `vacancy_chunks` (per-chunk embeddings), `companies`, `locations`, `vacancy_duplicates`.
+**Vacancies:** `vacancies` (source, external id, document `language`, normalized salary in BYN, freelance rate and project duration, seniority/format/employment enums, status, `content_hash`, `embedding vector(1024)`, generated `search_document` text for BM25), `vacancy_chunks` (per-chunk embeddings), `companies`, `industries`, `locations`, `vacancy_duplicates`.
 
 **Knowledge graph:** `skills` (canonical name, type, optional taxonomy URI, embedding, corpus IDF), `skill_aliases`, `skill_edges` (typed, weighted, with evidence), `vacancy_skills` (importance, weight, evidence span), `occupations`, `occupation_skills`, `occupation_transitions`.
 
 **Operational:** `ingestion_runs`, `feedback`.
 
-**Indexes:** HNSW (`vector_cosine_ops`, `m = 16`, `ef_construction = 64`) on every embedding column; GIN on `search_vector`; GIN trigram on `title`, `companies.normalized_name`, `skill_aliases.alias`; composite B-tree on filter columns; unique `(source, external_id)` on vacancies.
+**Indexes:** HNSW (`vector_cosine_ops`, `m = 16`, `ef_construction = 64`) on every embedding column; partial BM25 indexes on `search_document` (`russian` where `language = ru`, `english` where `language = en`); GIN trigram on `title`, `companies.normalized_name`, `skill_aliases.alias`; composite B-tree on filter columns; unique `(source, external_id)` on vacancies. Column shape: ADR-030.
 
 ---
 
@@ -143,7 +143,7 @@ Grouped by domain; full column-level detail in `Wiki/04-data-model.md`.
 1. **Context assembly.** `core-api` collects the working message window, the chat summary, and the relevant long-term memory (all `CONSTRAINT` facts, all pinned facts, and the top-5 semantically nearest).
 2. **Query understanding.** `llm-service` returns a `SearchIntent`: rewritten self-contained query, normalized role, skill mentions, seniority, hard and soft constraints, and a complexity class. Structured output is enforced by JSON Schema with up to two validation retries.
 3. **Parallel candidate generation** in `retrieval-service`:
-   - *Lexical (primary):* BM25 via `pg_textsearch` over weighted `search_vector` (title A, skills B, company C, description D), per-document language config, top-100.
+   - *Lexical (primary):* BM25 via `pg_textsearch` over `search_document` (title, skills, company, description), partial index per document language, top-100.
    - *Lexical (ablation):* sparse BGE-M3 lexical weights — compared against BM25 in evaluation, not both in production fusion by default.
    - *Dense:* query encoded with the model's documented query instruction, HNSW cosine search over chunk embeddings, max-pooled to vacancy level, top-100.
    - *Graph:* intent skills linked to graph nodes, expanded up to two hops with per-edge-type decay (`ALTERNATIVE_OF` 1.0, `NARROWER` 0.8, `RELATED_TO` 0.6) and pruning below weight 0.25, scored by IDF-weighted skill coverage via a recursive CTE, top-100.

@@ -155,7 +155,7 @@ interface SearchIntent {
 
 **Решение (Q11):** настоящий **BM25** через расширение `pg_textsearch` (Tiger Data, v1.3.0 production-ready, PostgreSQL 17–18), а не встроенный `ts_rank_cd`. BM25 — каноническая метрика IR, стандарт для гибридного поиска в 2026; в тексте курсовой можно ссылаться на Robertson–Walker и современные hybrid-RAG обзоры.
 
-Индекс BM25 по полю `search_vector` (title A, skills B, company C, description D). Конфигурация FTS выбирается по `vacancies.language` (`russian` / `english`).
+Индекс BM25 по полю `search_document` (title, skills, company, description в одном тексте). Конфигурация — два частичных индекса по `vacancies.language` (`russian` / `english`). Колонка и отказ от `setweight` — [04-data-model.md](04-data-model.md), ADR-030.
 
 **Дополнительно (Q12):** реализуем **вторую лексическую ветвь** — sparse-режим BGE-M3 (lexical weights той же модели). В продакшн-пайплайне основная лексическая ветвь — BM25; sparse BGE-M3 участвует в абляциях (сравнение «BM25 vs sparse BGE-M3 vs обе»).
 
