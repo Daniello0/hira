@@ -115,12 +115,7 @@ describe('domain enums', () => {
     expect(Object.values(DuplicateDetection)).toEqual(['EXACT', 'FUZZY', 'EMBEDDING']);
     expect(Object.values(IngestionStatus)).toEqual(['RUNNING', 'SUCCESS', 'PARTIAL', 'FAILED']);
     expect(Object.values(FeedbackRating)).toEqual(['RELEVANT', 'IRRELEVANT']);
-    expect(Object.values(SkillAliasSource)).toEqual([
-      'ESCO',
-      'ESCO_TRANSLATED',
-      'MANUAL',
-      'LLM',
-    ]);
+    expect(Object.values(SkillAliasSource)).toEqual(['ESCO', 'ESCO_TRANSLATED', 'MANUAL', 'LLM']);
   });
 
   it('keeps match factors, languages, and rate units', () => {

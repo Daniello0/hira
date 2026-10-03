@@ -47,7 +47,9 @@ describe('postgres schema', () => {
   it('installs the search extensions', async () => {
     const rows = await rowsOf<{ name: string }>('SELECT extname AS name FROM pg_extension');
     const names = rows.map((row) => row.name);
-    expect(names).toEqual(expect.arrayContaining(['vector', 'pg_trgm', 'pg_textsearch', 'uuid-ossp']));
+    expect(names).toEqual(
+      expect.arrayContaining(['vector', 'pg_trgm', 'pg_textsearch', 'uuid-ossp']),
+    );
   });
 
   it('enables iterative HNSW scans on the server', async () => {
@@ -230,10 +232,14 @@ describe('postgres schema', () => {
 
   it('reverts the schema and restores the seed', async () => {
     await revertLastMigration(databaseUrl);
-    const gone = await rowsOf<{ name: string | null }>("SELECT to_regclass('public.vacancies') AS name");
+    const gone = await rowsOf<{ name: string | null }>(
+      "SELECT to_regclass('public.vacancies') AS name",
+    );
     expect(gone[0]?.name).toBeNull();
     await runMigrations(databaseUrl);
-    const restored = await rowsOf<{ count: number }>('SELECT count(*)::int AS count FROM locations');
+    const restored = await rowsOf<{ count: number }>(
+      'SELECT count(*)::int AS count FROM locations',
+    );
     expect(restored[0]?.count).toBe(SEED_COUNT);
   });
 
@@ -266,8 +272,14 @@ describe('postgres schema', () => {
     return rows[0]?.id ?? 0;
   }
 
-  async function insertVacancy(externalId: string, language: string, title: string): Promise<string> {
-    const rows = await rowsOf<{ id: string }>(vacancySql(externalId, language, title) + ' RETURNING id::text');
+  async function insertVacancy(
+    externalId: string,
+    language: string,
+    title: string,
+  ): Promise<string> {
+    const rows = await rowsOf<{ id: string }>(
+      vacancySql(externalId, language, title) + ' RETURNING id::text',
+    );
     return rows[0]?.id ?? '';
   }
 

@@ -7,7 +7,7 @@ import type { VacancyStatus } from '../../enums/vacancy-status.enum';
 import type { WorkFormat } from '../../enums/work-format.enum';
 
 /**
- * Public vacancy card. Internal columns (embedding, search vector, raw HTML, content hash)
+ * Public vacancy card. Internal columns (embedding, search document, raw HTML, content hash)
  * stay in the database and are not part of this contract.
  */
 export interface VacancyDto {

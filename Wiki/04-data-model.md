@@ -224,7 +224,7 @@ CREATE INDEX idx_vac_filters ON vacancies (status, seniority, work_format, emplo
 CREATE INDEX idx_vac_title_trgm ON vacancies USING gin (title gin_trgm_ops);
 ```
 
-`search_document` собирается на строке вакансии: `concat_ws` из `title`, `skills_text`, `company_name`, `description`. Пустая строка в документ не входит. Языковая конфигурация — не выражение колонки, а два частичных индекса `pg_textsearch` (ADR-030). Весов `setweight` нет: BM25 оценивает документ целиком. `k1` и `b` остаются значениями расширения по умолчанию.
+`search_document` собирается на строке вакансии оператором `||` из `title`, `skills_text`, `company_name` и `description`. Пустой фрагмент в документ не входит. `concat_ws` здесь нельзя: в PostgreSQL она не `IMMUTABLE`, а выражение генерируемой колонки обязано быть immutable. Языковая конфигурация — не выражение колонки, а два частичных индекса `pg_textsearch` (ADR-030). Весов `setweight` нет: BM25 оценивает документ целиком. `k1` и `b` остаются значениями расширения по умолчанию.
 
 Двуязычие корпуса — прямое следствие подключения LinkedIn и Indeed, см. [03-data-sources.md](03-data-sources.md), п. 1.5.
 
