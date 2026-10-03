@@ -1,0 +1,12 @@
+# Keep the image context to the monorepo.
+.git
+.cursor
+**/.DS_Store
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/*.test.ts
+Wiki
+cpu-tei-benchmark
+Предыдущий_Курсач_2026

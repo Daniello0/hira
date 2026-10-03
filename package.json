@@ -1,0 +1,27 @@
+{
+  "name": "hira",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @hira/contracts && npm run build -w @hira/core-api && npm run build -w @hira/retrieval-service && npm run build -w @hira/llm-service && npm run build -w @hira/ingestion-service && npm run build -w @hira/web",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.6",
+    "@types/supertest": "^6.0.3",
+    "eslint": "^9.36.0",
+    "prettier": "^3.6.2",
+    "supertest": "^7.1.4",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.44.0",
+    "vitest": "^3.2.4"
+  }
+}
