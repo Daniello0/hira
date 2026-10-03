@@ -30,7 +30,7 @@ npm workspaces:
 cp .env.example .env
 ```
 
-В `.env` задайте как минимум `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` и `INTERNAL_API_TOKEN`. Пароль базы — без символов, которые ломают URL (`@`, `:`, `/`). `OPENROUTER_API_KEY` можно оставить пустым, пока не вызывается LLM.
+В `.env` задайте как минимум `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` и `INTERNAL_API_TOKEN`. Пароль базы — без символов, которые ломают URL или подстановку Compose (`@`, `:`, `/`, `$`). `OPENROUTER_API_KEY` можно оставить пустым, пока не вызывается LLM.
 
 ```bash
 npm install

@@ -1,6 +1,9 @@
 # Keep the image context to the monorepo.
 .git
 .cursor
+.env
+.env.*
+!.env.example
 **/.DS_Store
 **/node_modules
 **/dist
