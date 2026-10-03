@@ -208,6 +208,21 @@ describe('postgres schema', () => {
     expect(chunks[0]?.count).toBe(0);
   });
 
+  it('rejects a favorite in another user collection and keeps the row when that collection goes away', async () => {
+    const ownerId = await insertUser('collector@example.com');
+    const otherId = await insertUser('other@example.com');
+    const collectionId = await insertCollection(ownerId);
+    const vacancyId = await insertVacancy('ext-fav', 'ru', 'Favorite');
+    await expectSqlState(favoriteSql(otherId, vacancyId, collectionId), '23503');
+    await client.query(favoriteSql(ownerId, vacancyId, collectionId));
+    await client.query(favoriteSql(otherId, vacancyId, null));
+    await client.query(`DELETE FROM collections WHERE id = '${collectionId}'`);
+    const left = await rowsOf<{ collectionId: string | null }>(
+      `SELECT collection_id AS "collectionId" FROM favorites WHERE user_id = '${ownerId}'`,
+    );
+    expect(left).toEqual([{ collectionId: null }]);
+  });
+
   it('clears the company industry when the industry row goes away and rejects an unknown one', async () => {
     await expectSqlState(
       `INSERT INTO companies (name, normalized_name, industry_id) VALUES ('Unknown', 'unknown', 99999)`,
@@ -268,6 +283,13 @@ describe('postgres schema', () => {
     return rows[0]?.id ?? '';
   }
 
+  async function insertCollection(userId: string): Promise<string> {
+    const rows = await rowsOf<{ id: string }>(
+      `INSERT INTO collections (user_id, name) VALUES ('${userId}', 'Saved') RETURNING id::text`,
+    );
+    return rows[0]?.id ?? '';
+  }
+
   async function insertSkill(name: string): Promise<number> {
     const rows = await rowsOf<{ id: number }>(
       `INSERT INTO skills (canonical_name, skill_type) VALUES ('${name}', 'TOOL') RETURNING id`,
@@ -294,6 +316,14 @@ describe('postgres schema', () => {
     return rows[0] ?? { document: '', updatedAt: '' };
   }
 });
+
+function favoriteSql(userId: string, vacancyId: string, collectionId: string | null): string {
+  const collection = collectionId === null ? 'NULL' : `'${collectionId}'`;
+  return (
+    `INSERT INTO favorites (user_id, vacancy_id, collection_id, added_by) ` +
+    `VALUES ('${userId}', '${vacancyId}', ${collection}, 'USER')`
+  );
+}
 
 function vacancySql(externalId: string, language: string, title: string): string {
   return (

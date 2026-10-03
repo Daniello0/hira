@@ -63,6 +63,13 @@ describe('schema constants', () => {
     expect(SEARCH_DOCUMENT_EXPRESSION).not.toContain('setweight');
   });
 
+  it('ties a favorite collection to the same user', () => {
+    const sql = INITIAL_SCHEMA_UP.join('\n');
+    expect(sql).toContain('UNIQUE (id, user_id)');
+    expect(sql).toContain('favorites_collection_same_user');
+    expect(sql).toContain('ON DELETE SET NULL (collection_id)');
+  });
+
   it('creates extensions, partial BM25 indexes, HNSW, and trigram indexes in SQL', () => {
     const sql = INITIAL_SCHEMA_UP.join('\n');
     expect(sql).toContain('CREATE EXTENSION IF NOT EXISTS vector');

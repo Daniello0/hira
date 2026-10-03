@@ -2,7 +2,7 @@ import { AuthorKind } from '@hira/contracts';
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { Timestamps, TimestampsColumn } from '../database/timestamped.entity';
 
-/** Saved vacancy. There is no application-status column. */
+/** Saved vacancy. `collectionId`, when set, is a collection of this same user. */
 @Entity('favorites')
 export class Favorite {
   @TimestampsColumn()

@@ -128,11 +128,13 @@
 
 ### `collections`
 
-`id`, `user_id` FK, `name`, `description`, `is_default`, `created_at`.
+`id`, `user_id` FK, `name`, `description`, `is_default`, `created_at`. UNIQUE `(id, user_id)` — цель составного ключа из `favorites`.
 
 ### `favorites`
 
-`id`, `user_id` FK, `vacancy_id` FK, `collection_id` FK NULL, `note` `text`, `added_by` (enum `USER` / `ASSISTANT` — кто добавил: пользователь или LLM по предложению), `created_at`. UNIQUE `(user_id, vacancy_id)`.
+`id`, `user_id` FK, `vacancy_id` FK, `collection_id` NULL, `note` `text`, `added_by` (`author_kind`: `USER` / `ASSISTANT` — кто добавил: пользователь или LLM по предложению), `created_at`. UNIQUE `(user_id, vacancy_id)`.
+
+Если подборка указана, она принадлежит тому же пользователю: `FOREIGN KEY (collection_id, user_id) REFERENCES collections (id, user_id) ON DELETE SET NULL (collection_id)`. Пустой `collection_id` это ограничение не включает. Удаление подборки обнуляет только её, не `user_id`.
 
 **Нет трекера статуса отклика** (Q15 → диплом). Favorites = список сохранённых вакансий для просмотра, не CRM.
 

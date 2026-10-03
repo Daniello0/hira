@@ -114,7 +114,7 @@ Grouped by domain; full column-level detail in `Wiki/04-data-model.md`.
 
 **Dialogue:** `chats` (title, rolling summary), `messages` (role, content, `intent jsonb`, `diagnostics jsonb`), `message_vacancies` (rank, score, `explanation jsonb`, `retrieved_by`), `search_logs`.
 
-**Favorites:** `collections`, `favorites` (note, who added the row). No application-status tracker.
+**Favorites:** `collections`, `favorites` (note, who added the row). A set collection belongs to that same user ([04-data-model.md](04-data-model.md)). No application-status tracker.
 
 **Vacancies:** `vacancies` (source, external id, document `language`, normalized salary in BYN, freelance rate and project duration, seniority/format/employment enums, status, `content_hash`, `embedding vector(1024)`, generated `search_document` text for BM25), `vacancy_chunks` (per-chunk embeddings), `companies`, `industries`, `locations`, `vacancy_duplicates`.
 

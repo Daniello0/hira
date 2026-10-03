@@ -521,6 +521,10 @@ function callTurnsTable(): string {
   )`;
 }
 
+const FAVORITE_COLLECTION_FK =
+  'CONSTRAINT favorites_collection_same_user FOREIGN KEY (collection_id, user_id) ' +
+  'REFERENCES collections (id, user_id) ON DELETE SET NULL (collection_id)';
+
 function collectionsTable(): string {
   return `CREATE TABLE collections (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -528,7 +532,8 @@ function collectionsTable(): string {
     name varchar(128) NOT NULL,
     description text,
     is_default boolean NOT NULL DEFAULT false,
-    ${TIMESTAMPS}
+    ${TIMESTAMPS},
+    UNIQUE (id, user_id)
   )`;
 }
 
@@ -537,11 +542,12 @@ function favoritesTable(): string {
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     vacancy_id uuid NOT NULL REFERENCES vacancies (id) ON DELETE CASCADE,
-    collection_id uuid REFERENCES collections (id) ON DELETE SET NULL,
+    collection_id uuid,
     note text,
     added_by author_kind NOT NULL,
     ${TIMESTAMPS},
-    UNIQUE (user_id, vacancy_id)
+    UNIQUE (user_id, vacancy_id),
+    ${FAVORITE_COLLECTION_FK}
   )`;
 }
 
