@@ -352,7 +352,7 @@ interface MatchExplanation {
 
 ### 4.3 Где запускать
 
-**Решение: контейнер Hugging Face Text Embeddings Inference (TEI), CPU-образ, модели в формате ONNX с INT8-квантованием.** Поднимает и энкодер, и реранкер по HTTP (`/embed`, `/rerank`), даёт батчинг из коробки, не требует ни строчки Python.
+**Решение: Hugging Face Text Embeddings Inference (TEI), CPU-образ, модели в формате ONNX с INT8-квантованием.** Энкодер (`/embed`) и реранкер (`/rerank`) — отдельные процессы; имена контейнеров и порты — [01-architecture.md](01-architecture.md) §2.6. Батчинг из коробки, ни строчки Python.
 
 Запасной вариант, если TEI на Intel-маке окажется капризным: **Transformers.js v3** (`@huggingface/transformers`) — запускает те же ONNX-модели прямо в Node через ONNX Runtime. Медленнее TEI, но убирает целый контейнер и оставляет стек полностью на TypeScript. Проверяется на первой неделе разработки.
 

@@ -13,7 +13,7 @@ import {
 import { resolveRequestId } from '../../../features/health/request-id';
 import type { ReadinessReport } from '../../../features/health/health.types';
 
-/** `GET /health/ready` — core-api liveness must answer. */
+/** `GET /health/ready` — core-api readiness must answer. */
 export async function GET(request: Request): Promise<NextResponse> {
   const requestId = resolveRequestId(request);
   const report = await collectReadiness(buildWebProbes(process.env));

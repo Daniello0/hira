@@ -42,13 +42,13 @@ favorites · profile · memory<br/>
         fontname="Helvetica-Bold"; fontsize=12; fontcolor="#14532d";
         style="rounded,filled"; fillcolor="#f3faf4"; color="#93c9a3"; penwidth=1.6;
 
-        retrieval [label=<<b>retrieval-service</b>  :4100<br/>
+        retrieval [label=<<b>retrieval-service</b>  :4001<br/>
 <font point-size="10">① BM25 (FTS)  ② dense (pgvector)<br/>
 ③ graph (обход навыков)<br/>
 RRF-слияние · rerank · explain</font>>,
                    fillcolor="#bbf7d0", color="#16a34a"];
 
-        llm [label=<<b>llm-service</b>  :4200<br/>
+        llm [label=<<b>llm-service</b>  :4002<br/>
 <font point-size="10">understand · generate (stream)<br/>
 summarize · extract-memory<br/>
 extract-skills · роутинг провайдеров</font>>,
@@ -60,7 +60,7 @@ extract-skills · роутинг провайдеров</font>>,
         fontname="Helvetica-Bold"; fontsize=12; fontcolor="#14532d";
         style="rounded,filled"; fillcolor="#f3faf4"; color="#93c9a3"; penwidth=1.6;
 
-        ingestion [label=<<b>ingestion-service</b>  :4300<br/>
+        ingestion [label=<<b>ingestion-service</b>  :4003<br/>
 <font point-size="10">коннекторы источников · нормализация<br/>
 дедупликация · извлечение навыков<br/>
 построение графа · эмбеддинги · node-cron</font>>,
@@ -73,8 +73,8 @@ extract-skills · роутинг провайдеров</font>>,
         fontname="Helvetica-Bold"; fontsize=12; fontcolor="#581c87";
         style="rounded,filled"; fillcolor="#faf5ff"; color="#c4a5e0"; penwidth=1.6;
 
-        tei [label=<<b>embedding-runtime</b>  (HF TEI, CPU/ONNX)  :8080<br/>
-<font point-size="10">энкодер BGE-M3 (1024d) · лёгкий cross-encoder</font>>,
+        tei [label=<<b>tei</b> :80 · <b>tei-rerank</b> :80<br/>
+<font point-size="10">BGE-M3 /embed · bge-reranker-v2-m3 /rerank</font>>,
              fillcolor="#e9d5ff", color="#9333ea"];
 
         providers [label=<<b>OpenRouter</b> (внешний)<br/>

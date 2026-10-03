@@ -14,7 +14,7 @@ export function liveness(): LivenessResponse {
   return { status: HealthStatus.Ok };
 }
 
-/** The browser app is ready when core-api liveness answers. */
+/** The browser app is ready when core-api readiness answers. */
 export function buildWebProbes(env: NodeJS.ProcessEnv): DependencyProbe[] {
   return [{ name: 'core-api', check: () => checkCoreApi(env[ENV.coreApiUrl]) }];
 }
@@ -45,7 +45,7 @@ function joinHealthUrl(base: string | undefined): string | undefined {
   if (base === undefined || base.trim().length === 0) {
     return undefined;
   }
-  return `${base.replace(/\/$/, '')}/health`;
+  return `${base.replace(/\/$/, '')}/health/ready`;
 }
 
 async function runProbes(
