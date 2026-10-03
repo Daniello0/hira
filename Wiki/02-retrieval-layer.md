@@ -166,7 +166,7 @@ interface SearchIntent {
 Модель энкодера — см. раздел 4. Индекс — HNSW по косинусу:
 
 ```sql
-CREATE INDEX idx_vacancies_embedding_hnsw
+CREATE INDEX idx_vac_emb_hnsw
   ON vacancies USING hnsw (embedding vector_cosine_ops)
   WITH (m = 16, ef_construction = 64);
 ```

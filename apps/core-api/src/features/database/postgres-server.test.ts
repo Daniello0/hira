@@ -12,6 +12,10 @@ describe('postgres server settings', () => {
     expect(compose).toContain('hnsw.iterative_scan=relaxed_order');
   });
 
+  it('treats Postgres as ready only after it accepts TCP', () => {
+    expect(compose).toContain('pg_isready -h 127.0.0.1');
+  });
+
   it('runs migrations once, before any service that reads the database', () => {
     expect(compose).toContain('migrate:');
     expect(compose).toContain('service_completed_successfully');

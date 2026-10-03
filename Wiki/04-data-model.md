@@ -152,7 +152,7 @@
 | `extracted_text` | `text` | текст PDF или тело md/txt — то, что видит Hira |
 | `embedding` | `vector(1024)` NULL | отбор в контекст, не гибридный retrieval |
 | `is_pinned` | `boolean` | закреплённые всегда в контексте; резюме и предпочтения — да по умолчанию |
-| `created_by` | `document_author` enum | `USER` / `ASSISTANT` |
+| `created_by` | `author_kind` enum | `USER` / `ASSISTANT`; тот же тип у `favorites.added_by` и `call_turns.role` |
 | `parse_status` | `parse_status` enum NULL | для PDF: `PENDING` / `SUCCESS` / `FAILED` |
 | `created_at`, `updated_at` | `timestamptz` | |
 

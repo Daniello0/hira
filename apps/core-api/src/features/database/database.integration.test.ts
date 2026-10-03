@@ -154,12 +154,15 @@ describe('postgres schema', () => {
          AND search_document <@> to_bm25query('engineer', 'idx_vac_bm25_en') < 0`,
     );
     expect(englishOnly).toHaveLength(1);
-    const indexes = await rowsOf<{ indexdef: string }>(
-      `SELECT indexdef FROM pg_indexes
+    const indexes = await rowsOf<{ indexname: string; indexdef: string }>(
+      `SELECT indexname, indexdef FROM pg_indexes
        WHERE indexname IN ('idx_vac_bm25_ru', 'idx_vac_bm25_en')`,
     );
-    expect(indexes.map((row) => row.indexdef).join('\n')).toContain('russian');
-    expect(indexes.map((row) => row.indexdef).join('\n')).toContain('english');
+    const byName = new Map(indexes.map((row) => [row.indexname, row.indexdef]));
+    expect(byName.get('idx_vac_bm25_ru')).toContain('russian');
+    expect(byName.get('idx_vac_bm25_ru')).toMatch(/WHERE[\s\S]*'ru'/);
+    expect(byName.get('idx_vac_bm25_en')).toContain('english');
+    expect(byName.get('idx_vac_bm25_en')).toMatch(/WHERE[\s\S]*'en'/);
   });
 
   it('creates HNSW and trigram indexes with the agreed parameters', async () => {
