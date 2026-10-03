@@ -1,0 +1,8 @@
+digraph "рис.3.2" {
+  rankdir=TB;
+  graph [dpi=240, bgcolor="white", pad="0.25", margin="0.05", nodesep="0.55", ranksep="0.8", splines=true];
+  node [shape=box, style="rounded,filled", penwidth=1.5, margin="0.18,0.12", fontname="Arial", fontsize=13, color="#274C77", fillcolor="#EAF3FF"];
+  edge [fontname="Arial", fontsize=11, color="#506B88", penwidth=1.3, arrowsize=0.9];
+  node [shape=plain, style=""];
+  vacancy [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="9" COLOR="#8D6E00"><TR><TD BGCOLOR="#FFF3BF" COLSPAN="2"><B>vacancies</B></TD></TR><TR><TD ALIGN="LEFT"><B>id</B></TD><TD ALIGN="LEFT">SERIAL, PK</TD></TR><TR><TD ALIGN="LEFT">title</TD><TD ALIGN="LEFT">VARCHAR(512)</TD></TR><TR><TD ALIGN="LEFT">company</TD><TD ALIGN="LEFT">VARCHAR(512)</TD></TR><TR><TD ALIGN="LEFT">salary</TD><TD ALIGN="LEFT">VARCHAR(256)</TD></TR><TR><TD ALIGN="LEFT">payment_frequency</TD><TD ALIGN="LEFT">VARCHAR(128)</TD></TR><TR><TD ALIGN="LEFT">experience</TD><TD ALIGN="LEFT">VARCHAR(256)</TD></TR><TR><TD ALIGN="LEFT">employment</TD><TD ALIGN="LEFT">VARCHAR(256)</TD></TR><TR><TD ALIGN="LEFT">hiring_format</TD><TD ALIGN="LEFT">VARCHAR(256)</TD></TR><TR><TD ALIGN="LEFT">schedule</TD><TD ALIGN="LEFT">VARCHAR(256)</TD></TR><TR><TD ALIGN="LEFT">hours</TD><TD ALIGN="LEFT">VARCHAR(256)</TD></TR><TR><TD ALIGN="LEFT">work_format</TD><TD ALIGN="LEFT">VARCHAR(256)</TD></TR><TR><TD ALIGN="LEFT">skills</TD><TD ALIGN="LEFT">TEXT</TD></TR><TR><TD ALIGN="LEFT">url</TD><TD ALIGN="LEFT">VARCHAR(2048), UNIQUE</TD></TR><TR><TD ALIGN="LEFT">description</TD><TD ALIGN="LEFT">TEXT</TD></TR><TR><TD ALIGN="LEFT"><B>embedding</B></TD><TD ALIGN="LEFT"><B>vector(384)</B></TD></TR></TABLE>>];
+}

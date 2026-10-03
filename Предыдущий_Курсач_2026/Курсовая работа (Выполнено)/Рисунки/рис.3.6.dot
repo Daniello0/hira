@@ -1,0 +1,20 @@
+digraph "рис.3.6" {
+  rankdir=TB;
+  graph [dpi=240, bgcolor="white", pad="0.25", margin="0.05", nodesep="0.55", ranksep="0.8", splines=true];
+  node [shape=box, style="rounded,filled", penwidth=1.5, margin="0.18,0.12", fontname="Arial", fontsize=13, color="#274C77", fillcolor="#EAF3FF"];
+  edge [fontname="Arial", fontsize=11, color="#506B88", penwidth=1.3, arrowsize=0.9];
+  start [label="LLM-фильтры с весами"];
+  count [label="Подсчёт candidate_count\nдля полного набора ограничений"];
+  check [label="Достаточно кандидатов?", shape=diamond, fillcolor="#FFF3BF", color="#8D6E00"];
+  order [label="Порядок снятия полей\nпо минимальному эффективному весу\n(PROTECTED_RELAX_FILTER_KEYS:\nexperience, employment)", fillcolor="#FFF4E6", color="#BC6C25"];
+  drop [label="Удаление одного поля\nиз active_filters\nи запись FilterRelaxStep", fillcolor="#fce4ec", color="#880e4f"];
+  recalc [label="Повторный подсчёт\nкандидатов"];
+  result [label="Итог\napplied_filters + dropped_filters\n+ relax_steps", fillcolor="#E8FFF1", color="#2D6A4F"];
+  start -> count;
+  count -> check;
+  check -> result [label="да"];
+  check -> order [label="нет"];
+  order -> drop;
+  drop -> recalc;
+  recalc -> check;
+}

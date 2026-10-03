@@ -1,0 +1,112 @@
+---
+alwaysApply: true
+---
+
+# Project Stack & Coding Conventions
+
+You must follow these conventions for all TypeScript, JavaScript, TSX, and JSX files:
+
+## Technical Stack
+- **Language**: TypeScript (Strict mode, no implicit 'any').
+- **Frameworks and Technologies**: Nest.js, PostgreSQL, TypeORM (Lib), Module CSS, Axios (Lib), class-validator (Lib), class-transformer (Lib), Yup (Lib, frontend), React, React Router (Lib, frontend), Lucide React (Lib, frontend), Docker, Swagger, Zustand (Lib), Vite (Lib).
+- **Testing**: Vitest for unit tests.
+  - Place tests next to the source code using `*.test.ts` naming.
+- **Linting/Formatting**: ESLint + Prettier.
+
+## Naming Conventions
+- **Variables & Functions**: camelCase.
+- **Components & Types/Interfaces**: PascalCase.
+- **Files**: kebab-case (e.g., `user-profile.tsx`).
+- **Domain values (FE & BE)**: TypeScript `enum` in `src/common/enums/` (e.g., `MaterialFormat`, `Language`). Do not model the same domain values as string-literal unions in types or stores — use the enum type instead.
+
+## API, Error Handling & Data Validation
+- **JSDoc**: Document all public functions using JSDoc.
+- **Error Handling**: Never swallow errors. Use Result-type patterns or throw meaningful, descriptive errors.
+
+## Development Workflow
+- **Test-First Approach**: Before implementing any new logic, feature, or bug fix, you must first create the necessary **mocks** and **unit tests**. 
+- **TDD Cycle**: Write the test, verify that it fails, and only then add the implementation.
+- **Mandatory Verification**: After every change or addition, the project must successfully pass the following checks:
+  1. **Build**: `npm run build` must complete without errors.
+  2. **Linting**: `npm run lint` must pass (no style or syntax violations).
+  3. **Testing**: `npm run test` must result in 100% pass rate for the affected logic.
+
+## Architecture & Design Decisions
+- Always refer to `docs/` files when suggesting architectural changes or new features. Follow existing ADRs strictly.
+Here is the updated project organization guide in English:
+
+- **Feature-Based Organization:** All business logic must be organized by features within the `src/features/` directory. Each feature should be self-contained, encapsulating its own logic, controllers, models, and tests.
+- **Shared Components:** General-purpose components (e.g., mathematical operations, utilities, validators) that are used across multiple features must be placed in the `src/common/` directory and categorized by type.
+- **Function Focus and Conciseness:** Functions must remain focused and should not exceed **15-20 lines**. If a function grows beyond this limit, it must be refactored into smaller, testable sub-functions.
+- **Naming Conventions:** Use clear suffixes to define the role of each file (e.g., `.service.ts`, `.utils.ts`, `.controller.ts`, `.module.ts`).
+
+## Project Structure Example:
+
+**1. Global Shared Components (`src/common/`):**
+Organized by tool type for use across the entire application:
+*   **constants/**
+    *   `app.constants.ts`
+*   **enums/**
+    *   `material-category.enum.ts`
+    *   `material-format.enum.ts`
+    *   `material-status.enum.ts`
+    *   `summary-length.enum.ts`
+*   **dto/**
+    *   `user/`
+        *   `create-user.dto.ts`
+        *   `update-user.dto.ts`
+        *   `user-response.dto.ts`
+*   **utils/**
+    *   `validators.utils.ts`
+    *   `formatters.utils.ts`
+*   **components/** *(frontend)*
+    *   `url-input.tsx`
+    *   `processing-settings.tsx`
+    *   `main-action-button.tsx`
+    *   `background-shape.tsx`
+
+**2. Business Features (`src/features/`):**
+Each directory represents a standalone module. A feature may start with only an entity; controller, service, and module are added when the API layer is needed.
+*   **database/** — TypeORM infrastructure (connection, config, entity registration)
+    *   `database.module.ts`
+    *   `database.config.ts`
+    *   `database.constants.ts`
+*   **user/**
+    *   `user.entity.ts`
+    *   `user.service.ts`
+    *   `user.controller.ts`
+    *   `user.module.ts`
+    *   `user.utils.ts`
+    *   `user.constants.ts`
+*   **material/**
+    *   `material.entity.ts`
+*   **quiz/**
+    *   `quiz.entity.ts`
+    *   `quiz.types.ts`
+*   **quiz-attempt/**
+    *   `quiz-attempt.entity.ts`
+    *   `quiz-attempt.types.ts`
+*   **refresh-token/**
+    *   `refresh-token.entity.ts`
+*   **health/**
+    *   `health.controller.ts`
+    *   `health.service.ts`
+    *   `health.module.ts`
+*   **auth/** (planned)
+    *   `auth.service.ts`
+    *   `auth.controller.ts`
+    *   ...
+*   **main-page/** (frontend)
+    *   `main.service.ts`
+    *   `main.tsx`
+    *   `main.utils.ts`
+    *   `main.styles.css`
+
+**Separation of Concerns Rule:**
+*   **Local Logic:** If a helper function is specific only to one feature, keep it within that feature's directory (e.g., `src/features/user/user.utils.ts`).
+*   **Global Logic:** If a component or utility is generic and reusable across different features, move it to the corresponding subfolder in `src/common/`.
+
+## Anti-Patterns
+- Eliminate "magic numbers" and hardcoded strings. Any value with semantic meaning must be defined as a named constant in `src/common/constants` or `src/features/.../.constants.ts`.
+- Avoid God Entities. Strictly prohibit the creation of "God Classes" or "God Methods" that handle too many responsibilities.
+- Adhere to the Single Responsibility Principle (SRP). If a class or function manages multiple business domains, it must be refactored into specialized units.

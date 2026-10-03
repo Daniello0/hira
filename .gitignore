@@ -1,0 +1,42 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.jks
+*.keystore
+*_private.key
+*.key
+
+# Dependencies and virtual environments
+node_modules/
+.pnp
+.pnp.js
+.venv/
+.venv*/
+venv/
+.docx-venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.idea/
+
+# Build and test output
+dist/
+build/
+coverage/
+.next/
+out/
+*.tsbuildinfo
+*.log
+
+# Local scratch
+.tmp_coursework/

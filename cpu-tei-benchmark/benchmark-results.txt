@@ -1,0 +1,79 @@
+========================================================================
+JobFinder AI v2 — CPU Neural Inference Benchmark (Q28)
+Timestamp (UTC): 2026-09-20T11:48:30.676411+00:00
+========================================================================
+
+[SYSTEM]
+  platform     : macOS-15.7.9-x86_64-i386-64bit
+  machine      : x86_64
+  processor    : i386
+  python       : 3.12.2
+  torch        : 2.2.2
+  torch threads: 8
+  cuda avail   : False
+  mps avail    : True (benchmark forces CPU regardless)
+  ram total GB : 32.0
+  cpu brand    : Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+  logical cpus : 16
+
+[NOTE] PyTorch FP32 CPU run. Production TEI uses ONNX INT8 — expect ~1.5–2× speedup.
+
+[ENCODER] BGE-M3 (production) (BAAI/bge-m3)
+  backend      : transformers+safetensors
+  load time    : 10742 ms
+  rss after load: 786 MB (delta +540 MB)
+  query ~32 tok: mean=116.5ms median=121.2ms p95=127.2ms stdev=9.9ms (n=8)
+  doc ~256 tok: mean=289.3ms median=289.3ms p95=311.3ms stdev=13.8ms (n=5)
+  doc ~512 tok: mean=670.3ms median=678.7ms p95=686.1ms stdev=16.7ms (n=5)
+  batch throughput (32 docs, ~512 tok each):
+    batch_size= 1 -> 1.24 docs/s (25775 ms total)
+    batch_size= 4 -> 1.31 docs/s (24451 ms total)
+    batch_size= 8 -> 1.32 docs/s (24215 ms total)
+    batch_size=16 -> 1.49 docs/s (21508 ms total)
+  index estimate : 60000 embeddings @ 1.49 docs/s (best batch=16) -> 11.20 h
+
+[ENCODER] MiniLM-L12-v2 (2026 baseline) (paraphrase-multilingual-MiniLM-L12-v2)
+  backend      : sentence-transformers
+  load time    : 3974 ms
+  rss after load: 1355 MB (delta +146 MB)
+  query ~32 tok: mean=22.8ms median=22.7ms p95=24.5ms stdev=1.1ms (n=8)
+  doc ~256 tok: mean=46.1ms median=46.0ms p95=48.8ms stdev=1.8ms (n=5)
+  doc ~512 tok: mean=57.1ms median=60.7ms p95=65.4ms stdev=9.1ms (n=5)
+  batch throughput (32 docs, ~512 tok each):
+    batch_size= 1 -> 19.67 docs/s (1627 ms total)
+    batch_size= 4 -> 26.34 docs/s (1215 ms total)
+    batch_size= 8 -> 26.76 docs/s (1196 ms total)
+    batch_size=16 -> 27.18 docs/s (1177 ms total)
+  index estimate : 60000 embeddings @ 27.18 docs/s (best batch=16) -> 0.61 h
+
+[RERANKER COMPARISON]
+BAAI/bge-reranker-base top-20 @256tok: mean=1957.8ms median=1922.9ms p95=2103.5ms stdev=131.8ms (n=3)
+[RERANKER] bge-reranker-v2-m3 (568M) (BAAI/bge-reranker-v2-m3) top-20, doc~256 chars
+  load time    : 2494 ms
+  rss after load: 1449 MB (delta +141 MB)
+  top-20 pairs: mean=6501.3ms median=6681.7ms p95=6696.3ms stdev=325.2ms (n=3)
+  per pair (approx): 325.1 ms
+
+[RERANKER] bge-reranker-v2-m3 (568M) (BAAI/bge-reranker-v2-m3) top-50, doc~512 chars
+  load time    : 2569 ms
+  rss after load: 1451 MB (delta +140 MB)
+  top-50 pairs: mean=37354.6ms median=37354.6ms p95=37710.7ms stdev=503.7ms (n=2)
+  per pair (approx): 747.1 ms
+
+[PIPELINE SIMULATION] Planned hybrid search (no LLM, no Postgres)
+  Assumptions from Wiki:
+    - 3 parallel branches (BM25 + dense + graph): 200-400 ms SQL (use 300 ms)
+    - RRF + filters + explain: 50 ms
+    - 1x query encode (dense branch)
+
+  dense query encode     : 160 ms (measured BGE-M3 mean)
+  lexical + graph (est.) : 300 ms
+  fusion + explain (est.): 50 ms
+  rerank top-20 (meas.)  : 1958 ms
+
+  TOTAL without rerank   : 510 ms
+  TOTAL with rerank      : 2468 ms
+  Wiki target p95        : 2500 ms
+  headroom with rerank   : 32 ms
+
+[END]

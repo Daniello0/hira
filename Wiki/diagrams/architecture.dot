@@ -1,0 +1,145 @@
+digraph Architecture {
+    rankdir=TB;
+    splines=spline;
+    nodesep=0.45;
+    ranksep=0.65;
+    bgcolor="#ffffff";
+    fontname="Helvetica";
+    compound=true;
+
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11,
+          penwidth=1.4, margin="0.20,0.12"];
+    edge [fontname="Helvetica", fontsize=9, color="#5b6472", penwidth=1.2,
+          arrowsize=0.7];
+
+    // ───────────────────────── КЛИЕНТ ─────────────────────────
+    subgraph cluster_client {
+        label="  КЛИЕНТ  ";
+        fontname="Helvetica-Bold"; fontsize=12; fontcolor="#1e3a5f";
+        style="rounded,filled"; fillcolor="#f4f7fb"; color="#a8bdd4"; penwidth=1.6;
+
+        browser [label="Браузер\nпользователя", fillcolor="#ffffff", color="#8fa8c4", shape=box];
+        web [label="web\nNext.js 15 · React 19 · Tailwind\nZustand · SSE-клиент\n:3000",
+             fillcolor="#dbeafe", color="#3b82f6"];
+    }
+
+    // ───────────────────────── ЯДРО ─────────────────────────
+    subgraph cluster_core {
+        label="  ЯДРО ПРИЛОЖЕНИЯ  ";
+        fontname="Helvetica-Bold"; fontsize=12; fontcolor="#7c2d12";
+        style="rounded,filled"; fillcolor="#fff7ed"; color="#e0a878"; penwidth=1.6;
+
+        core [label=<<b>core-api</b>  (Nest.js)  :4000<br/>
+<font point-size="10">auth · users · chats · messages<br/>
+favorites · profile · memory<br/>
+оркестрация поиска · Swagger · TypeORM</font>>,
+              fillcolor="#fed7aa", color="#ea580c"];
+    }
+
+    // ───────────────────────── МИКРОСЕРВИСЫ ─────────────────────────
+    subgraph cluster_ms {
+        label="  МИКРОСЕРВИСЫ ПОИСКА И LLM (Express)  ";
+        fontname="Helvetica-Bold"; fontsize=12; fontcolor="#14532d";
+        style="rounded,filled"; fillcolor="#f3faf4"; color="#93c9a3"; penwidth=1.6;
+
+        retrieval [label=<<b>retrieval-service</b>  :4100<br/>
+<font point-size="10">① BM25 (FTS)  ② dense (pgvector)<br/>
+③ graph (обход навыков)<br/>
+RRF-слияние · rerank · explain</font>>,
+                   fillcolor="#bbf7d0", color="#16a34a"];
+
+        llm [label=<<b>llm-service</b>  :4200<br/>
+<font point-size="10">understand · generate (stream)<br/>
+summarize · extract-memory<br/>
+extract-skills · роутинг провайдеров</font>>,
+             fillcolor="#bbf7d0", color="#16a34a"];
+    }
+
+    subgraph cluster_ing {
+        label="  МИКРОСЕРВИС СБОРА ДАННЫХ (Express)  ";
+        fontname="Helvetica-Bold"; fontsize=12; fontcolor="#14532d";
+        style="rounded,filled"; fillcolor="#f3faf4"; color="#93c9a3"; penwidth=1.6;
+
+        ingestion [label=<<b>ingestion-service</b>  :4300<br/>
+<font point-size="10">коннекторы источников · нормализация<br/>
+дедупликация · извлечение навыков<br/>
+построение графа · эмбеддинги · node-cron</font>>,
+                   fillcolor="#bbf7d0", color="#16a34a"];
+    }
+
+    // ───────────────────────── МОДЕЛИ ─────────────────────────
+    subgraph cluster_models {
+        label="  МОДЕЛИ  ";
+        fontname="Helvetica-Bold"; fontsize=12; fontcolor="#581c87";
+        style="rounded,filled"; fillcolor="#faf5ff"; color="#c4a5e0"; penwidth=1.6;
+
+        tei [label=<<b>embedding-runtime</b>  (HF TEI, CPU/ONNX)  :8080<br/>
+<font point-size="10">энкодер BGE-M3 (1024d) · лёгкий cross-encoder</font>>,
+             fillcolor="#e9d5ff", color="#9333ea"];
+
+        providers [label=<<b>OpenRouter</b> (внешний)<br/>
+<font point-size="10">dev + prod · json_schema models</font>>,
+                   fillcolor="#f5f3ff", color="#a78bfa", style="rounded,filled,dashed"];
+    }
+
+    // ───────────────────────── ХРАНИЛИЩЕ ─────────────────────────
+    subgraph cluster_db {
+        label="  ХРАНИЛИЩЕ  ";
+        fontname="Helvetica-Bold"; fontsize=12; fontcolor="#0c4a6e";
+        style="rounded,filled"; fillcolor="#f0f9ff"; color="#8ec5e0"; penwidth=1.6;
+
+        pg [label=<<b>PostgreSQL 17</b>  :5432<br/>
+<font point-size="10">pgvector (HNSW) · pg_trgm · BM25 (pg_textsearch)<br/>
+пользователи · чаты · память · избранное<br/>
+вакансии + чанки · <b>граф навыков</b> · логи</font>>,
+            shape=cylinder, style=filled, fillcolor="#bae6fd", color="#0284c7",
+            margin="0.28,0.20"];
+
+        redis [label=<<b>Redis</b>  :6379<br/>
+<font point-size="10">кэш LLM · BullMQ очереди<br/>
+rate limit (demo 3 / user 20/day)</font>>,
+              shape=cylinder, style=filled, fillcolor="#fecdd3", color="#e11d48",
+              margin="0.22,0.16"];
+    }
+
+    // ───────────────────────── ИСТОЧНИКИ ─────────────────────────
+    subgraph cluster_src {
+        label="  ВНЕШНИЕ ИСТОЧНИКИ ВАКАНСИЙ  ";
+        fontname="Helvetica-Bold"; fontsize=12; fontcolor="#78350f";
+        style="rounded,filled"; fillcolor="#fefce8"; color="#d9c77e"; penwidth=1.6;
+
+        s_hh    [label="rabota.by\nHH REST API", fillcolor="#fef9c3", color="#ca8a04", fontsize=10];
+        s_gsz   [label="gsz.gov.by\nHTML", fillcolor="#fef9c3", color="#ca8a04", fontsize=10];
+        s_li    [label="LinkedIn\nfreelance", fillcolor="#fef9c3", color="#ca8a04", fontsize=10];
+        s_ind   [label="Indeed", fillcolor="#fef9c3", color="#ca8a04", fontsize=10];
+        s_praca [label="praca.by", fillcolor="#fef9c3", color="#ca8a04", fontsize=10];
+        s_hab   [label="Хабр\nКарьера", fillcolor="#fef9c3", color="#ca8a04", fontsize=10];
+    }
+
+    // ───────────────────────── СВЯЗИ ─────────────────────────
+    browser -> web      [label="  HTTPS"];
+    web     -> core     [label="  REST + SSE\n  (единственная точка входа)", penwidth=1.8, color="#ea580c"];
+
+    core -> retrieval   [label="  POST /internal/v1/search\n  {SearchIntent}", color="#16a34a"];
+    core -> llm         [label="  understand\n  generate (stream)", color="#16a34a"];
+    core -> pg          [label="  TypeORM\n  (rw)", color="#0284c7"];
+    core -> redis       [label="  cache · limits", color="#e11d48"];
+    ingestion -> redis  [label="  BullMQ", color="#e11d48"];
+
+    retrieval -> tei    [label="  /embed\n  /rerank", color="#9333ea"];
+    retrieval -> pg     [label="  SQL (ro):\n  FTS · HNSW · CTE-обход графа", color="#0284c7"];
+
+    llm -> providers    [label="  structured output\n  + ретраи", style=dashed, color="#a78bfa"];
+
+    ingestion -> pg     [label="  upsert · граф\n  векторы", color="#0284c7"];
+    ingestion -> llm    [label="  extract-skills  ", color="#16a34a", constraint=false];
+    ingestion -> tei    [label="  /embed\n  (батчи)", color="#9333ea", constraint=false];
+
+    ingestion -> s_hh    [dir=back, color="#ca8a04"];
+    ingestion -> s_gsz   [dir=back, color="#ca8a04"];
+    ingestion -> s_li    [dir=back, color="#ca8a04"];
+    ingestion -> s_ind   [dir=back, color="#ca8a04"];
+    ingestion -> s_praca [dir=back, color="#ca8a04"];
+    ingestion -> s_hab   [dir=back, color="#ca8a04"];
+
+}

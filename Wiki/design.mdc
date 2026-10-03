@@ -1,0 +1,174 @@
+---
+description: "Design Document: Hira — RAG-based web application for automated job matching"
+globs: **/*.ts,**/*.tsx,**/*.sql
+alwaysApply: false
+---
+
+## 1. Introduction
+
+**Task:** Development of **Hira**, a web application based on a RAG architecture for automated job matching, targeting university graduates in the Republic of Belarus. Hira is both the product name and the assistant's name. Product surfaces (library, voice call, diploma boundary) are specified in `Wiki/11-hira.md`.
+
+**Main Idea:**
+Moving beyond single-branch semantic search. The system combines three complementary retrieval branches — lexical (BM25), dense (bi-encoder), and graph traversal over a skill knowledge graph — fused by Reciprocal Rank Fusion and re-ranked by a cross-encoder. An LLM handles query understanding (with dialogue context and long-term user memory) and answer generation, while relevance is explained through a deterministic, factor-wise decomposition rather than model-generated prose.
+
+This replaces the 2026 solution (Streamlit + FastAPI + Sentence-BERT bi-encoder only) with a multi-user web application built on a microservice architecture.
+
+**Tech Stack:**
+- **Language:** TypeScript (strict mode, no implicit `any`)
+- **Frontend:** Next.js 15 (App Router), React 19, Tailwind CSS v4, Zustand
+- **Core backend:** Nest.js (auth, CRUD, orchestration, Swagger)
+- **Microservices:** Express (`retrieval-service`, `llm-service`, `ingestion-service`)
+- **ORM:** TypeORM
+- **Database:** PostgreSQL 17 + pgvector + pg_trgm (local)
+- **Neural core:** `BAAI/bge-m3` (1024d encoder) + `BAAI/bge-reranker-v2-m3` (568M cross-encoder, ADR-022), served via Hugging Face TEI on CPU. A ~278M reranker is an ablation only.
+- **LLM:** OpenRouter (dev + prod); models with `json_schema` support, paid if needed
+- **Cache & queues:** Redis (LLM cache, BullMQ, rate limiting)
+- **Validation:** class-validator, class-transformer, Yup
+- **Testing:** Vitest · **Tooling:** Docker Compose, ESLint, Prettier
+
+**Hardware constraint:** the target machine is an Intel Core i9-9880H with 32 GB RAM and an AMD Radeon Pro 560X. Neither CUDA nor PyTorch MPS is available, so all neural inference runs on CPU. Production re-ranking still uses `bge-reranker-v2-m3` on the top-20 (ADR-022): quality outranks latency. Several seconds per query on this CPU is accepted.
+
+---
+
+## 2. User Stories
+
+- **Account and profile:** As a graduate, I want to register and fill in my profile once, so that I do not repeat my skills and constraints in every query.
+- **Conversational matching:** As a user, I want to describe what I am looking for in free text and receive a ranked list of vacancies with an explanation of why each one matched.
+- **Contextual refinement:** As a user, I want my follow-up message ("can it be remote?") to be understood in the context of the previous turn.
+- **Multiple chats:** As a user, I want several parallel chats for different search directions, in the style of ChatGPT or Gemini.
+- **Favorites:** As a user, I want to save vacancies (by myself or via the assistant) into collections and browse them as a list — no separate job catalog.
+- **Resume upload:** As a user, I want to upload a PDF resume into my library so that my profile skills are pre-filled and the file stays available to Hira.
+- **Profile suggestions:** As a user, I want the system to suggest adding skills and preferences learned from chat, with my explicit confirmation.
+- **Skill gap:** As a user, I want to see which skills I am missing for an attractive vacancy.
+- **Fresh data:** As a user, I want the corpus to refresh automatically and expired vacancies to be marked.
+- **Memory control:** As a user, I want to see, edit, and delete what the system has remembered about me, and to turn cross-chat memory off without losing the current chat.
+- **Library:** As a user, I want my own files — a PDF resume and Markdown or plain-text preferences, letters, and scripts — that Hira can read, and I want Hira to create or edit Markdown and text only after I confirm.
+- **Call:** As a user, I want to talk to Hira inside the app, like a phone call, without opening a chat.
+
+---
+
+## 3. Functional Requirements
+
+- **Multi-source ingestion:** Connectors for rabota.by (official HeadHunter REST API), the state employment portal (gsz.gov.by), Habr Career, praca.by, LinkedIn, and Indeed, on a cron schedule, with cross-source deduplication and expiry detection. The two English-language sources are rate-limited aggressively, restricted to public pages, and collected ahead of time so that demonstrations run against a database snapshot.
+- **Bilingual corpus, English UI:** Russian and English vacancies coexist; FTS configuration is per document language; skill aliases in both languages; foreign currencies converted to BYN; **UI is English-only**; Hira answers in the language of the user's message (ADR-028). Dark theme only (blue–dark-blue–black palette).
+- **Geography:** Minimum coverage — all of Belarus; EU/US/world if resources allow; foreign remote jobs flagged with UI filter.
+- **Freelance and project work:** Modelled explicitly as employment types with hourly/daily/per-project rates and an optional project duration, rather than being forced into a monthly-salary schema.
+- **Skill extraction and normalization:** LLM-based extraction of required skills from vacancy descriptions, canonicalized against the ESCO taxonomy (labels machine-translated into Russian, with manual review of the upper hierarchy and the most frequent skills) through an alias table with fuzzy and vector fallback linking.
+- **Skill knowledge graph:** Nodes for skills, occupations, companies, locations; edges for `REQUIRES`, `ALTERNATIVE_OF`, `BROADER`/`NARROWER`, `RELATED_TO` (weighted by corpus co-occurrence), `TYPICALLY_REQUIRES`, `TRANSITIONS_TO`.
+- **Query understanding:** LLM converts a raw message plus dialogue history plus retrieved memory into a structured `SearchIntent` with a rewritten self-contained query, hard/soft constraints, and a query-complexity class.
+- **Hybrid retrieval:** Three parallel branches (lexical, dense, graph), fused by RRF with branch weights adapted to query complexity.
+- **Adaptive constraint relaxation:** Soft constraints are dropped in ascending order of weight until the candidate pool is sufficient; hard constraints are never dropped; relaxation steps are returned to the client.
+- **Cross-encoder re-ranking:** Top-20 fused candidates re-scored jointly with the query and reduced to top-10; degrades gracefully to RRF order if unavailable.
+- **Explainable matching:** Deterministic factor-wise score decomposition plus matched / graph-related / missing skills with evidence spans quoted from the vacancy text.
+- **Authentication and sessions:** JWT access tokens with rotating refresh tokens, argon2id password hashing, refresh-token reuse detection.
+- **Three-tier memory:** Working message window, rolling per-chat LLM summary, and cross-chat long-term structured memory with confidence and provenance. Cross-chat memory defaults to on and can be disabled per account; disabling it does not hide the user's library.
+- **Personal library:** Per-user PDF resumes and Markdown/text documents. Hira reads extracted text (pinned files plus a few nearest by embedding). Writes to Markdown/text require confirmation. No separate retrieval microservice.
+- **Voice call:** In-app call surface, browser speech, transcript stored outside the chat list. A turn counts against the daily query limit only when it runs retrieval.
+- **Favorites and collections:** Saving, annotating, grouping; no application-status tracker (diploma scope).
+- **Demo mode:** 1 chat and 3 queries without registration; registered users — unlimited chats, 20 search queries/day (ADR-029); mock Billing/Prices page (monthly/yearly).
+- **Resume parsing:** PDF upload into the library → LLM structured extraction → user-confirmed profile update. The file stays in the library.
+- **Out of coursework:** MCP tool architecture and auto-apply (background on new vacancies, or on demand for a vacancy already shown in chat). See `Wiki/11-hira.md`.
+- **Data validation:** Strict typing of all inbound payloads; shared DTOs and enums in `packages/contracts`.
+
+---
+
+## 4. Service and API Design
+
+Five services, synchronous REST between them, one shared PostgreSQL instance:
+
+| Service | Stack | Responsibility |
+|---|---|---|
+| `web` | Next.js | UI, SSE consumption; talks only to `core-api` |
+| `core-api` | Nest.js | Auth, CRUD, search orchestration, schema ownership, Swagger |
+| `retrieval-service` | Express | Hybrid retrieval, fusion, re-ranking, explanation |
+| `llm-service` | Express | Provider-agnostic LLM gateway: understand, generate, summarize, extract |
+| `ingestion-service` | Express | Connectors, normalization, dedup, skill extraction, embedding, cron |
+| `embedding-runtime` | HF TEI | Encoder and cross-encoder over HTTP |
+
+**Key public endpoints (`core-api`):**
+
+- `POST /api/v1/auth/register` · `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` · `GET /api/v1/auth/me`
+- `GET|POST /api/v1/chats` · `GET|PATCH|DELETE /api/v1/chats/{id}` · `GET /api/v1/chats/{id}/messages`
+- **`POST /api/v1/chats/{id}/messages`** — primary endpoint; returns an SSE stream of `user-message` → `intent` → `results` → `token`* → `assistant-message` → `done`.
+- `POST /api/v1/search` — direct, chat-free search used for debugging and for the evaluation harness.
+- `GET /api/v1/vacancies/{id}` · `/similar` · `/skill-gap`
+- `GET|POST|PATCH|DELETE /api/v1/favorites` · `/collections`
+- `GET|PUT /api/v1/profile` · `GET|PATCH|DELETE /api/v1/memory`
+- `GET /health` · `GET /health/ready`
+
+**Key internal endpoints:**
+
+- `retrieval-service`: `POST /internal/v1/search` (accepts a `SearchIntent` plus an `options` object that selects branches and toggles re-ranking — this is what drives the ablation study), `/similar`, `/skill-gap`
+- `llm-service`: `/understand`, `/generate` (streaming), `/summarize-chat`, `/extract-memory`, `/extract-skills`, `/parse-resume`, `/title-chat`
+- `ingestion-service`: `/runs`, `/reindex`
+
+All services return a single error shape: `{ errorCode, message, details?, requestId }`.
+
+---
+
+## 5. Entity Model (PostgreSQL)
+
+Grouped by domain; full column-level detail in `Wiki/04-data-model.md`.
+
+**Users:** `users`, `refresh_tokens`, `user_profiles` (with `profile_embedding vector(1024)`), `user_profile_skills`, `user_memories` (kind, content, embedding, confidence, provenance, expiry).
+
+**Dialogue:** `chats` (title, rolling summary), `messages` (role, content, `intent jsonb`, `diagnostics jsonb`), `message_vacancies` (rank, score, `explanation jsonb`, `retrieved_by`), `search_logs`.
+
+**Favorites:** `collections`, `favorites` (note, application status).
+
+**Vacancies:** `vacancies` (source, external id, document `language`, normalized salary in BYN, freelance rate and project duration, seniority/format/employment enums, status, `content_hash`, `embedding vector(1024)`, generated `search_vector tsvector` whose text-search configuration is chosen per language), `vacancy_chunks` (per-chunk embeddings), `companies`, `locations`, `vacancy_duplicates`.
+
+**Knowledge graph:** `skills` (canonical name, type, optional taxonomy URI, embedding, corpus IDF), `skill_aliases`, `skill_edges` (typed, weighted, with evidence), `vacancy_skills` (importance, weight, evidence span), `occupations`, `occupation_skills`, `occupation_transitions`.
+
+**Operational:** `ingestion_runs`, `feedback`.
+
+**Indexes:** HNSW (`vector_cosine_ops`, `m = 16`, `ef_construction = 64`) on every embedding column; GIN on `search_vector`; GIN trigram on `title`, `companies.normalized_name`, `skill_aliases.alias`; composite B-tree on filter columns; unique `(source, external_id)` on vacancies.
+
+---
+
+## 6. Technical Implementation (Internal Processes)
+
+### Step A: Ingestion
+
+1. **Connector** fetches vacancies per source on a cron schedule (incremental every 6 h, liveness check daily, full reconciliation weekly).
+2. **Normalizer** maps heterogeneous source fields into the canonical schema: salary parsed into min/max/currency and converted to BYN, experience and formats mapped to enums, locations resolved against a reference table, HTML cleaned to Markdown.
+3. **Deduplicator** matches within a source by `(source, external_id)` and across sources by normalized company plus title plus city, confirmed by description embedding similarity above 0.93.
+4. **Change detection** compares `content_hash`; a change invalidates both the embedding and the extracted skills, queueing the vacancy for reprocessing. Vacancies unseen for 48 hours are marked expired.
+5. **Skill extractor** calls the LLM with structured output to obtain skills with type, importance, and a supporting quote; results are cached by content hash.
+6. **Graph linker** canonicalizes each skill through a cascade of exact match → alias table → trigram similarity (0.8) → embedding similarity (0.85) → new node flagged for review, then writes `vacancy_skills` edges. A nightly job recomputes `RELATED_TO` weights from corpus co-occurrence (PMI) and refreshes per-skill IDF.
+7. **Embedder** generates the document embedding and per-chunk embeddings in batches of 32 via TEI.
+
+### Step B: Query processing (inference)
+
+1. **Context assembly.** `core-api` collects the working message window, the chat summary, and the relevant long-term memory (all `CONSTRAINT` facts, all pinned facts, and the top-5 semantically nearest).
+2. **Query understanding.** `llm-service` returns a `SearchIntent`: rewritten self-contained query, normalized role, skill mentions, seniority, hard and soft constraints, and a complexity class. Structured output is enforced by JSON Schema with up to two validation retries.
+3. **Parallel candidate generation** in `retrieval-service`:
+   - *Lexical (primary):* BM25 via `pg_textsearch` over weighted `search_vector` (title A, skills B, company C, description D), per-document language config, top-100.
+   - *Lexical (ablation):* sparse BGE-M3 lexical weights — compared against BM25 in evaluation, not both in production fusion by default.
+   - *Dense:* query encoded with the model's documented query instruction, HNSW cosine search over chunk embeddings, max-pooled to vacancy level, top-100.
+   - *Graph:* intent skills linked to graph nodes, expanded up to two hops with per-edge-type decay (`ALTERNATIVE_OF` 1.0, `NARROWER` 0.8, `RELATED_TO` 0.6) and pruning below weight 0.25, scored by IDF-weighted skill coverage via a recursive CTE, top-100.
+4. **Fusion.** Reciprocal Rank Fusion, `score(d) = Σ w_branch / (60 + rank_branch(d))`, with branch weights selected by the query-complexity class. RRF is used specifically because BM25 scores, cosine distances, and coverage ratios are not on comparable scales.
+5. **Constraints and relaxation.** Hard constraints are applied as SQL predicates inside each branch (with pgvector iterative scans enabled so that filtering does not starve the HNSW candidate list). If the pool falls below the minimum, soft constraints are dropped in ascending weight order; every step is recorded and returned to the client.
+6. **Re-ranking.** `bge-reranker-v2-m3` scores the top-20 fused candidates and reduces them to top-10. Failure falls back to RRF order. A ~278M reranker is an ablation, not this step.
+7. **Personalization.** Bounded adjustment (at most ±15%) from profile skill overlap, favorites centroid proximity, and negative signals. Disabled during evaluation runs.
+8. **Explanation.** A deterministic factor-wise decomposition is computed in code, together with matched, graph-related (including the traversal path), and missing skills, each backed by an evidence span.
+9. **Generation.** `llm-service` streams a natural-language answer in the language of the user's message, grounded strictly in the computed results and explanations; the client renders vacancy cards on the `results` event, before the first token arrives.
+10. **Memory update.** Memory candidate extraction runs asynchronously after the response and never blocks the user.
+
+---
+
+## 7. Technical Nuances and Optimization
+
+- **Shared contracts.** All DTOs and domain enums live in `packages/contracts` and are imported by every service including the frontend, eliminating the main failure mode of TypeScript microservices — contract drift.
+- **Retrieval-side asymmetry done correctly.** The 2026 solution encoded vacancies with a hand-made weighted template (title repeated four times) but encoded queries as raw text, leaving the two in different regions of the same space. The new pipeline uses the encoder's documented query and passage instructions instead.
+- **Chunking.** Long descriptions are chunked and embedded separately, then max-pooled to the vacancy, so that detail deep in a description is no longer lost.
+- **Vector indexing.** HNSW replaces the sequential scan of the 2026 solution; pgvector iterative scans keep recall stable under selective filters.
+- **Embedding invalidation.** Upserts compare `content_hash` and clear stale embeddings — a defect present in the previous implementation.
+- **Non-blocking I/O.** All LLM calls are asynchronous with timeouts, bounded retries with exponential backoff, and a circuit breaker; nothing blocks the event loop.
+- **Graceful degradation.** LLM unavailable at understanding time falls back to a heuristic intent; unavailable at generation time returns cards without prose; re-ranker unavailable returns fused order. Only retrieval failure surfaces as a 503.
+- **Statistics instead of hard-coded heuristics.** The three hand-written domain keyword dictionaries of the 2026 solution are replaced by corpus-derived skill IDF and co-occurrence-weighted graph edges.
+- **Observability.** `X-Request-Id` propagates across every hop; per-branch timings, candidate counts, relaxation steps, and token usage are persisted in `search_logs` and `messages.diagnostics`, and exposed through the API rather than discarded.
+- **Cross-lingual retrieval.** BGE-M3 is trained for cross-lingual search, so a Russian query retrieves English vacancies from LinkedIn and Indeed without translating the corpus; the skill graph reinforces this by carrying aliases in both languages on the same node, with ESCO's English labels acting as the pivot.
+- **Evaluation as a first-class feature.** The `options` field of the internal search endpoint selects branches and toggles re-ranking, so the entire ablation study runs against the production code path with no code changes. Each benchmark query's `SearchIntent` is computed once and cached on disk, so every ablation configuration receives an identical intent and metric differences are attributable to retrieval alone.
+- **Security.** argon2id password hashing, refresh-token hashes at rest with reuse detection, internal services unreachable from outside the Docker network, provider keys only in environment variables, no direct user identifiers sent to external LLM providers.
+- **Scraping discipline.** robots.txt is honoured, official APIs are preferred wherever they exist, only public pages are fetched, no authentication or anti-bot circumvention is attempted, and no personal data is collected — only job postings, which are public offers. Connector contract tests run against stored HTML fixtures so the suite needs no network.

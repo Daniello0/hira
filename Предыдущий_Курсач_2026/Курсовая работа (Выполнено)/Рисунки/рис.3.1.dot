@@ -1,0 +1,26 @@
+digraph "рис.3.1" {
+  rankdir=LR;
+  graph [dpi=240, bgcolor="white", pad="0.25", margin="0.05", nodesep="0.55", ranksep="0.8", splines=true];
+  node [shape=box, style="rounded,filled", penwidth=1.5, margin="0.18,0.12", fontname="Arial", fontsize=13, color="#274C77", fillcolor="#EAF3FF"];
+  edge [fontname="Arial", fontsize=11, color="#506B88", penwidth=1.3, arrowsize=0.9];
+  user [label="Пользователь"];
+  ui [label="Frontend\nStreamlit\nчат и карточки вакансий", fillcolor="#E8FFF1", color="#2D6A4F"];
+  api [label="Backend API\nFastAPI\nGET /api/v1/search", fillcolor="#FFF4E6", color="#BC6C25"];
+  search [label="Поисковый сценарий\nuser_search()", fillcolor="#FFF4E6", color="#BC6C25"];
+  llm [label="Groq\nизвлечение фильтров\nи role_keywords", fillcolor="#F9ECFF", color="#7B2CBF"];
+  db [label="PostgreSQL + pgvector\nтаблица vacancies\nembedding: vector(384)", fillcolor="#FFF9DB", color="#8D6E00"];
+  parser [label="Конвейер парсинга\nfile_orchestrator:\nurl_parser + data_parser\n+ clear_csv → upsert_vacancies", fillcolor="#FFE8E8", color="#A61E4D"];
+  embed [label="Векторизация\nsave_vectors_service.py\nSentence-BERT MiniLM", fillcolor="#FFE8E8", color="#A61E4D"];
+  user -> ui [label="текстовый запрос"];
+  ui -> api [label="HTTP-запрос"];
+  api -> search [label="вызов бизнес-логики"];
+  search -> llm [label="свободный текст"];
+  llm -> search [label="JSON-фильтры\nи веса"];
+  search -> db [label="фильтрация +\nvector search"];
+  db -> search [label="кандидаты"];
+  search -> api [label="top-5 вакансий"];
+  api -> ui [label="JSON-ответ"];
+  parser -> db [label="очищенные вакансии"];
+  db -> embed [label="записи без embedding"];
+  embed -> db [label="обновление vector(384)"];
+}

@@ -1,0 +1,19 @@
+digraph "рис.3.4" {
+  rankdir=LR;
+  graph [dpi=240, bgcolor="white", pad="0.25", margin="0.05", nodesep="0.55", ranksep="0.8", splines=true];
+  node [shape=box, style="rounded,filled", penwidth=1.5, margin="0.18,0.12", fontname="Arial", fontsize=13, color="#274C77", fillcolor="#EAF3FF"];
+  edge [fontname="Arial", fontsize=11, color="#506B88", penwidth=1.3, arrowsize=0.9];
+  fields [label="Поля вакансии\ntitle, company, salary, payment_frequency,\nexperience, employment, hiring_format,\nschedule, hours, work_format, skills,\ndescription (опционально)"];
+  weights [label="Взвешивание через повторы строк\n(title ×4, структурные поля ×3,\ncompany ×1, skills ×1,\nзарплата/выплаты ×1)", fillcolor="#FFE8E8", color="#A61E4D"];
+  text [label="_vacancy_embed_text()\n(save_vectors_service.py)\nсбор итогового текста", fillcolor="#FFF9DB", color="#8D6E00"];
+  model [label="Sentence-Transformers\nparaphrase-multilingual-\nMiniLM-L12-v2", fillcolor="#F9ECFF", color="#7B2CBF"];
+  vector [label="Эмбеддинг\n384 признака", fillcolor="#E8FFF1", color="#2D6A4F"];
+  storage [label="Vacancy.embedding\nсохранение в PostgreSQL", fillcolor="#FFF4E6", color="#BC6C25"];
+  note [label="Назначение:\nусилить вклад должности и условий\nпри mean pooling bi-encoder", fillcolor="#EAF3FF", color="#274C77"];
+  fields -> weights [label="нормализация"];
+  weights -> text [label="склейка строк"];
+  text -> model [label="encode_texts()"];
+  model -> vector;
+  vector -> storage [label="UPDATE embedding"];
+  note -> weights [style=dashed, arrowhead=none];
+}

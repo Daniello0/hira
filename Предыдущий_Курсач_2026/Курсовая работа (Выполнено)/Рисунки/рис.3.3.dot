@@ -1,0 +1,27 @@
+digraph "рис.3.3" {
+  rankdir=LR;
+  graph [dpi=240, bgcolor="white", pad="0.25", margin="0.05", nodesep="0.55", ranksep="0.8", splines=true];
+  node [shape=box, style="rounded,filled", penwidth=1.5, margin="0.18,0.12", fontname="Arial", fontsize=13, color="#274C77", fillcolor="#EAF3FF"];
+  edge [fontname="Arial", fontsize=11, color="#506B88", penwidth=1.3, arrowsize=0.9];
+  search_pages [label="Поисковая выдача rabota.by\nстраницы поиска"];
+  url_parser [label="url_parser.py\nсбор прямых vacancy URL"];
+  links_csv [label="vacancy_links.csv\nсписок ссылок", fillcolor="#FFF9DB", color="#8D6E00"];
+  data_parser [label="data_parser.py\nразбор HTML-карточек"];
+  details_csv [label="vacancy_details.csv\nсырые структурированные поля", fillcolor="#FFF9DB", color="#8D6E00"];
+  clear_csv [label="clear_csv.py\nочистка и нормализация данных", fillcolor="#FFE8E8", color="#A61E4D"];
+  cleaned_csv [label="vacancies.csv\nочищенные данные", fillcolor="#FFF9DB", color="#8D6E00"];
+  upsert [label="upsert_vacancies()\n(crud.py), вызов из\nfile_orchestrator.py", fillcolor="#FFF4E6", color="#BC6C25"];
+  db [label="PostgreSQL\nтаблица vacancies", fillcolor="#FFF9DB", color="#8D6E00"];
+  reliability [label="Устойчивость:\nretry + backoff + случайные задержки\n+ User-Agent + инкрементное сохранение", fillcolor="#EAF3FF", color="#274C77"];
+  search_pages -> url_parser [label="requests + BeautifulSoup"];
+  url_parser -> links_csv [label="normalize URL"];
+  links_csv -> data_parser [label="очередь ссылок"];
+  data_parser -> details_csv [label="title, company, salary,\nskills, description, ..."];
+  details_csv -> clear_csv [label="очистка текста"];
+  clear_csv -> cleaned_csv [label="нормализованный CSV"];
+  cleaned_csv -> upsert [label="rows"];
+  upsert -> db [label="INSERT / UPDATE"];
+  reliability -> url_parser [style=dashed, arrowhead=none];
+  reliability -> data_parser [style=dashed, arrowhead=none];
+  reliability -> clear_csv [style=dashed, arrowhead=none];
+}

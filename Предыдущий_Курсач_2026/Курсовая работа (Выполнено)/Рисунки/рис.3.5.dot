@@ -1,0 +1,21 @@
+digraph "рис.3.5" {
+  rankdir=TB;
+  graph [dpi=240, bgcolor="white", pad="0.25", margin="0.05", nodesep="0.55", ranksep="0.8", splines=true];
+  node [shape=box, style="rounded,filled", penwidth=1.5, margin="0.18,0.12", fontname="Arial", fontsize=13, color="#274C77", fillcolor="#EAF3FF"];
+  edge [fontname="Arial", fontsize=11, color="#506B88", penwidth=1.3, arrowsize=0.9];
+  user_query [label="Текстовый запрос пользователя"];
+  db_values [label="build_vacancy_filter_allowed_values()\nуникальные значения фильтров из БД", fillcolor="#FFF9DB", color="#8D6E00"];
+  prompt [label="VACANCY_FILTERS_SYSTEM_PROMPT_TEMPLATE\n+ контекст запроса", fillcolor="#F9ECFF", color="#7B2CBF"];
+  llm [label="Groq API\nresponse_format: json_schema (strict)\nJSON с фильтрами", fillcolor="#F9ECFF", color="#7B2CBF"];
+  validate [label="Проверка ответа\n_validate_llm_payload()\nдопустимые значения,\n0 ≤ weight ≤ 1", fillcolor="#FFF4E6", color="#BC6C25"];
+  ok_gate [label="Валидация\nпройдена?", shape=diamond, fillcolor="#FFF3BF", color="#8D6E00"];
+  fail [label="RuntimeError\n(get_vacancy_filters_from_text_async)", fillcolor="#FFE8E8", color="#A61E4D"];
+  out [label="Результат\nrole_keywords + weighted filters", fillcolor="#E8FFF1", color="#2D6A4F"];
+  user_query -> prompt;
+  db_values -> prompt;
+  prompt -> llm [label="chat completions"];
+  llm -> validate [label="parse JSON"];
+  validate -> ok_gate;
+  ok_gate -> out [label="да"];
+  ok_gate -> fail [label="нет"];
+}
