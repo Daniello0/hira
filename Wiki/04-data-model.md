@@ -1,6 +1,6 @@
 # 04. Модель данных
 
-Статус: черновик · Последнее обновление: 2026-10-03
+Статус: черновик · Последнее обновление: 2026-10-03 · лексическая колонка — ADR-030
 
 СУБД: PostgreSQL 17, локально. Расширения: `vector` (pgvector), `pg_trgm`, `pg_textsearch` (BM25, ADR-017), `uuid-ossp`. ORM: TypeORM, миграции живут в `core-api`.
 
@@ -25,7 +25,7 @@
   └─────────────────────────────────────────────────┘
   ┌─── ВАКАНСИИ ────────────────────────────────────┐
   │  vacancies · vacancy_chunks · companies         │
-  │  locations · vacancy_duplicates                 │
+  │  industries · locations · vacancy_duplicates    │
   └─────────────────────────────────────────────────┘
   ┌─── ГРАФ ЗНАНИЙ ─────────────────────────────────┐
   │  skills · skill_edges · skill_aliases           │
@@ -128,11 +128,13 @@
 
 ### `collections`
 
-`id`, `user_id` FK, `name`, `description`, `is_default`, `created_at`.
+`id`, `user_id` FK, `name`, `description`, `is_default`, `created_at`. UNIQUE `(id, user_id)` — цель составного ключа из `favorites`.
 
 ### `favorites`
 
-`id`, `user_id` FK, `vacancy_id` FK, `collection_id` FK NULL, `note` `text`, `added_by` (enum `USER` / `ASSISTANT` — кто добавил: пользователь или LLM по предложению), `created_at`. UNIQUE `(user_id, vacancy_id)`.
+`id`, `user_id` FK, `vacancy_id` FK, `collection_id` NULL, `note` `text`, `added_by` (`author_kind`: `USER` / `ASSISTANT` — кто добавил: пользователь или LLM по предложению), `created_at`. UNIQUE `(user_id, vacancy_id)`.
+
+Если подборка указана, она принадлежит тому же пользователю: `FOREIGN KEY (collection_id, user_id) REFERENCES collections (id, user_id) ON DELETE SET NULL (collection_id)`. Пустой `collection_id` это ограничение не включает. Удаление подборки обнуляет только её, не `user_id`.
 
 **Нет трекера статуса отклика** (Q15 → диплом). Favorites = список сохранённых вакансий для просмотра, не CRM.
 
@@ -152,7 +154,7 @@
 | `extracted_text` | `text` | текст PDF или тело md/txt — то, что видит Hira |
 | `embedding` | `vector(1024)` NULL | отбор в контекст, не гибридный retrieval |
 | `is_pinned` | `boolean` | закреплённые всегда в контексте; резюме и предпочтения — да по умолчанию |
-| `created_by` | `document_author` enum | `USER` / `ASSISTANT` |
+| `created_by` | `author_kind` enum | `USER` / `ASSISTANT`; тот же тип у `favorites.added_by` и `call_turns.role` |
 | `parse_status` | `parse_status` enum NULL | для PDF: `PENDING` / `SUCCESS` / `FAILED` |
 | `created_at`, `updated_at` | `timestamptz` | |
 
@@ -201,25 +203,30 @@
 | `status` | `vacancy_status` enum | `ACTIVE` / `EXPIRED` / `CLOSED` / `DUPLICATE` |
 | `published_at` | `timestamptz` | |
 | `first_seen_at`, `last_seen_at` | `timestamptz` | |
-| `content_hash` | `char(64)` | детекция изменений |
+| `content_hash` | `char(64)` NULL | детекция изменений |
+| `skills_text` | `text` NOT NULL DEFAULT `''` | денормализация названий навыков на строке вакансии; пишет ingestion |
+| `company_name` | `text` NOT NULL DEFAULT `''` | денормализация `companies.name` |
 | `skills_extracted_at` | `timestamptz` NULL | NULL → в очередь на извлечение |
 | `embedding` | `vector(1024)` NULL | NULL → в очередь на векторизацию |
-| `search_vector` | `tsvector` GENERATED | для лексической ветви |
+| `search_document` | `text` GENERATED STORED | лексический документ для BM25, ADR-030 |
 | `created_at`, `updated_at` | `timestamptz` | |
 
 Ограничения и индексы:
 
 ```sql
 UNIQUE (source, external_id);
+CREATE INDEX idx_vac_bm25_ru ON vacancies USING bm25 (search_document)
+  WITH (text_config = 'russian') WHERE language = 'ru';
+CREATE INDEX idx_vac_bm25_en ON vacancies USING bm25 (search_document)
+  WITH (text_config = 'english') WHERE language = 'en';
 CREATE INDEX idx_vac_emb_hnsw ON vacancies USING hnsw (embedding vector_cosine_ops)
   WITH (m = 16, ef_construction = 64);
-CREATE INDEX idx_vac_fts ON vacancies USING gin (search_vector);
 CREATE INDEX idx_vac_status_seen ON vacancies (status, last_seen_at DESC);
 CREATE INDEX idx_vac_filters ON vacancies (status, seniority, work_format, employment);
 CREATE INDEX idx_vac_title_trgm ON vacancies USING gin (title gin_trgm_ops);
 ```
 
-`search_vector` — генерируемая колонка со взвешиванием: `setweight(to_tsvector(<cfg>, title), 'A') || setweight(..., skills, 'B') || setweight(..., company, 'C') || setweight(..., description, 'D')`, где `<cfg>` выбирается по `language` (`russian` или `english`). Поскольку генерируемая колонка в PostgreSQL требует `IMMUTABLE`-выражения, конфигурация подставляется через обёртку-функцию с явным `CASE` по языку, а не через переменную.
+`search_document` собирается на строке вакансии оператором `||` из `title`, `skills_text`, `company_name` и `description`. Пустой фрагмент в документ не входит. `concat_ws` здесь нельзя: в PostgreSQL она не `IMMUTABLE`, а выражение генерируемой колонки обязано быть immutable. Языковая конфигурация — не выражение колонки, а два частичных индекса `pg_textsearch` (ADR-030). Весов `setweight` нет: BM25 оценивает документ целиком. `k1` и `b` остаются значениями расширения по умолчанию.
 
 Двуязычие корпуса — прямое следствие подключения LinkedIn и Indeed, см. [03-data-sources.md](03-data-sources.md), п. 1.5.
 
@@ -227,9 +234,13 @@ CREATE INDEX idx_vac_title_trgm ON vacancies USING gin (title gin_trgm_ops);
 
 Чанки описания для плотного поиска: `id`, `vacancy_id` FK, `chunk_index`, `content`, `embedding` `vector(1024)`, `token_count`. HNSW-индекс по `embedding`. UNIQUE `(vacancy_id, chunk_index)`.
 
+### `industries`
+
+`id` serial PK, `name` `varchar(256)` UNIQUE NOT NULL, `created_at`, `updated_at`. Справочник для `companies.industry_id`. В dev-seed не заполняется.
+
 ### `companies`
 
-`id`, `name`, `normalized_name` (для дедупа), `unp` (УНП, если удалось извлечь), `website`, `industry_id` FK NULL, `logo_url`, `description`. Индекс `gin (normalized_name gin_trgm_ops)`.
+`id`, `name`, `normalized_name` (для дедупа), `unp` (УНП, если удалось извлечь), `website`, `industry_id` FK NULL → `industries` (ON DELETE SET NULL), `logo_url`, `description`. Индекс `gin (normalized_name gin_trgm_ops)`.
 
 ### `locations`
 
@@ -254,7 +265,7 @@ CREATE INDEX idx_vac_title_trgm ON vacancies USING gin (title gin_trgm_ops);
 | `skill_type` | `skill_type` enum | `HARD` / `SOFT` / `TOOL` / `LANGUAGE` / `DOMAIN` |
 | `esco_uri` | `varchar(256)` NULL | привязка к таксономии, если есть |
 | `description` | `text` NULL | |
-| `embedding` | `vector(1024)` | для нечёткого линковки навыков |
+| `embedding` | `vector(1024)` NULL | NULL, пока ночная индексация не посчитала вектор |
 | `idf` | `real` | обратная частота по корпусу, пересчитывается ночью |
 | `vacancy_count` | `int` | денормализация для быстрой статистики |
 | `needs_review` | `boolean` | автосозданный узел, не проверенный человеком |
@@ -287,7 +298,7 @@ PK `(source_skill_id, target_skill_id, edge_type)`. Индексы по обои
 
 ### `occupations`, `occupation_skills`, `occupation_transitions`
 
-- `occupations`: `id`, `canonical_name`, `esco_uri`, `embedding`, `description`.
+- `occupations`: `id`, `canonical_name` UNIQUE, `esco_uri`, `embedding` `vector(1024)` NULL, `description`.
 - `occupation_skills`: `occupation_id`, `skill_id`, `typicality` (0..1) — насколько навык характерен для профессии.
 - `occupation_transitions`: `from_occupation_id`, `to_occupation_id`, `frequency`, `skill_gap` (`int[]` — каких навыков не хватает для перехода). Основа сценария US-6 «куда расти».
 
@@ -365,4 +376,20 @@ LIMIT 100;
 
 ## 9. Открытые вопросы
 
-Закрыты: Q7 (resume upload → документ `RESUME` в `user_documents`), Q15 (нет status tracker в курсовой), Q30 (`is_foreign_remote`), Q34–Q38 (Hira, библиотека, вызов, выключатель памяти, дипломный автоотклик) — [11-hira.md](11-hira.md).
+Закрыты: Q7 (resume upload → документ `RESUME` в `user_documents`), Q15 (нет status tracker в курсовой), Q30 (`is_foreign_remote`), Q34–Q38 (Hira, библиотека, вызов, выключатель памяти, дипломный автоотклик) — [11-hira.md](11-hira.md). Форма лексической колонки, таблица `industries` и состав dev-seed — ADR-030.
+
+## 10. Dev-seed
+
+В миграцию входит только справочник `locations` (ADR-018, ADR-030):
+
+| Регион | Город |
+|---|---|
+| Брестская область | — и Брест |
+| Витебская область | — и Витебск |
+| Гомельская область | — и Гомель |
+| Гродненская область | — и Гродно |
+| Минская область | — |
+| Могилёвская область | — и Могилёв |
+| Минск | Минск |
+
+Область — строка с пустым городом. Город ссылается на неё через `parent_id`. Остальные населённые пункты добавляет ingestion, когда встречает их в вакансии. Пользователи, вакансии, навыки и ESCO этим seed не создаются.

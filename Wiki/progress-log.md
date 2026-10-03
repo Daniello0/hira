@@ -6,13 +6,13 @@
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~15%
+**Общий прогресс (среднее по этапам):** ~20%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
 | 1 | **Проектирование и Wiki** | Vision, architecture, retrieval, ADR **001–027**, продукт **Hira** ([11-hira.md](11-hira.md)), схемы, Q28 benchmark | **95** |
 | 2 | **Monorepo и инфраструктура** | npm workspaces, `packages/contracts`, `docker-compose.yml` (PostgreSQL, Redis, TEI, сервисы), `.env.example`, health checks | **90** |
-| 3 | **База данных** | TypeORM entities, миграции, `vector`, `pg_trgm`, `pg_textsearch`, HNSW/BM25-индексы, seed для dev | 0 |
+| 3 | **База данных** | TypeORM entities, миграции, `vector`, `pg_trgm`, `pg_textsearch`, HNSW/BM25-индексы, seed для dev | **90** |
 | 4 | **Auth и core-api (фундамент)** | Register/login, JWT + refresh, argon2id, demo session, rate limits Redis (3 / 20 day), Swagger | 0 |
 | 5 | **llm-service** | OpenRouter, `/understand` + json_schema, `/generate` (SSE), Redis cache, ретраи | 0 |
 | 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3**; TEI Docker — опционально | **70** |
@@ -71,4 +71,4 @@
 
 ## Следующий шаг
 
-**Этап 3** — TypeORM, миграции, индексы, seed. Этап 2 поднят: workspaces, `packages/contracts`, Compose, health. Образ PostgreSQL включает `vector`, `pg_trgm`, `uuid-ossp`, `pg_textsearch` v1.3.0. Контейнеры `tei` и `tei-rerank` описаны в Compose; первый запуск качает модели и нужен перед retrieval.
+**Этап 4** — регистрация, JWT и refresh. Этап 3 поднят: миграция `InitialSchema` в `core-api`, контейнер `migrate` до сервисов с базой, HNSW и два частичных BM25-индекса, seed `locations`. Избранное, если лежит в подборке, ссылается только на подборку того же пользователя. Корпус вакансий по-прежнему этап 7. Контейнеры `tei` и `tei-rerank` описаны в Compose; первый запуск качает модели и нужен перед retrieval.

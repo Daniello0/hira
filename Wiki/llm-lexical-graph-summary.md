@@ -101,7 +101,7 @@ sequenceDiagram
     Note over C,R: S1 — три ветви параллельно
     C->>R: POST /search { intent }
     par Lexical BM25
-        R->>P: BM25 по search_vector
+        R->>P: BM25 по search_document
     and Dense
         R->>T: embed query
         T-->>R: vector 1024d
@@ -261,8 +261,8 @@ retrieval-service/src/features/
 ```mermaid
 flowchart TD
     V[Vacancy raw text] --> N[Normalizer]
-    N --> SV["search_vector tsvector<br/>title×A · skills×B · company×C · desc×D"]
-    SV --> BM25["BM25 index<br/>(pg_textsearch)"]
+    N --> SV["search_document text<br/>title · skills · company · description"]
+    SV --> BM25["BM25 indexes<br/>russian / english"]
     N --> CH[Chunking description]
     CH --> TEI[TEI /embed BGE-M3]
     TEI --> HNSW["HNSW index<br/>(pgvector 1024d)"]
@@ -270,14 +270,9 @@ flowchart TD
     LLM --> GRAPH["vacancy_skills + skill_edges"]
 ```
 
-| Поле индекса | Вес | Пример |
-|---|---|---|
-| `title` | A (макс.) | «Junior Python Developer» |
-| `skills` (извлечённые) | B | «Python, FastAPI, PostgreSQL» |
-| `company` | C | «EPAM» |
-| `description` | D | полный текст |
+В документ входят `title`, извлечённые навыки (`skills_text`), `company_name` и `description`. Отдельных весов полей нет: BM25 оценивает текст целиком (ADR-030).
 
-**Язык:** у каждой вакансии `language` = `ru` | `en` → конфигурация FTS (`russian` / `english`). Двуязычный корпус без перевода всего текста.
+**Язык:** у каждой вакансии `language` = `ru` | `en` → свой частичный индекс (`russian` / `english`). Двуязычный корпус без перевода всего текста.
 
 ### 5.4 BM25 vs sparse BGE-M3 (Q12)
 

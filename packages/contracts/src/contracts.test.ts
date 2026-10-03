@@ -1,18 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AuthorKind,
+  DocumentFormat,
+  DocumentKind,
+  DuplicateDetection,
   EmploymentType,
+  FeedbackRating,
+  IngestionStatus,
   IntentType,
   Language,
   MatchFactor,
   MemoryKind,
   MessageRole,
+  ParseStatus,
+  ProfileSkillSource,
   QueryComplexity,
   RateUnit,
   RetrievalBranch,
   SeniorityLevel,
+  SkillAliasSource,
   SkillEdgeType,
   SkillImportance,
+  SkillLevel,
   SkillType,
+  UserRole,
   VacancySource,
   VacancyStatus,
   WorkFormat,
@@ -81,6 +92,30 @@ describe('domain enums', () => {
     expect(Object.values(SkillImportance)).toEqual(['REQUIRED', 'PREFERRED', 'MENTIONED']);
     expect(Object.values(MemoryKind)).toEqual(['PREFERENCE', 'CONSTRAINT', 'FACT', 'GOAL']);
     expect(Object.values(MessageRole)).toEqual(['USER', 'ASSISTANT', 'SYSTEM']);
+  });
+
+  it('keeps the database enums that are not already covered above', () => {
+    expect(Object.values(UserRole)).toEqual(['USER', 'ADMIN']);
+    expect(Object.values(SkillLevel)).toEqual(['BASIC', 'CONFIDENT', 'EXPERT']);
+    expect(Object.values(ProfileSkillSource)).toEqual([
+      'SELF_REPORTED',
+      'EXTRACTED_FROM_CHAT',
+      'EXTRACTED_FROM_RESUME',
+    ]);
+    expect(Object.values(DocumentKind)).toEqual([
+      'RESUME',
+      'PREFERENCES',
+      'LETTER',
+      'SCRIPT',
+      'NOTE',
+    ]);
+    expect(Object.values(DocumentFormat)).toEqual(['PDF', 'MD', 'TXT']);
+    expect(Object.values(AuthorKind)).toEqual(['USER', 'ASSISTANT']);
+    expect(Object.values(ParseStatus)).toEqual(['PENDING', 'SUCCESS', 'FAILED']);
+    expect(Object.values(DuplicateDetection)).toEqual(['EXACT', 'FUZZY', 'EMBEDDING']);
+    expect(Object.values(IngestionStatus)).toEqual(['RUNNING', 'SUCCESS', 'PARTIAL', 'FAILED']);
+    expect(Object.values(FeedbackRating)).toEqual(['RELEVANT', 'IRRELEVANT']);
+    expect(Object.values(SkillAliasSource)).toEqual(['ESCO', 'ESCO_TRANSLATED', 'MANUAL', 'LLM']);
   });
 
   it('keeps match factors, languages, and rate units', () => {

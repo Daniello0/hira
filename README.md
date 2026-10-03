@@ -49,7 +49,7 @@ COMPOSE_BAKE=0 docker compose up --build postgres redis core-api retrieval-servi
 
 `retrieval-service` в этом режиме не станет ready: его readiness проверяет оба контейнера TEI.
 
-Схема таблиц в этот этап не входит. `infra/postgres/init.sql` только включает расширения. Миграции TypeORM — следующий этап, отдельным контейнером перед `core-api`.
+`infra/postgres/init.sql` включает расширения. Таблицы, индексы и справочник `locations` создаёт контейнер `migrate` (`node dist/migrate.js`) до старта сервисов, которые читают базу.
 
 ## Лицензия
 
