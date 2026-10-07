@@ -67,7 +67,7 @@ This replaces the 2026 solution (Streamlit + FastAPI + Sentence-BERT bi-encoder 
 - **Favorites and collections:** Saving, annotating, grouping; no application-status tracker (diploma scope).
 - **Demo mode:** 1 chat and 3 queries without registration; registered users — unlimited chats, 20 search queries/day (ADR-029); mock Billing/Prices page (monthly/yearly).
 - **Resume parsing:** PDF upload into the library → LLM structured extraction → user-confirmed profile update. The file stays in the library.
-- **Out of coursework:** MCP tool architecture and auto-apply (background on new vacancies, or on demand for a vacancy already shown in chat). See `Wiki/11-hira.md`.
+- **Out of coursework:** MCP tool architecture and auto-apply (background on new vacancies, or on demand for a vacancy already shown in chat). Diploma title: `Wiki/11-hira.md` §5 (ADR-031).
 - **Data validation:** Strict typing of all inbound payloads; shared DTOs and enums in `packages/contracts`.
 
 ---
