@@ -19,7 +19,7 @@ describe('mapSearchIntent', () => {
     });
   });
 
-  it('keeps a zero salary floor and an empty work-format list', () => {
+  it('keeps a zero salary floor and drops an empty work-format list', () => {
     const raw = validModelIntent();
     raw.hardConstraints = {
       workFormat: [],
@@ -31,7 +31,7 @@ describe('mapSearchIntent', () => {
     raw.role = null;
     raw.skills = [];
     const mapped = mapSearchIntent(parseModelIntent(raw));
-    expect(mapped.hardConstraints).toEqual({ workFormat: [], salaryMin: 0 });
+    expect(mapped.hardConstraints).toEqual({ salaryMin: 0 });
     expect(mapped.role).toBeNull();
     expect(mapped.softConstraints).toEqual({});
   });

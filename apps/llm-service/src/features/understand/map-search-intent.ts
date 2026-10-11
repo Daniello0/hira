@@ -22,11 +22,20 @@ function toSkill(skill: ModelIntent['skills'][number]): SkillMention {
 
 function mapHard(hard: ModelIntent['hardConstraints']): HardConstraints {
   const mapped: HardConstraints = {};
-  if (hard.workFormat !== null) mapped.workFormat = hard.workFormat;
-  if (hard.employment !== null) mapped.employment = hard.employment;
-  if (hard.location !== null) mapped.location = hard.location;
+  assignList(mapped, 'workFormat', hard.workFormat);
+  assignList(mapped, 'employment', hard.employment);
+  assignList(mapped, 'location', hard.location);
   if (hard.salaryMin !== null) mapped.salaryMin = hard.salaryMin;
   return mapped;
+}
+
+function assignList<Key extends 'workFormat' | 'employment' | 'location'>(
+  mapped: HardConstraints,
+  key: Key,
+  values: HardConstraints[Key] | null,
+): void {
+  if (values === null || values.length === 0) return;
+  mapped[key] = values;
 }
 
 function mapSoft(items: ModelIntent['softConstraints']): Record<string, number> {
