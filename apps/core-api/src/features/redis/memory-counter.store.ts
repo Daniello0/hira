@@ -5,8 +5,10 @@ interface Row {
   expiresAtMs: number | null;
 }
 
-/** Process-local counters. HTTP tests use this instead of Redis. */
+/** Process-local counters. `now` lets tests expire keys without sleeping. */
 export class MemoryCounterStore implements CounterStore {
+  constructor(private readonly now: () => number = Date.now) {}
+
   private readonly rows = new Map<string, Row>();
 
   /** @inheritdoc */
@@ -22,12 +24,12 @@ export class MemoryCounterStore implements CounterStore {
   async ttl(key: string): Promise<number | null> {
     const row = this.live(key);
     if (row === null || row.expiresAtMs === null) return null;
-    return Math.max(1, Math.ceil((row.expiresAtMs - Date.now()) / 1000));
+    return Math.max(1, Math.ceil((row.expiresAtMs - this.now()) / 1000));
   }
 
   /** @inheritdoc */
   async setExpiring(key: string, value: string, ttlSeconds: number): Promise<void> {
-    this.rows.set(key, { value, expiresAtMs: Date.now() + ttlSeconds * 1000 });
+    this.rows.set(key, { value, expiresAtMs: this.now() + ttlSeconds * 1000 });
   }
 
   /** @inheritdoc */
@@ -37,13 +39,13 @@ export class MemoryCounterStore implements CounterStore {
 
   private expiry(ttlSeconds: number | null): number | null {
     if (ttlSeconds === null) return null;
-    return Date.now() + ttlSeconds * 1000;
+    return this.now() + ttlSeconds * 1000;
   }
 
   private live(key: string): Row | null {
     const row = this.rows.get(key);
     if (row === undefined) return null;
-    if (row.expiresAtMs !== null && row.expiresAtMs <= Date.now()) {
+    if (row.expiresAtMs !== null && row.expiresAtMs <= this.now()) {
       this.rows.delete(key);
       return null;
     }

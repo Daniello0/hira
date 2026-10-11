@@ -33,6 +33,7 @@ export const AUTH_REFRESH_REUSED = 'AUTH_REFRESH_REUSED';
 
 export const LOGIN_ATTEMPT_PREFIX = 'auth:login:attempt:';
 export const LOGIN_LOCK_PREFIX = 'auth:login:lock:';
+export const LOGIN_PERMIT_PREFIX = 'auth:login:permit:';
 export const DEMO_QUOTA_PREFIX = 'quota:search:demo:';
 export const USER_QUOTA_PREFIX = 'quota:search:user:';
 
