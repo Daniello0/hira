@@ -10,10 +10,12 @@ const DETAIL_HTML =
 describe('collectSource', () => {
   it('loads a rabota.by page after the list and does not retry a 404', async () => {
     const urls: string[] = [];
+    const accepts: string[] = [];
     let pauses = 0;
     const http: HttpGet = {
-      get: async (url) => {
+      get: async (url, headers) => {
         urls.push(url);
+        accepts.push(headers.Accept);
         if (url.endsWith('/robots.txt')) return { status: 200, body: ROBOTS };
         if (url.endsWith('/vacancy/55')) return { status: 200, body: DETAIL_HTML };
         return { status: 200, body: LIST_HTML };
@@ -31,6 +33,7 @@ describe('collectSource', () => {
     expect(urls).toContain('https://rabota.by/search/vacancy');
     expect(urls).toContain('https://rabota.by/vacancy/55');
     expect(urls.some((url) => url.includes('api.hh.ru') || url.includes('?'))).toBe(false);
+    expect(accepts.every((value) => value === 'text/html')).toBe(true);
     expect(pauses).toBe(2);
     expect(shouldRetry(404, 0)).toBe(false);
     expect(shouldRetry(429, 0)).toBe(true);

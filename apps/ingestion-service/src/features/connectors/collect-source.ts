@@ -138,7 +138,7 @@ async function readWithRetry(input: CollectInput, url: string, attempt: number) 
 }
 
 function headers(): Record<string, string> {
-  return { 'User-Agent': HH_USER_AGENT, Accept: 'application/json, text/html' };
+  return { 'User-Agent': HH_USER_AGENT, Accept: 'text/html' };
 }
 
 function wait(): Promise<void> {
