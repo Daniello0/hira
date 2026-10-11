@@ -263,6 +263,8 @@ job-finder-ai/
 
 `docker-compose.yml` поднимает: `postgres`, **`redis`**, `tei`, `tei-rerank`, `core-api`, `retrieval-service`, `llm-service`, `ingestion-service`, `web`. Внутри сети: retrieval `4001`, llm `4002`, ingestion `4003`, оба TEI — `80`. Наружу торчат только `web:3000` и `core-api:4000` (для Swagger).
 
+Профиля Compose для TEI нет: оба контейнера входят в обычный `docker compose up` ([ADR-033](10-decision-log.md)). `retrieval-service` стартует после того, как каждый ответил `GET /health`.
+
 ### Redis
 
 | Назначение | Технология |
