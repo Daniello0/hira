@@ -18,4 +18,5 @@ export const ENV = {
   redisUrl: 'REDIS_URL',
   openRouterApiKey: 'OPENROUTER_API_KEY',
   openRouterModel: 'OPENROUTER_MODEL',
+  openRouterBaseUrl: 'OPENROUTER_BASE_URL',
 } as const;

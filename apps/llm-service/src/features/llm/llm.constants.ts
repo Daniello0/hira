@@ -1,0 +1,37 @@
+export const LLM_PROVIDER_HEADER = 'X-LLM-Provider';
+export const LLM_PROVIDER_ID = 'openrouter';
+export const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+export const OPENROUTER_CHAT_COMPLETIONS_PATH = '/chat/completions';
+export const SEARCH_INTENT_SCHEMA_NAME = 'search_intent';
+export const SEARCH_INTENT_SCHEMA_VERSION = '1';
+export const UNDERSTAND_TEMPERATURE = 0;
+export const GENERATE_TEMPERATURE = 0.2;
+export const MAX_LLM_ATTEMPTS = 3;
+export const RETRY_BACKOFF_MS = [200, 800] as const;
+export const LLM_BUDGET_MS = 20_000;
+export const UNDERSTAND_ATTEMPT_TIMEOUT_MS = 7_000;
+export const GENERATE_ATTEMPT_TIMEOUT_MS = 12_000;
+export const UNDERSTAND_CACHE_TTL_SECONDS = 86_400;
+export const UNDERSTAND_CACHE_PREFIX = 'llm:understand:';
+export const MAX_GENERATE_RESULTS = 10;
+export const LLM_INVALID_OUTPUT_CODE = 'LLM_INVALID_OUTPUT';
+export const LLM_INVALID_OUTPUT_MESSAGE = 'The model returned an invalid structured result';
+export const LLM_UPSTREAM_UNAVAILABLE_CODE = 'LLM_UPSTREAM_UNAVAILABLE';
+export const LLM_UPSTREAM_UNAVAILABLE_MESSAGE = 'The language model is unavailable';
+export const LLM_NOT_CONFIGURED_CODE = 'LLM_NOT_CONFIGURED';
+export const LLM_NOT_CONFIGURED_MESSAGE = 'The language model is not configured';
+export const VALIDATION_FAILED_CODE = 'VALIDATION_FAILED';
+export const VALIDATION_FAILED_MESSAGE = 'Request validation failed';
+export const LLM_INVALID_OUTPUT_STATUS = 422;
+export const LLM_UPSTREAM_STATUS = 502;
+export const LLM_NOT_CONFIGURED_STATUS = 503;
+export const VALIDATION_FAILED_STATUS = 400;
+export const SSE_TOKEN_EVENT = 'token';
+export const SSE_DONE_EVENT = 'done';
+export const SSE_ERROR_EVENT = 'error';
+export const GENERATE_SYSTEM_PROMPT =
+  'Answer in the language of the latest user message. Use only the vacancies and explanations provided. Do not invent vacancies.';
+export const EMPTY_RESULTS_LINE = 'No vacancies were retrieved.';
+export const UNDERSTAND_SYSTEM_PROMPT =
+  'Rewrite the query so it stands alone, using the history and memory. Extract role, skills, seniority, constraints, complexity, and intent.';
+export const ZERO_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0 } as const;
