@@ -21,4 +21,9 @@ describe('postgres server settings', () => {
     expect(compose).toContain('service_completed_successfully');
     expect(compose).toContain('node dist/migrate.js');
   });
+
+  it('requires a JWT secret for core-api', () => {
+    expect(compose).toContain('JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}');
+    expect(compose).toContain('WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}');
+  });
 });

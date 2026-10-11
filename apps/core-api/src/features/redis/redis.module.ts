@@ -1,11 +1,9 @@
 import { Global, Inject, Module, type OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
-import { ENV } from '../../common/constants/app.constants';
 import { COUNTER_STORE } from './counter.store';
+import { readRedisUrl } from './redis.config';
 import { REDIS } from './redis.constants';
 import { RedisCounterStore } from './redis-counter.store';
-
-const FALLBACK_REDIS_URL = 'redis://127.0.0.1:6379';
 
 /** Closes the client when the Nest process stops, including clients that never connected. */
 class RedisLifecycle implements OnModuleDestroy {
@@ -40,8 +38,3 @@ function createRedisClient(env: NodeJS.ProcessEnv): Redis {
   });
 }
 
-function readRedisUrl(env: NodeJS.ProcessEnv): string {
-  const url = env[ENV.redisUrl];
-  if (url === undefined || url.trim().length === 0) return FALLBACK_REDIS_URL;
-  return url;
-}

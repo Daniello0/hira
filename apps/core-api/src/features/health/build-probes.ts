@@ -1,6 +1,7 @@
 import { ENV } from '../../common/constants/app.constants';
 import { readHostPort } from '../../common/utils/host-port';
 import { probeTcp } from '../../common/utils/probe-tcp';
+import { readRedisUrl } from '../redis/redis.config';
 import {
   DEPENDENCY_PROBE_TIMEOUT_MS,
   POSTGRES_DEFAULT_PORT,
@@ -12,7 +13,7 @@ import type { DependencyProbe } from './health.types';
 export function buildCoreApiProbes(env: NodeJS.ProcessEnv): DependencyProbe[] {
   return [
     tcpProbe('postgres', env[ENV.databaseUrl], POSTGRES_DEFAULT_PORT),
-    tcpProbe('redis', env[ENV.redisUrl], REDIS_DEFAULT_PORT),
+    tcpProbe('redis', readRedisUrl(env), REDIS_DEFAULT_PORT),
   ];
 }
 

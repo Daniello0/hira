@@ -1,8 +1,17 @@
 import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import type { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
 import { Client } from 'pg';
+import type { Response as SupertestResponse } from 'supertest';
+import request from 'supertest';
+import { DataSource } from 'typeorm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AppModule } from '../../app.module';
+import { configureHttpApp } from '../../configure-http-app';
+import { COUNTER_STORE } from '../redis/counter.store';
+import { MemoryCounterStore } from '../redis/memory-counter.store';
 import { revertAllMigrations, runMigrations } from './run-migrations';
 
 const exec = promisify(execFile);
@@ -250,6 +259,21 @@ describe('postgres schema', () => {
     expect(rows[0]?.count).toBe(SEED_COUNT);
   });
 
+  it('persists argon2id accounts and revokes a reused refresh token', async () => {
+    const previous = captureAuthEnv();
+    let application: INestApplication | undefined;
+    try {
+      application = await bootAuthApp(databaseUrl);
+      const session = await registerAccount(application);
+      await expectAccountRow((sql) => rowsOf(sql));
+      await expectRefreshHash((sql) => rowsOf(sql), session.refreshToken);
+      await expectLoginAndReuse(application, session.refreshToken);
+    } finally {
+      await application?.close();
+      restoreAuthEnv(previous);
+    }
+  }, 30_000);
+
   it('reverts the schema and restores the seed', async () => {
     await revertAllMigrations(databaseUrl);
     const gone = await rowsOf<{ name: string | null }>(
@@ -423,4 +447,135 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+const AUTH_EMAIL = 'session@example.com';
+const AUTH_PASSWORD = 'correct-horse';
+const AUTH_JWT_SECRET = 'integration-secret-that-is-at-least-32';
+
+interface AuthEnv {
+  databaseUrl: string | undefined;
+  jwtSecret: string | undefined;
+}
+
+type SqlQuery = <T>(sql: string) => Promise<T[]>;
+
+function captureAuthEnv(): AuthEnv {
+  return { databaseUrl: process.env.DATABASE_URL, jwtSecret: process.env.JWT_SECRET };
+}
+
+function restoreAuthEnv(previous: AuthEnv): void {
+  assignEnv('DATABASE_URL', previous.databaseUrl);
+  assignEnv('JWT_SECRET', previous.jwtSecret);
+}
+
+function assignEnv(name: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}
+
+async function bootAuthApp(databaseUrl: string): Promise<INestApplication> {
+  process.env.DATABASE_URL = databaseUrl;
+  process.env.JWT_SECRET = AUTH_JWT_SECRET;
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(COUNTER_STORE)
+    .useValue(new MemoryCounterStore())
+    .compile();
+  const application = moduleRef.createNestApplication({ logger: false });
+  configureHttpApp(application);
+  await application.get(DataSource).initialize();
+  await application.init();
+  return application;
+}
+
+async function registerAccount(app: INestApplication): Promise<{ refreshToken: string }> {
+  const response = await postRegister(app);
+  expect(response.status).toBe(201);
+  const me = await request(app.getHttpServer())
+    .get('/api/v1/auth/me')
+    .set('Authorization', `Bearer ${response.body.accessToken}`);
+  expect(me.status).toBe(200);
+  expect(me.body.email).toBe(AUTH_EMAIL);
+  return { refreshToken: requiredCookie(response, 'refreshToken') };
+}
+
+async function expectAccountRow(query: SqlQuery): Promise<void> {
+  const rows = await query<AccountRow>(accountSql());
+  expect(rows).toHaveLength(1);
+  expect(rows[0]?.role).toBe('USER');
+  expect(rows[0]?.cross_chat_memory_enabled).toBe(true);
+  expect(rows[0]?.password_hash.startsWith('$argon2id$')).toBe(true);
+  expect((rows[0]?.password_hash.length ?? 999) <= 255).toBe(true);
+}
+
+async function expectRefreshHash(query: SqlQuery, rawToken: string): Promise<void> {
+  const rows = await query<{ token_hash: string }>(activeHashSql());
+  expect(rows).toHaveLength(1);
+  expect(rows[0]?.token_hash).toMatch(/^[0-9a-f]{64}$/);
+  expect(rows[0]?.token_hash).not.toBe(rawToken);
+}
+
+async function expectLoginAndReuse(app: INestApplication, firstToken: string): Promise<void> {
+  expect((await postLogin(app, 'wrong-password-1')).status).toBe(401);
+  expect((await postLogin(app, AUTH_PASSWORD)).status).toBe(200);
+  const rotated = await postRefresh(app, firstToken);
+  expect(rotated.status).toBe(200);
+  const next = requiredCookie(rotated, 'refreshToken');
+  expect((await postRefresh(app, firstToken)).body.errorCode).toBe('AUTH_REFRESH_REUSED');
+  expect((await postRefresh(app, next)).body.errorCode).toBe('AUTH_REFRESH_REUSED');
+  expect((await postRegister(app)).status).toBe(409);
+}
+
+function postRegister(app: INestApplication) {
+  return request(app.getHttpServer()).post('/api/v1/auth/register').send({
+    email: 'Session@Example.com',
+    password: AUTH_PASSWORD,
+    displayName: 'Ada',
+  });
+}
+
+function postLogin(app: INestApplication, password: string) {
+  return request(app.getHttpServer())
+    .post('/api/v1/auth/login')
+    .send({ email: AUTH_EMAIL, password });
+}
+
+function postRefresh(app: INestApplication, rawToken: string) {
+  return request(app.getHttpServer())
+    .post('/api/v1/auth/refresh')
+    .set('Cookie', `refreshToken=${rawToken}`);
+}
+
+function requiredCookie(response: SupertestResponse, name: string): string {
+  const value = cookieValue(response, name);
+  expect(value).toBeDefined();
+  return value ?? '';
+}
+
+function cookieValue(response: SupertestResponse, name: string): string | undefined {
+  const header = response.headers['set-cookie'];
+  const lines = header === undefined ? [] : Array.isArray(header) ? header : [header];
+  const line = lines.find((item) => item.startsWith(`${name}=`));
+  return line?.split(';')[0]?.slice(name.length + 1);
+}
+
+interface AccountRow {
+  role: string;
+  password_hash: string;
+  cross_chat_memory_enabled: boolean;
+}
+
+function accountSql(): string {
+  return (
+    'SELECT role::text, password_hash, cross_chat_memory_enabled ' +
+    `FROM users WHERE email = '${AUTH_EMAIL}'`
+  );
+}
+
+function activeHashSql(): string {
+  return (
+    'SELECT rt.token_hash FROM refresh_tokens rt ' +
+    'JOIN users u ON u.id = rt.user_id ' +
+    `WHERE u.email = '${AUTH_EMAIL}' AND rt.revoked_at IS NULL`
+  );
 }

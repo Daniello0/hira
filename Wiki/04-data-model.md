@@ -1,6 +1,6 @@
 # 04. Модель данных
 
-Статус: черновик · Последнее обновление: 2026-10-03 · лексическая колонка — ADR-030
+Статус: черновик · Последнее обновление: 2026-10-11 · лексическая колонка — ADR-030
 
 СУБД: PostgreSQL 17, локально. Расширения: `vector` (pgvector), `pg_trgm`, `pg_textsearch` (BM25, ADR-017), `uuid-ossp`. ORM: TypeORM, миграции живут в `core-api`.
 
@@ -56,7 +56,7 @@
 
 ### `refresh_tokens`
 
-`id`, `user_id` FK, `token_hash` (хранится хеш, не сам токен), `expires_at`, `revoked_at`, `user_agent`, `ip`. Ротация при каждом обновлении, обнаружение переиспользования отозванного токена → отзыв всей семьи токенов.
+`id`, `user_id` FK, `token_hash` UNIQUE (хранится хеш, не сам токен), `expires_at`, `revoked_at`, `user_agent`, `ip`. Ротация и отзыв — [07-auth-and-memory.md](07-auth-and-memory.md).
 
 ### `user_profiles`
 

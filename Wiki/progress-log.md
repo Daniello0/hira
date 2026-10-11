@@ -1,19 +1,19 @@
 # Progress Log
 
-Статус: активен · Последнее обновление: 2026-10-03
+Статус: активен · Последнее обновление: 2026-10-11
 
 Журнал этапов разработки продукта. Обновляется по мере выполнения — меняй **%** в последней колонке и дату в шапке.
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~20%
+**Общий прогресс (среднее по этапам):** ~26%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
 | 1 | **Проектирование и Wiki** | Vision, architecture, retrieval, ADR **001–027**, продукт **Hira** ([11-hira.md](11-hira.md)), схемы, Q28 benchmark | **95** |
 | 2 | **Monorepo и инфраструктура** | npm workspaces, `packages/contracts`, `docker-compose.yml` (PostgreSQL, Redis, TEI, сервисы), `.env.example`, health checks | **90** |
 | 3 | **База данных** | TypeORM entities, миграции, `vector`, `pg_trgm`, `pg_textsearch`, HNSW/BM25-индексы, seed для dev | **90** |
-| 4 | **Auth и core-api (фундамент)** | Register/login, JWT + refresh, argon2id, demo session, rate limits Redis (3 / 20 day), Swagger | 0 |
+| 4 | **Auth и core-api (фундамент)** | Register/login, JWT + refresh, argon2id, demo session, rate limits Redis (3 / 20 day), Swagger | **100** |
 | 5 | **llm-service** | OpenRouter, `/understand` + json_schema, `/generate` (SSE), Redis cache, ретраи | 0 |
 | 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3**; TEI Docker — опционально | **70** |
 | 7 | **Ingestion: источники 1–3** | rabota.by (HH API), ГСЗ, Хабр Карьера; normalize, dedupe, BullMQ, cron | 0 |
@@ -71,4 +71,4 @@
 
 ## Следующий шаг
 
-**Этап 4** — регистрация, JWT и refresh. Этап 3 поднят: миграция `InitialSchema` в `core-api`, контейнер `migrate` до сервисов с базой, HNSW и два частичных BM25-индекса, seed `locations`. Избранное, если лежит в подборке, ссылается только на подборку того же пользователя. Корпус вакансий по-прежнему этап 7. Контейнеры `tei` и `tei-rerank` описаны в Compose; первый запуск качает модели и нужен перед retrieval.
+**Этап 4 закрыт:** регистрация и вход, access JWT (HS256, 15 мин), ротация refresh (повтор отозванного токена отзывает все активные сессии пользователя), argon2id, локальный список паролей, demo-cookie, лимиты входа и счётчики поиска (demo 3 / registered 20 в сутки UTC), Swagger на `/docs`. Счётчик поиска вызывают маршруты этапа 11. Для Compose в `.env` нужен `JWT_SECRET` от 32 символов. Дальше — этап 5 (`llm-service`) или этап 7 (ingestion 1–3).
