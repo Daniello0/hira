@@ -8,8 +8,11 @@
   },
   "dependencies": {
     "@hira/contracts": "*",
+    "axios": "^1.20.0",
     "express": "^4.21.2",
-    "pino": "^9.9.5"
+    "ioredis": "^5.11.1",
+    "pino": "^9.9.5",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/express": "^4.17.23"
