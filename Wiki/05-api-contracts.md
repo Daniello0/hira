@@ -206,7 +206,9 @@ event: error   data: ApiErrorResponse
 - **ретраи** — первая попытка и ещё две. Один бюджет на невалидный JSON и на транспорт (обрыв, 408, 429, 5xx): текст ошибки валидации дописывается в следующий промпт. 400 и 401 не повторяются. После первого токена `/generate` не повторяется. Вызов укладывается в 20 с, чтобы остаться внутри таймаута core→llm 25 с из [01-architecture.md](01-architecture.md);
 - `LLM_INVALID_OUTPUT` — 422, попытки кончились. `LLM_UPSTREAM_UNAVAILABLE` — 502. `LLM_NOT_CONFIGURED` — 503, пустой ключ или `OPENROUTER_MODEL`. `VALIDATION_FAILED` — 400;
 - заголовок `X-LLM-Provider: openrouter` на ответе understand/generate, включая 422 и 502;
-- учёт токенов — `meta.tokenUsage`, без прайса. Кэш успешного understand — Redis, [ADR-032](10-decision-log.md). Сбой Redis не роняет запрос. `/generate` не кэшируется.
+- учёт токенов — `meta.tokenUsage`, без прайса. Кэш успешного understand — Redis, [ADR-032](10-decision-log.md). Сбой Redis не роняет запрос. `/generate` не кэшируется;
+- пустой список в `hardConstraints` наружу не попадает, пол зарплаты `0` сохраняется;
+- запрос к OpenRouter требует эндпоинт, который принимает переданные параметры (`provider.require_parameters`), и ставит `reasoning.effort` в `minimal`, чтобы ответ уложился в бюджет 20 с.
 
 ---
 
