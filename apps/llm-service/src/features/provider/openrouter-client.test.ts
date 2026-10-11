@@ -135,7 +135,37 @@ describe('createOpenRouterClient', () => {
       status: 429,
     });
   });
+
+  it('fails a stream whose only frame is a provider error', async () => {
+    const http = fakeHttp({
+      status: 200,
+      data: chunks([`${providerErrorFrame()}\n\n`]),
+    });
+    await expect(collect(clientWith(http).streamText([], 1_000))).rejects.toBeInstanceOf(
+      ProviderTransportError,
+    );
+  });
+
+  it('fails after earlier tokens when a later frame reports finish_reason error', async () => {
+    const http = fakeHttp({
+      status: 200,
+      data: chunks([
+        'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":""},"finish_reason":"error"}]}\n\n',
+      ]),
+    });
+    const events = [];
+    const stream = clientWith(http).streamText([], 1_000);
+    await expect(async () => {
+      for await (const event of stream) events.push(event);
+    }).rejects.toBeInstanceOf(ProviderTransportError);
+    expect(events).toEqual([{ kind: 'delta', text: 'Hi' }]);
+  });
 });
+
+function providerErrorFrame(): string {
+  return 'data: {"error":{"code":"server_error","message":"Provider disconnected unexpectedly"},"choices":[{"delta":{"content":""},"finish_reason":"error"}]}';
+}
 
 function clientWith(http: HttpPost) {
   return createOpenRouterClient(http, {
@@ -146,7 +176,11 @@ function clientWith(http: HttpPost) {
 }
 
 function fakeHttp(response: { status: number; data: unknown }): HttpPost & {
-  last?: { url: string; body: unknown; init: { timeout: number; headers: Record<string, string>; responseType?: string } };
+  last?: {
+    url: string;
+    body: unknown;
+    init: { timeout: number; headers: Record<string, string>; responseType?: string };
+  };
 } {
   return {
     async post(url, body, init) {

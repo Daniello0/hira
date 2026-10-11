@@ -3,6 +3,9 @@ import { ProviderTransportError } from '../llm/llm.errors';
 import type { StreamEvent } from './stream-event';
 import type { TokenUsage } from '@hira/contracts';
 
+const STREAM_ERROR_FINISH = 'error';
+const STREAM_ERROR_MESSAGE = 'provider stream failed';
+
 /** Turns an OpenRouter SSE body into deltas and a final usage event. */
 export async function* readStreamEvents(source: unknown): AsyncGenerator<StreamEvent> {
   for await (const block of readBlocks(asIterable(source))) {
@@ -51,12 +54,39 @@ function parsePayload(payload: string): unknown {
 
 function eventsFromPayload(payload: unknown): StreamEvent[] {
   if (!isRecord(payload)) throw new ProviderTransportError(null, 'stream chunk is not an object');
+  rejectFailedFrame(payload);
   const events: StreamEvent[] = [];
   const text = deltaText(payload);
   if (text !== null) events.push({ kind: 'delta', text });
   const usage = usageFrom(payload.usage);
   if (usage !== null) events.push({ kind: 'usage', tokenUsage: usage });
   return events;
+}
+
+function rejectFailedFrame(payload: Record<string, unknown>): void {
+  if (!frameFailed(payload)) return;
+  throw new ProviderTransportError(null, providerErrorText(payload));
+}
+
+function frameFailed(payload: Record<string, unknown>): boolean {
+  return hasProviderError(payload) || finishReason(payload) === STREAM_ERROR_FINISH;
+}
+
+function hasProviderError(payload: Record<string, unknown>): boolean {
+  return payload.error !== undefined && payload.error !== null;
+}
+
+function finishReason(payload: Record<string, unknown>): unknown {
+  const choice = Array.isArray(payload.choices) ? payload.choices[0] : undefined;
+  return isRecord(choice) ? choice.finish_reason : undefined;
+}
+
+function providerErrorText(payload: Record<string, unknown>): string {
+  const error = payload.error;
+  if (isRecord(error) && typeof error.message === 'string' && error.message.length > 0) {
+    return error.message;
+  }
+  return STREAM_ERROR_MESSAGE;
 }
 
 function deltaText(payload: Record<string, unknown>): string | null {
