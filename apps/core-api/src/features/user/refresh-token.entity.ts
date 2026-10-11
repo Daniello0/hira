@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { Timestamps, TimestampsColumn } from '../database/timestamped.entity';
 
 /** Hashed refresh token. The raw token is never stored. */
@@ -13,6 +13,7 @@ export class RefreshToken {
   @Column({ type: 'uuid' })
   userId!: string;
 
+  @Index('idx_refresh_tokens_token_hash', { unique: true })
   @Column({ type: 'varchar', length: 255 })
   tokenHash!: string;
 

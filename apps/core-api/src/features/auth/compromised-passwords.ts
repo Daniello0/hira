@@ -1,0 +1,43 @@
+/**
+ * Offline stand-in for the compromised-password check in Wiki/07.
+ * The wiki allows either HIBP k-anonymity or a local list. HIBP needs the network;
+ * registration and login must work on a machine that only has local Postgres and Redis.
+ */
+export const COMPROMISED_PASSWORDS: ReadonlySet<string> = new Set([
+  'password123',
+  'password1234',
+  '1234567890',
+  'qwerty12345',
+  'qwertyuiop',
+  'iloveyou123',
+  'adminadmin',
+  'letmein123',
+  'welcome123',
+  'changeme123',
+  'passw0rd123',
+  '1111111111',
+  '0000000000',
+  'abcdefghij',
+  '1q2w3e4r5t',
+  '1qaz2wsx3e',
+  'football123',
+  'baseball123',
+  'dragon12345',
+  'master1234',
+  'sunshine123',
+  'princess123',
+  'starwars123',
+  'whatever123',
+  'monkey12345',
+  'shadow1234',
+  'michael123',
+  'superman123',
+  'batman12345',
+  'access1234',
+  'login12345',
+  'hello12345',
+  'freedom123',
+  'p@ssw0rd12',
+  'administrator',
+  'trustno1abc',
+]);

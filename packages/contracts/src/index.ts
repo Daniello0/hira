@@ -50,4 +50,8 @@ export {
   type SkillMention,
 } from './common/dto/search/search-intent.dto';
 export { type MemoryFactDto } from './common/dto/memory/memory-fact.dto';
+export { type AuthSessionDto } from './common/dto/auth/auth-session.dto';
+export { type CurrentUserDto } from './common/dto/auth/current-user.dto';
+export { type LoginRequest } from './common/dto/auth/login-request.dto';
+export { type RegisterRequest } from './common/dto/auth/register-request.dto';
 export { type VacancyDto } from './common/dto/vacancy/vacancy.dto';

@@ -1,8 +1,8 @@
 # 05. API-контракты
 
-Статус: черновик · Последнее обновление: 2026-10-03
+Статус: черновик · Последнее обновление: 2026-10-11
 
-Общие правила: JSON, `camelCase`, версионирование префиксом `/api/v1`, валидация через `class-validator` (NestJS) и Yup/Zod в Express-сервисах, документация через Swagger в `core-api`.
+Общие правила: JSON, `camelCase`, версионирование префиксом `/api/v1`, валидация через `class-validator` (NestJS) и Yup/Zod в Express-сервисах, Swagger UI `core-api` на `/docs`.
 
 Единый формат ошибки во всех сервисах:
 
@@ -28,6 +28,8 @@ interface ApiErrorResponse {
 | `POST` | `/api/v1/auth/refresh` | Ротация пары токенов |
 | `POST` | `/api/v1/auth/logout` | Отзыв refresh-токена |
 | `GET` | `/api/v1/auth/me` | Текущий пользователь |
+
+Коды auth: `VALIDATION_FAILED` (400), `AUTH_EMAIL_TAKEN` (409), `AUTH_INVALID_CREDENTIALS` (401), `AUTH_REFRESH_INVALID` (401), `AUTH_REFRESH_REUSED` (401), `AUTH_UNAUTHORIZED` (401). Лимит входа и поисковая квота отвечают `RATE_LIMIT_EXCEEDED` (429) — §1.6.
 
 ### 1.2 Чаты и сообщения
 

@@ -75,6 +75,8 @@ services:
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN is required}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       RETRIEVAL_SERVICE_URL: http://retrieval-service:4001
       LLM_SERVICE_URL: http://llm-service:4002
       INGESTION_SERVICE_URL: http://ingestion-service:4003

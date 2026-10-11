@@ -30,7 +30,7 @@ npm workspaces:
 cp .env.example .env
 ```
 
-В `.env` задайте как минимум `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` и `INTERNAL_API_TOKEN`. Пароль базы — без символов, которые ломают URL или подстановку Compose (`@`, `:`, `/`, `$`). `OPENROUTER_API_KEY` можно оставить пустым, пока не вызывается LLM.
+В `.env` задайте как минимум `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `INTERNAL_API_TOKEN` и `JWT_SECRET`. Секрет — не короче 32 символов: им подписывается access JWT. Пароль базы — без символов, которые ломают URL или подстановку Compose (`@`, `:`, `/`, `$`). `WEB_ORIGIN` — origin фронтенда для CORS с cookie; пустое значение значит `http://localhost:3000`. `OPENROUTER_API_KEY` можно оставить пустым, пока не вызывается LLM.
 
 ```bash
 npm install
