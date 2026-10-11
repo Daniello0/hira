@@ -19,6 +19,7 @@ async function* readBlocks(source: AsyncIterable<unknown>): AsyncGenerator<strin
     buffer = parts.pop() ?? '';
     for (const part of parts) yield part;
   }
+  if (buffer.trim().length > 0) yield buffer;
 }
 
 function eventsFromBlock(block: string): StreamEvent[] {

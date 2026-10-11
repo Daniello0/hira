@@ -3,6 +3,9 @@ import { isRecord } from '../../common/utils/is-record';
 import {
   GENERATE_TEMPERATURE,
   OPENROUTER_CHAT_COMPLETIONS_PATH,
+  OPENROUTER_EXCLUDE_REASONING,
+  OPENROUTER_REASONING_EFFORT,
+  OPENROUTER_REQUIRE_PARAMETERS,
   SEARCH_INTENT_SCHEMA_NAME,
   UNDERSTAND_TEMPERATURE,
   ZERO_TOKEN_USAGE,
@@ -80,24 +83,34 @@ function structuredBody(
   messages: ChatMessage[],
   schema: Record<string, unknown>,
 ): Record<string, unknown> {
-  return {
-    model: config.model,
+  return requestBody(config, messages, {
     temperature: UNDERSTAND_TEMPERATURE,
-    messages,
     response_format: {
       type: 'json_schema',
       json_schema: { name: SEARCH_INTENT_SCHEMA_NAME, strict: true, schema },
     },
-  };
+  });
 }
 
 function streamBody(config: OpenRouterConfig, messages: ChatMessage[]): Record<string, unknown> {
-  return {
-    model: config.model,
+  return requestBody(config, messages, {
     temperature: GENERATE_TEMPERATURE,
-    messages,
     stream: true,
     stream_options: { include_usage: true },
+  });
+}
+
+function requestBody(
+  config: OpenRouterConfig,
+  messages: ChatMessage[],
+  extra: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    model: config.model,
+    messages,
+    provider: { require_parameters: OPENROUTER_REQUIRE_PARAMETERS },
+    reasoning: { effort: OPENROUTER_REASONING_EFFORT, exclude: OPENROUTER_EXCLUDE_REASONING },
+    ...extra,
   };
 }
 

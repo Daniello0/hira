@@ -29,6 +29,8 @@ describe('createOpenRouterClient', () => {
       type: 'json_schema',
       json_schema: { name: 'search_intent', strict: true, schema },
     });
+    expect(body.provider).toEqual({ require_parameters: true });
+    expect(body.reasoning).toEqual({ effort: 'minimal', exclude: true });
     expect(JSON.stringify(body)).not.toContain('sk-test');
   });
 
@@ -94,7 +96,24 @@ describe('createOpenRouterClient', () => {
     expect(body.temperature).toBe(0.2);
     expect(body.response_format).toBeUndefined();
     expect(body.stream_options).toEqual({ include_usage: true });
+    expect(body.provider).toEqual({ require_parameters: true });
+    expect(body.reasoning).toEqual({ effort: 'minimal', exclude: true });
     expect(http.last?.init.responseType).toBe('stream');
+  });
+
+  it('keeps a final SSE event that arrives without a trailing blank line', async () => {
+    const http = fakeHttp({
+      status: 200,
+      data: chunks([
+        'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n',
+        'data: {"choices":[],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}',
+      ]),
+    });
+    const events = await collect(clientWith(http).streamText([], 1_000));
+    expect(events).toEqual([
+      { kind: 'delta', text: 'Hi' },
+      { kind: 'usage', tokenUsage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 } },
+    ]);
   });
 
   it('throws when a data line is not json after yielding earlier deltas', async () => {
