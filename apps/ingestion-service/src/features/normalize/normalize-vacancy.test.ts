@@ -1,4 +1,10 @@
-import { Language, SeniorityLevel, VacancySource, VacancyStatus, WorkFormat } from '@hira/contracts';
+import {
+  Language,
+  SeniorityLevel,
+  VacancySource,
+  VacancyStatus,
+  WorkFormat,
+} from '@hira/contracts';
 import { describe, expect, it } from 'vitest';
 import { contentHash } from './content-hash';
 import { normalizeCompanyName } from './company-name';

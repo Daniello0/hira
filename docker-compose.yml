@@ -37,6 +37,12 @@ services:
     command: ['--model-id', 'BAAI/bge-m3']
     volumes:
       - tei-embed:/data
+    healthcheck: &tei-health
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:80/health']
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 600s
     restart: unless-stopped
 
   tei-rerank:
@@ -44,6 +50,8 @@ services:
     command: ['--model-id', 'BAAI/bge-reranker-v2-m3']
     volumes:
       - tei-rerank:/data
+    healthcheck:
+      <<: *tei-health
     restart: unless-stopped
 
   migrate:
@@ -122,9 +130,9 @@ services:
       postgres:
         condition: service_healthy
       tei:
-        condition: service_started
+        condition: service_healthy
       tei-rerank:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       <<: *node-health
     restart: unless-stopped

@@ -5,8 +5,12 @@ import { DuplicateDetection, VacancySource, VacancyStatus } from '@hira/contract
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runMigrations } from '../../../../core-api/src/features/database/run-migrations';
+import { simhash } from '../dedupe/simhash';
 import type { CanonicalVacancy } from '../normalize/normalize-vacancy';
 import { createPgVacancyStore } from './pg-vacancy.store';
+
+const DESCRIPTION = 'пишем api';
+const VECTOR = `[${Array.from({ length: 1024 }, () => 0).join(',')}]`;
 
 const exec = promisify(execFile);
 const IMAGE = 'hira-postgres-test';
@@ -27,7 +31,7 @@ const canonical = (patch: Partial<CanonicalVacancy> = {}): CanonicalVacancy => (
   unp: '100000001',
   region: 'Минск',
   city: 'Минск',
-  description: 'пишем api',
+  description: DESCRIPTION,
   descriptionRaw: '<p>пишем api</p>',
   seniority: null,
   employment: null,
@@ -44,7 +48,7 @@ const canonical = (patch: Partial<CanonicalVacancy> = {}): CanonicalVacancy => (
   publishedAt: null,
   contentHash: 'a'.repeat(64),
   skillsText: '',
-  simhash: '0'.repeat(16),
+  simhash: simhash(DESCRIPTION),
   ...patch,
 });
 
@@ -69,10 +73,13 @@ describe('postgres vacancy store', () => {
     const seen = new Date('2026-10-11T12:00:00Z');
     const inserted = await store.save(canonical(), seen);
     expect(inserted.outcome).toBe('created');
-    await client.query(`UPDATE vacancies SET embedding = '[1]' WHERE external_id = 'hh-1'`);
+    await client.query(`UPDATE vacancies SET embedding = '${VECTOR}' WHERE external_id = 'hh-1'`);
     const skipped = await store.save(canonical(), seen);
     expect(skipped.outcome).toBe('skipped');
-    const updated = await store.save(canonical({ contentHash: 'b'.repeat(64), title: 'Backend 2' }), seen);
+    const updated = await store.save(
+      canonical({ contentHash: 'b'.repeat(64), title: 'Backend 2' }),
+      seen,
+    );
     expect(updated.outcome).toBe('updated');
     const row = await client.query(
       `SELECT title, embedding IS NULL AS cleared, search_document FROM vacancies WHERE external_id = 'hh-1'`,
@@ -85,23 +92,30 @@ describe('postgres vacancy store', () => {
   it('reuses a company by UNP and stores a fuzzy duplicate without deleting the row', async () => {
     const store = createPgVacancyStore(client);
     const seen = new Date('2026-10-11T12:00:00Z');
+    const shared = {
+      unp: '100000002',
+      companyName: 'другая фирма',
+      companyDisplayName: 'Другая фирма',
+      title: 'Дизайнер',
+    };
+    await store.save(
+      canonical({ ...shared, externalId: 'hh-dup', contentHash: 'd'.repeat(64) }),
+      seen,
+    );
     await store.save(
       canonical({
+        ...shared,
         source: VacancySource.Gsz,
         externalId: 'gsz-1',
-        title: 'Backend',
-        contentHash: 'c'.repeat(64),
-        simhash: '0'.repeat(16),
+        contentHash: 'e'.repeat(64),
       }),
       seen,
     );
     const companies = await client.query(
-      `SELECT COUNT(*)::int AS count FROM companies WHERE unp = '100000001'`,
+      `SELECT COUNT(*)::int AS count FROM companies WHERE unp = '100000002'`,
     );
     expect(companies.rows[0]?.count).toBe(1);
-    const pair = await client.query(
-      `SELECT detected_by FROM vacancy_duplicates`,
-    );
+    const pair = await client.query(`SELECT detected_by FROM vacancy_duplicates`);
     expect(pair.rows[0]?.detected_by).toBe(DuplicateDetection.Fuzzy);
     const hidden = await client.query(
       `SELECT status::text FROM vacancies WHERE external_id = 'gsz-1'`,

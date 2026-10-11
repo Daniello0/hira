@@ -58,9 +58,9 @@ describe('crossSourceDecision', () => {
       simhash: description,
       status: VacancyStatus.Active,
     };
-    expect(crossSourceDecision({ incoming: { ...base, title: 'дизайнер' }, existing }).duplicate).toBe(
-      false,
-    );
+    expect(
+      crossSourceDecision({ incoming: { ...base, title: 'дизайнер' }, existing }).duplicate,
+    ).toBe(false);
     expect(crossSourceDecision({ incoming: { ...base, city: 'Брест' }, existing }).duplicate).toBe(
       false,
     );

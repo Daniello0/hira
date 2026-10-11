@@ -72,7 +72,9 @@ describe('ingestion runs API', () => {
       .send({ source: VacancySource.RabotaBy, jobType: JOB_INCREMENTAL });
     expect(created.status).toBe(202);
     expect(created.body.status).toBe(IngestionStatus.Running);
-    expect(queued).toEqual([{ source: VacancySource.RabotaBy, jobType: JOB_INCREMENTAL, runId: 'run-1' }]);
+    expect(queued).toEqual([
+      { source: VacancySource.RabotaBy, jobType: JOB_INCREMENTAL, runId: 'run-1' },
+    ]);
     const list = await request(app).get('/internal/v1/runs').set('X-Internal-Token', 'secret');
     expect(list.status).toBe(200);
     expect(list.body).toHaveLength(1);
