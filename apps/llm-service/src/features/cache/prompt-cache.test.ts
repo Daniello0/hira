@@ -20,6 +20,27 @@ describe('redis prompt cache', () => {
     await cache.set('llm:understand:abc', '{"ok":true}', 30);
     expect(await cache.get('llm:understand:abc')).toBe('{"ok":true}');
   });
+
+  it('connects a lazy client before the first command', async () => {
+    let open = false;
+    const client = {
+      status: 'wait',
+      async connect() {
+        open = true;
+        this.status = 'ready';
+      },
+      async get(key: string) {
+        if (!open) throw new Error(`closed ${key}`);
+        return 'hit';
+      },
+      async set() {
+        if (!open) throw new Error('closed');
+      },
+    };
+    const cache = createRedisPromptCache(client);
+    expect(await cache.get('llm:understand:1')).toBe('hit');
+    expect(client.status).toBe('ready');
+  });
 });
 
 describe('prompt cache failures', () => {
