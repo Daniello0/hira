@@ -14,7 +14,7 @@ describe('buildUnderstandMessages', () => {
     });
     expect(messages[0]?.role).toBe('system');
     expect(messages[0]?.content).toContain('stands alone');
-    expect(messages[0]?.content).toContain('null unless the user stated it');
+    expect(messages[0]?.content).toContain('Do not guess an employment type');
     expect(messages.at(-1)).toEqual({ role: 'user', content: 'remote?' });
     expect(messages).toContainEqual({ role: 'user', content: 'python' });
     expect(messages).toContainEqual({ role: 'assistant', content: 'which city?' });

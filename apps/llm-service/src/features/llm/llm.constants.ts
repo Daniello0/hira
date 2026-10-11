@@ -36,5 +36,5 @@ export const GENERATE_SYSTEM_PROMPT =
   'Answer in the language of the latest user message. Use only the vacancies and explanations provided. Do not invent vacancies.';
 export const EMPTY_RESULTS_LINE = 'No vacancies were retrieved.';
 export const UNDERSTAND_SYSTEM_PROMPT =
-  'Rewrite the query so it stands alone, using the history and memory. Extract role, skills, seniority, constraints, complexity, and intent. Set a hard constraint to null unless the user stated it.';
+  'Rewrite the query so it stands alone, using the history and memory. Extract role, skills, seniority, constraints, complexity, and intent. A stated work format, city, or salary floor is a hard constraint. Do not guess an employment type.';
 export const ZERO_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0 } as const;
