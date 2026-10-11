@@ -6,7 +6,7 @@
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~32%
+**Общий прогресс (среднее по этапам):** ~36%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
@@ -15,8 +15,8 @@
 | 3 | **База данных** | TypeORM entities, миграции, `vector`, `pg_trgm`, `pg_textsearch`, HNSW/BM25-индексы, seed для dev | **90** |
 | 4 | **Auth и core-api (фундамент)** | Register/login, JWT + refresh, argon2id, demo session, rate limits Redis (3 / 20 day), Swagger | **100** |
 | 5 | **llm-service** | OpenRouter, `/understand` + json_schema, `/generate` (SSE), Redis cache, ретраи | **100** |
-| 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3**; TEI Docker — опционально | **70** |
-| 7 | **Ingestion: источники 1–3** | rabota.by (HH API), ГСЗ, Хабр Карьера; normalize, dedupe, BullMQ, cron | 0 |
+| 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3**; healthcheck `/health`, retrieval ждёт `service_healthy`. Живой `/embed` и `/rerank` не прогонялись. «Опционально» не решено — [docs/tei-compose-choice.md](../docs/tei-compose-choice.md) | **80** |
+| 7 | **Ingestion: источники 1–3** | rabota.by (HH API), ГСЗ, Хабр Карьера; normalize, dedupe simhash, BullMQ, cron, `POST/GET /internal/v1/runs`. Навыки и эмбеддинги — этап 8. Живой корпус не снимался | **60** |
 | 8 | **Ingestion: навыки и граф** | extract-skills, ESCO, `vacancy_skills`, PMI/IDF nightly, embed → pgvector (**overnight**) | 0 |
 | 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | 0 |
 | 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | 0 |
@@ -71,4 +71,6 @@
 
 ## Следующий шаг
 
-**Этап 5 закрыт.** `POST /internal/v1/understand` и `POST /internal/v1/generate` проверены живым вызовом OpenRouter. Модель берётся только из `OPENROUTER_MODEL`. Успешный understand лежит в Redis 24 ч; пустой ключ даёт 503, процесс при этом слушает порт. Незаявленное жёсткое ограничение в ответе отсутствует. `extract-skills`, память, резюме и заголовок чата остаются на этапах 8 и 12, оркестратор — на этапе 11. Дальше — этап 7 (ingestion 1–3) или этап 11.
+**Этапы 6 и 7 начаты.** TEI в Compose по-прежнему поднимается вместе со стеком и теперь считается готовым только после `GET /health` (до 10 минут на первую загрузку весов). Retrieval не стартует раньше. Живой вызов `/embed` и `/rerank` на этой машине не делался. Вопрос, можно ли поднять стек без контейнеров TEI, не закрыт.
+
+Ingestion пишет вакансии источников 1–3 в уже существующие таблицы: список и карточка, нормализация, upsert по `(source, external_id)`, simhash-дедуп, протухание через 48 часов. `node-cron` только кладёт задачи в BullMQ (`bull:ingestion`). `extract-skills`, граф и векторы остаются этапом 8. Дальше — снять малый живой снимок через `POST /internal/v1/runs` либо перейти к этапу 8.

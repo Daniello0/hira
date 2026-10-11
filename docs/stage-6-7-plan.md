@@ -1,6 +1,6 @@
 # Этапы 6 и 7. План до кода
 
-Статус: подготовка. Код runtime и ingestion здесь не меняется.
+Статус: код этапов 6 и 7 лежит в этой ветке. Выбор «TEI всегда или по профилю» не сделан, см. [tei-compose-choice.md](tei-compose-choice.md).
 
 Этап 6 в `Wiki/progress-log.md` уже на 70%: бенчмарк FP32 лежит в `cpu-tei-benchmark/`, в Compose есть контейнеры `tei` (`BAAI/bge-m3`) и `tei-rerank` (`BAAI/bge-reranker-v2-m3`). Этап 7 на 0%: rabota.by через API HeadHunter, ГСЗ, Хабр Карьера, нормализация, дедуп, BullMQ, cron.
 
