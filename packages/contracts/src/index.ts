@@ -50,6 +50,14 @@ export {
   type SkillMention,
 } from './common/dto/search/search-intent.dto';
 export { type MemoryFactDto } from './common/dto/memory/memory-fact.dto';
+export { type GenerateRequest } from './common/dto/llm/generate-request.dto';
+export { type LlmMeta, type TokenUsage } from './common/dto/llm/token-usage.dto';
+export {
+  type PromptMemory,
+  type PromptTurn,
+  type UnderstandRequest,
+  type UnderstandResponse,
+} from './common/dto/llm/understand.dto';
 export { type AuthSessionDto } from './common/dto/auth/auth-session.dto';
 export { type CurrentUserDto } from './common/dto/auth/current-user.dto';
 export { type LoginRequest } from './common/dto/auth/login-request.dto';

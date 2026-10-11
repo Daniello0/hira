@@ -180,21 +180,35 @@ interface VacancyResult {
 
 | Метод | Путь | Вход → Выход |
 |---|---|---|
-| `POST` | `/internal/v1/understand` | `{ query, history[], memory[] }` → `SearchIntent` |
-| `POST` | `/internal/v1/generate` | `{ intent, results[], history[] }` → SSE-поток текста |
+| `POST` | `/internal/v1/understand` | `{ query, history[], memory[] }` → `{ intent: SearchIntent, meta }` |
+| `POST` | `/internal/v1/generate` | `{ intent, results[], history[] }` → SSE `token` / `done` / `error` |
 | `POST` | `/internal/v1/summarize-chat` | `{ messages[] }` → `{ summary }` |
 | `POST` | `/internal/v1/extract-memory` | `{ messages[], existingMemory[] }` → `{ candidates: MemoryCandidate[] }` |
 | `POST` | `/internal/v1/extract-skills` | `{ vacancies: { id, title, description }[] }` → `{ results: ExtractedSkills[] }` |
 | `POST` | `/internal/v1/title-chat` | `{ firstMessage }` → `{ title }` |
 | `POST` | `/internal/v1/parse-resume` | `{ resumeText }` → `{ skills[], experience[], suggestions[] }` |
 
+Для `/understand`: `history[]` — `{ role: USER | ASSISTANT, content }`, `memory[]` — `{ content }`. `canonicalId` в `intent.skills` всегда `null` — [02-retrieval-layer.md](02-retrieval-layer.md), S0.
+
+`meta` — `{ tokenUsage: { promptTokens, completionTokens, totalTokens } }`.
+
+`/generate` до первого токена отвечает JSON. После первого токена:
+
+```
+event: token   data: { delta }
+event: done    data: { meta }
+event: error   data: ApiErrorResponse
+```
+
 Общие свойства:
 
-- везде structured output (JSON Schema, `strict: true`);
-- **ретраи есть** — до 2 попыток при невалидном JSON, с добавлением ошибки валидации в промпт. В курсовой 2026 ретраев не было, и любой сбой модели превращался в 500 пользователю;
-- при исчерпании попыток — `ApiErrorResponse` с `errorCode: 'LLM_INVALID_OUTPUT'`, а вызывающая сторона решает, деградировать или падать;
-- заголовок `X-LLM-Provider` в ответе для учёта и отладки;
-- учёт токенов возвращается в `meta.tokenUsage`.
+- structured output (JSON Schema, `strict: true`) на маршрутах со структурой; `/generate` — обычный текст;
+- **ретраи** — первая попытка и ещё две. Один бюджет на невалидный JSON и на транспорт (обрыв, 408, 429, 5xx): текст ошибки валидации дописывается в следующий промпт. 400 и 401 не повторяются. После первого токена `/generate` не повторяется. Вызов укладывается в 20 с, чтобы остаться внутри таймаута core→llm 25 с из [01-architecture.md](01-architecture.md);
+- `LLM_INVALID_OUTPUT` — 422, попытки кончились. `LLM_UPSTREAM_UNAVAILABLE` — 502. `LLM_NOT_CONFIGURED` — 503, пустой ключ или `OPENROUTER_MODEL`. `VALIDATION_FAILED` — 400;
+- заголовок `X-LLM-Provider: openrouter` на ответе understand/generate, включая 422 и 502;
+- учёт токенов — `meta.tokenUsage`, без прайса. Кэш успешного understand — Redis, [ADR-032](10-decision-log.md). Сбой Redis не роняет запрос. `/generate` не кэшируется;
+- пустой список в `hardConstraints` наружу не попадает, пол зарплаты `0` сохраняется;
+- запрос к OpenRouter требует эндпоинт, который принимает переданные параметры (`provider.require_parameters`), и ставит `reasoning.effort` в `minimal`, чтобы ответ уложился в бюджет 20 с.
 
 ---
 

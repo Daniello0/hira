@@ -5,6 +5,7 @@ import { createLogger, readLogLevel } from './common/logger';
 import { readInternalToken, readPort } from './common/utils/env';
 import { listen } from './common/utils/listen';
 import { buildLlmProbes } from './features/health/build-probes';
+import { buildLlmRouter } from './features/llm/build-llm-router';
 
 async function main(): Promise<void> {
   const logger = createLogger(readLogLevel(process.env));
@@ -13,6 +14,7 @@ async function main(): Promise<void> {
     logger,
     internalToken: readInternalToken(process.env),
     probes: buildLlmProbes(process.env),
+    internalRouter: buildLlmRouter(logger, process.env),
   });
   const port = readPort(process.env, DEFAULT_PORT);
   await listen(app, port);
