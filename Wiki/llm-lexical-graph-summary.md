@@ -95,7 +95,7 @@ sequenceDiagram
     C->>L: POST /understand
     L->>O: json_schema → SearchIntent
     O-->>L: role, skills, constraints, complexity
-    L-->>C: SearchIntent
+    L-->>C: { intent, meta }
     C-->>W: SSE event: intent
 
     Note over C,R: S1 — три ветви параллельно
@@ -119,7 +119,7 @@ sequenceDiagram
     C->>L: POST /generate (stream)
     L->>O: stream tokens
     O-->>L: tokens
-    L-->>C: SSE tokens
+    L-->>C: SSE token / done
     C-->>W: SSE event: token...
     C->>L: extract-memory (async, не блокирует)
 ```

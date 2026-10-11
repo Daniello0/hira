@@ -6,7 +6,7 @@
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~26%
+**Общий прогресс (среднее по этапам):** ~31%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
@@ -14,7 +14,7 @@
 | 2 | **Monorepo и инфраструктура** | npm workspaces, `packages/contracts`, `docker-compose.yml` (PostgreSQL, Redis, TEI, сервисы), `.env.example`, health checks | **90** |
 | 3 | **База данных** | TypeORM entities, миграции, `vector`, `pg_trgm`, `pg_textsearch`, HNSW/BM25-индексы, seed для dev | **90** |
 | 4 | **Auth и core-api (фундамент)** | Register/login, JWT + refresh, argon2id, demo session, rate limits Redis (3 / 20 day), Swagger | **100** |
-| 5 | **llm-service** | OpenRouter, `/understand` + json_schema, `/generate` (SSE), Redis cache, ретраи | 0 |
+| 5 | **llm-service** | OpenRouter, `/understand` + json_schema, `/generate` (SSE), Redis cache, ретраи | **80** |
 | 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3**; TEI Docker — опционально | **70** |
 | 7 | **Ingestion: источники 1–3** | rabota.by (HH API), ГСЗ, Хабр Карьера; normalize, dedupe, BullMQ, cron | 0 |
 | 8 | **Ingestion: навыки и граф** | extract-skills, ESCO, `vacancy_skills`, PMI/IDF nightly, embed → pgvector (**overnight**) | 0 |
@@ -71,4 +71,4 @@
 
 ## Следующий шаг
 
-**Этап 4 закрыт:** регистрация и вход, access JWT (HS256, 15 мин), ротация refresh (повтор отозванного токена отзывает все активные сессии пользователя), argon2id, локальный список паролей, demo-cookie, лимиты входа и счётчики поиска (demo 3 / registered 20 в сутки UTC), Swagger на `/docs`. Счётчик поиска вызывают маршруты этапа 11. Для Compose в `.env` нужен `JWT_SECRET` от 32 символов. Дальше — этап 5 (`llm-service`) или этап 7 (ingestion 1–3).
+**Этап 5 в основном готов:** `POST /internal/v1/understand` (strict json_schema, ретраи, кэш Redis на 24 ч) и `POST /internal/v1/generate` (SSE). Модель берётся только из `OPENROUTER_MODEL`; конкретная модель OpenRouter по-прежнему не выбрана. `extract-skills`, память, резюме и заголовок чата остаются на этапах 8 и 12, оркестратор — на этапе 11. Дальше — этап 7 (ingestion 1–3) или этап 11.

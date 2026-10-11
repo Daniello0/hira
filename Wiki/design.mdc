@@ -141,7 +141,7 @@ Grouped by domain; full column-level detail in `Wiki/04-data-model.md`.
 ### Step B: Query processing (inference)
 
 1. **Context assembly.** `core-api` collects the working message window, the chat summary, and the relevant long-term memory (all `CONSTRAINT` facts, all pinned facts, and the top-5 semantically nearest).
-2. **Query understanding.** `llm-service` returns a `SearchIntent`: rewritten self-contained query, normalized role, skill mentions, seniority, hard and soft constraints, and a complexity class. Structured output is enforced by JSON Schema with up to two validation retries.
+2. **Query understanding.** `llm-service` returns `{ intent: SearchIntent, meta }` (`Wiki/05-api-contracts.md`): rewritten self-contained query, normalized role, skill mentions (`canonicalId` is null until retrieval resolves it), seniority, hard and soft constraints, and a complexity class. Structured output is enforced by JSON Schema with up to two validation retries.
 3. **Parallel candidate generation** in `retrieval-service`:
    - *Lexical (primary):* BM25 via `pg_textsearch` over `search_document` (title, skills, company, description), partial index per document language, top-100.
    - *Lexical (ablation):* sparse BGE-M3 lexical weights — compared against BM25 in evaluation, not both in production fusion by default.
