@@ -4,7 +4,7 @@ import { parseGszAddress, parseGszList, parseGszVacancy } from './parse-gsz';
 const LIST = `
 <div class="job-block v2 col-12">
   <h4 class="job-title">
-    <a href="/registration/employer/vacancy/449560/detail-public/?source=search" class="debounced-link">
+    <a href="/registration/employer/vacancy/449560/detail-public/?source=search" title="Тракторист" class="debounced-link">
       Тракторист
     </a>
   </h4>
@@ -21,7 +21,7 @@ const LIST = `
 
 const DETAIL = `
 <h1>Тракторист</h1>
-<a href="/directory/business-entity/181591/detail/public/"><h5>Берестовицкое РУП ЖКХ</h5></a>
+<a href="/directory/business-entity/181591/detail/public/"><h5>ОАО &quot;Жабинковский комбикормовый завод&quot;</h5></a>
 <ul class="job-overview">
   <li><h5>Заработная плата</h5><span>1380,00–1650,00 руб.</span></li>
   <li><h5>Адрес рабочего места</h5><span class="address">обл. Гродненская, р-н Берестовицкий, г. Брест</span></li>
@@ -35,6 +35,7 @@ describe('GSZ parser', () => {
     expect(refs).toEqual([
       {
         externalId: '449560',
+        path: '/registration/employer/vacancy/449560/detail-public/?source=search',
         title: 'Тракторист',
         companyName: 'Берестовицкое РУП ЖКХ',
         salaryText: '1150 – 1450 руб.',
@@ -46,7 +47,7 @@ describe('GSZ parser', () => {
   it('reads the detail overview and an oblast address', () => {
     const vacancy = parseGszVacancy(DETAIL, '449560');
     expect(vacancy.title).toBe('Тракторист');
-    expect(vacancy.companyName).toBe('Берестовицкое РУП ЖКХ');
+    expect(vacancy.companyName).toBe('ОАО "Жабинковский комбикормовый завод"');
     expect(vacancy.salaryMin).toBe(1380);
     expect(vacancy.salaryMax).toBe(1650);
     expect(vacancy.salaryCurrency).toBe('BYN');

@@ -2,6 +2,7 @@ import { VacancySource } from '@hira/contracts';
 import { HH_USER_AGENT } from '../ingestion.constants';
 import type { RawVacancy } from './raw-vacancy';
 import { buildHhListPath, hhListIsTruncated, parseHhList, parseHhVacancy } from './hh/parse-hh';
+import { isRecord } from './record';
 import { isFetchAllowed } from './robots';
 import { parseGszList, parseGszVacancy } from './gsz/parse-gsz';
 import { parseHabrList, parseHabrVacancy } from './habr/parse-habr';
@@ -32,9 +33,10 @@ export async function collectSource(
   source: VacancySource,
   input: CollectInput,
 ): Promise<CollectResult> {
-  if (source === VacancySource.RabotaBy) return collectHh(input);
-  if (source === VacancySource.Gsz) return collectGsz(input);
-  if (source === VacancySource.HabrCareer) return collectHabr(input);
+  const paced = withPause(input);
+  if (source === VacancySource.RabotaBy) return collectHh(paced);
+  if (source === VacancySource.Gsz) return collectGsz(paced);
+  if (source === VacancySource.HabrCareer) return collectHabr(paced);
   throw new Error(`source ${source} is outside stage 7`);
 }
 
@@ -57,10 +59,10 @@ async function collectHh(input: CollectInput): Promise<CollectResult> {
 async function collectGsz(input: CollectInput): Promise<CollectResult> {
   await assertRobots(input, GSZ_ORIGIN, GSZ_LIST_PATH);
   const html = await readText(input, `${GSZ_ORIGIN}${GSZ_LIST_PATH}`);
-  return details(input, parseGszList(html), GSZ_ORIGIN, (item) => {
-    const path = `/registration/employer/vacancy/${item.externalId}/detail-public/`;
-    return { path, parse: (page) => parseGszVacancy(page, item.externalId) };
-  });
+  return details(input, parseGszList(html), GSZ_ORIGIN, (item) => ({
+    path: item.path,
+    parse: (page) => parseGszVacancy(page, item.externalId),
+  }));
 }
 
 async function collectHabr(input: CollectInput): Promise<CollectResult> {
@@ -98,8 +100,39 @@ async function readJson(input: CollectInput, url: string): Promise<unknown> {
 
 async function readText(input: CollectInput, url: string): Promise<string> {
   const response = await readWithRetry(input, url, 0);
-  if (response.status >= 400) throw new Error(`HTTP ${response.status} for ${url}`);
+  if (response.status >= 400) throw new Error(failure(response.status, response.body, url));
   return response.body;
+}
+
+function withPause(input: CollectInput): CollectInput {
+  let first = true;
+  return {
+    ...input,
+    http: {
+      get: async (url, headers) => {
+        if (!first) await (input.pause ?? wait)();
+        first = false;
+        return input.http.get(url, headers);
+      },
+    },
+  };
+}
+
+function failure(status: number, body: string, url: string): string {
+  const type = upstreamType(body);
+  const reason = type === null ? `HTTP ${status}` : `HTTP ${status} ${type}`;
+  return `${reason} for ${url}`;
+}
+
+function upstreamType(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    if (!isRecord(parsed) || !Array.isArray(parsed.errors)) return null;
+    const first = parsed.errors[0];
+    return isRecord(first) && typeof first.type === 'string' ? first.type : null;
+  } catch {
+    return null;
+  }
 }
 
 async function readWithRetry(input: CollectInput, url: string, attempt: number) {

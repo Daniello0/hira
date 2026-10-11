@@ -4,6 +4,7 @@ import type { RawVacancy } from '../raw-vacancy';
 
 export interface GszListItem {
   externalId: string;
+  path: string;
   title: string;
   companyName: string;
   salaryText: string | null;
@@ -11,7 +12,7 @@ export interface GszListItem {
 }
 
 const VACANCY_LINK =
-  /<a href="([^"]*\/vacancy\/([^"/]+)\/detail-public[^"]*)" class="debounced-link">\s*([^<]*?)\s*<\/a>/i;
+  /<a href="([^"]*\/vacancy\/([^"/]+)\/detail-public[^"]*)"[^>]*class="debounced-link"[^>]*>\s*([^<]*?)\s*<\/a>/i;
 
 /** Public vacancy cards from a GSZ search page. Account links are ignored. */
 export function parseGszList(html: string): GszListItem[] {
@@ -60,12 +61,16 @@ export function parseGszAddress(address: string): { region: string | null; city:
 
 function readCard(block: string): GszListItem[] {
   const link = VACANCY_LINK.exec(block);
+  const path = link?.[1];
   const externalId = link?.[2];
   const title = link?.[3]?.trim();
-  if (externalId === undefined || title === undefined || title.length === 0) return [];
+  if (path === undefined || externalId === undefined || title === undefined || title.length === 0) {
+    return [];
+  }
   return [
     {
       externalId,
+      path,
       title,
       companyName: stripHtml(
         matchOne(block, /<li class="org[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i) ?? '',

@@ -33,9 +33,7 @@ export function parseHabrVacancy(html: string, externalId: string): RawVacancy {
     externalId,
     url: `https://career.habr.com/vacancies/${externalId}`,
     title: stripHtml(matchOne(html, /<h1 class="page-title__title">([\s\S]*?)<\/h1>/i) ?? ''),
-    companyName: stripHtml(
-      matchOne(html, /<div class="vacancy-company__title">[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i) ?? '',
-    ),
+    companyName: companyName(html),
     unp: null,
     region: null,
     city: null,
@@ -67,10 +65,24 @@ function readCard(block: string): HabrListItem[] {
       companyName: stripHtml(matchOne(block, /class="link-comp[^"]*"[^>]*>([\s\S]*?)<\/a>/i) ?? ''),
       salaryText:
         stripHtml(matchOne(block, /class="basic-salary">([\s\S]*?)<\/div>/i) ?? '') || null,
-      city:
-        stripHtml(matchOne(block, /class="chip-with-icon__text">([\s\S]*?)<\/div>/i) ?? '') || null,
+      city: readCity(block),
     },
   ];
+}
+
+function companyName(html: string): string {
+  const block = matchOne(html, /class="vacancy-company__title">([\s\S]*?)<\/div>/i) ?? '';
+  const named = matchOne(block, /<a class="link-comp[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
+  return stripHtml(named ?? '');
+}
+
+function readCity(block: string): string | null {
+  const marked = matchOne(
+    block,
+    /icon-placemark[\s\S]*?class="chip-with-icon__text">([\s\S]*?)<\/div>/i,
+  );
+  const text = stripHtml(marked ?? '');
+  return text.length === 0 ? null : text;
 }
 
 function matchOne(value: string, pattern: RegExp): string | null {

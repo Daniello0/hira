@@ -34,8 +34,8 @@ services:
 
   tei:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
-    # Default arena is 16384 tokens and warms up at about 12 GB. 1024 keeps each process near 6 GB so both fit together.
-    command: ['--model-id', 'BAAI/bge-m3', '--max-batch-tokens', '1024']
+    # Model context is 8192. A smaller arena makes TEI truncate a long vacancy.
+    command: ['--model-id', 'BAAI/bge-m3', '--max-batch-tokens', '8192']
     volumes:
       - tei-embed:/data
     healthcheck: &tei-health
@@ -48,7 +48,7 @@ services:
 
   tei-rerank:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
-    command: ['--model-id', 'BAAI/bge-reranker-v2-m3', '--max-batch-tokens', '1024']
+    command: ['--model-id', 'BAAI/bge-reranker-v2-m3', '--max-batch-tokens', '8192']
     volumes:
       - tei-rerank:/data
     healthcheck:
