@@ -17,4 +17,9 @@ describe('tei compose runtime', () => {
     expect(compose).toContain('start_period: 600s');
     expect(compose).not.toContain('condition: service_started');
   });
+
+  it('caps the token arena at the model context so warmup fits in memory', () => {
+    expect(compose).toContain("'--max-batch-tokens'");
+    expect(compose).toContain("'1024'");
+  });
 });

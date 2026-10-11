@@ -15,7 +15,7 @@
 | 3 | **База данных** | TypeORM entities, миграции, `vector`, `pg_trgm`, `pg_textsearch`, HNSW/BM25-индексы, seed для dev | **90** |
 | 4 | **Auth и core-api (фундамент)** | Register/login, JWT + refresh, argon2id, demo session, rate limits Redis (3 / 20 day), Swagger | **100** |
 | 5 | **llm-service** | OpenRouter, `/understand` + json_schema, `/generate` (SSE), Redis cache, ретраи | **100** |
-| 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3** в обычном Compose, без профиля ([ADR-033](10-decision-log.md)); retrieval ждёт `/health`. Живой `/embed` и `/rerank` не прогонялись | **80** |
+| 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3** в обычном Compose, без профиля ([ADR-033](10-decision-log.md)); оба контейнера ответили `GET /health`. Живой `/embed` и `/rerank` не прогонялись | **80** |
 | 7 | **Ingestion: источники 1–3** | rabota.by (HH API), ГСЗ, Хабр Карьера; normalize, dedupe simhash, BullMQ, cron, `POST/GET /internal/v1/runs`. Навыки и эмбеддинги — этап 8. Живой корпус не снимался | **60** |
 | 8 | **Ingestion: навыки и граф** | extract-skills, ESCO, `vacancy_skills`, PMI/IDF nightly, embed → pgvector (**overnight**) | 0 |
 | 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | 0 |
@@ -71,6 +71,6 @@
 
 ## Следующий шаг
 
-**Этапы 6 и 7 начаты.** TEI входит в обычный `docker compose up` ([ADR-033](10-decision-log.md)) и считается готовым после `GET /health` (до 10 минут на первую загрузку весов). Retrieval не стартует раньше. Живой вызов `/embed` и `/rerank` на этой машине не делался.
+**Этапы 6 и 7 начаты.** TEI входит в обычный `docker compose up` ([ADR-033](10-decision-log.md)). 2026-10-11 оба контейнера ответили `GET /health`. Живой вызов `/embed` и `/rerank` не делался. `POST /internal/v1/runs` для `RABOTA_BY` / `INCREMENTAL` при `INGEST_LIMIT=5` принят (`202`), прогон завершился `FAILED`: `api.hh.ru/vacancies` ответил HTTP 403. Вакансии не записаны.
 
 Ingestion пишет вакансии источников 1–3 в уже существующие таблицы: список и карточка, нормализация, upsert по `(source, external_id)`, simhash-дедуп, протухание через 48 часов. `node-cron` только кладёт задачи в BullMQ (`bull:ingestion`). `extract-skills`, граф и векторы остаются этапом 8. Дальше — снять малый живой снимок через `POST /internal/v1/runs` либо перейти к этапу 8.
