@@ -3,7 +3,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { revertLastMigration, runMigrations } from './run-migrations';
+import { revertAllMigrations, runMigrations } from './run-migrations';
 
 const exec = promisify(execFile);
 const IMAGE = 'hira-postgres-test';
@@ -182,6 +182,8 @@ describe('postgres schema', () => {
     expect(byName.has('idx_user_profiles_emb_hnsw')).toBe(true);
     expect(byName.has('idx_user_memories_emb_hnsw')).toBe(true);
     expect(byName.has('idx_user_documents_emb_hnsw')).toBe(true);
+    expect(byName.get('idx_refresh_tokens_token_hash')).toContain('UNIQUE');
+    expect(byName.get('idx_refresh_tokens_token_hash')).toContain('token_hash');
   });
 
   it('drops user documents with the user and vacancy chunks with the vacancy', async () => {
@@ -249,7 +251,7 @@ describe('postgres schema', () => {
   });
 
   it('reverts the schema and restores the seed', async () => {
-    await revertLastMigration(databaseUrl);
+    await revertAllMigrations(databaseUrl);
     const gone = await rowsOf<{ name: string | null }>(
       "SELECT to_regclass('public.vacancies') AS name",
     );

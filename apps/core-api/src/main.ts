@@ -6,13 +6,17 @@ import { DataSource } from 'typeorm';
 import { AppModule } from './app.module';
 import { DEFAULT_PORT, LOGGER, SERVICE_NAME } from './common/constants/app.constants';
 import { readPort } from './common/utils/env';
+import { configureHttpApp } from './configure-http-app';
+import { readJwtSecret } from './features/auth/auth.config';
 import { readDatabaseUrl } from './features/database/database.config';
 
 async function bootstrap(): Promise<void> {
   readDatabaseUrl(process.env);
+  readJwtSecret(process.env);
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { logger: false });
   await app.get(DataSource).initialize();
   app.disable('x-powered-by');
+  configureHttpApp(app);
   const port = readPort(process.env, DEFAULT_PORT);
   await app.listen(port);
   app.get<Logger>(LOGGER).info({ port }, `${SERVICE_NAME} listening`);

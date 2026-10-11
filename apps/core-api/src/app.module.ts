@@ -7,10 +7,12 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
 import { createLogger, readLogLevel } from './common/logger';
 import { DatabaseModule } from './features/database/database.module';
 import { HealthModule } from './features/health/health.module';
+import { AuthModule } from './features/auth/auth.module';
+import { RedisModule } from './features/redis/redis.module';
 
-/** Root module: health plus the cross-cutting request id and error shape. */
+/** Root module: health, auth, and the cross-cutting request id and error shape. */
 @Module({
-  imports: [DatabaseModule, HealthModule],
+  imports: [DatabaseModule, RedisModule, HealthModule, AuthModule],
   providers: [
     {
       provide: LOGGER,

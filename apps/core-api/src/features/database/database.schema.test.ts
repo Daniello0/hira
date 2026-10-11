@@ -9,6 +9,7 @@ import {
   HNSW_M,
   SEARCH_DOCUMENT_EXPRESSION,
 } from './database.constants';
+import { REFRESH_TOKEN_HASH_INDEX_UP } from './migrations/1762000000000-refresh-token-hash-index';
 import { INITIAL_SCHEMA_UP } from './schema-statements';
 
 const EXPECTED_TABLES = [
@@ -111,5 +112,16 @@ describe('data source', () => {
     expect(document?.asExpression).toBe(SEARCH_DOCUMENT_EXPRESSION);
     const embedding = vacancies.columns.find((column) => column.databaseName === 'embedding');
     expect(embedding?.length).toBe(String(EMBEDDING_DIMENSION));
+    expect(source.migrations.map((migration) => migration.name)).toEqual([
+      'InitialSchema1760000000000',
+      'RefreshTokenHashIndex1762000000000',
+    ]);
+  });
+
+  it('indexes refresh-token hashes so rotation can lock one row', () => {
+    expect(REFRESH_TOKEN_HASH_INDEX_UP).toContain(
+      'CREATE UNIQUE INDEX idx_refresh_tokens_token_hash',
+    );
+    expect(REFRESH_TOKEN_HASH_INDEX_UP).toContain('token_hash');
   });
 });

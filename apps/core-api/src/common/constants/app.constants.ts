@@ -3,6 +3,10 @@ export const DEFAULT_LOG_LEVEL = 'info';
 export const REQUEST_ID_HEADER = 'X-Request-Id';
 export const INTERNAL_ERROR_CODE = 'INTERNAL_ERROR';
 export const INTERNAL_ERROR_MESSAGE = 'Unexpected error';
+export const VALIDATION_ERROR_CODE = 'VALIDATION_FAILED';
+export const VALIDATION_ERROR_MESSAGE = 'Request validation failed';
+export const RATE_LIMIT_ERROR_CODE = 'RATE_LIMIT_EXCEEDED';
+export const AUTH_UNAUTHORIZED = 'AUTH_UNAUTHORIZED';
 export const SERVICE_NAME = 'core-api';
 
 export const ENV = {
@@ -10,6 +14,8 @@ export const ENV = {
   logLevel: 'LOG_LEVEL',
   databaseUrl: 'DATABASE_URL',
   redisUrl: 'REDIS_URL',
+  jwtSecret: 'JWT_SECRET',
+  webOrigin: 'WEB_ORIGIN',
 } as const;
 
 export const LOGGER = Symbol('LOGGER');
