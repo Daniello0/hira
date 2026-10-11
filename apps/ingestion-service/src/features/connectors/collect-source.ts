@@ -1,13 +1,14 @@
 import { VacancySource } from '@hira/contracts';
 import { HH_USER_AGENT } from '../ingestion.constants';
 import type { RawVacancy } from './raw-vacancy';
-import { buildHhListPath, hhListIsTruncated, parseHhList, parseHhVacancy } from './hh/parse-hh';
+import { parseRabotaList, parseRabotaVacancy } from './rabota/parse-rabota';
 import { isRecord } from './record';
 import { isFetchAllowed } from './robots';
 import { parseGszList, parseGszVacancy } from './gsz/parse-gsz';
 import { parseHabrList, parseHabrVacancy } from './habr/parse-habr';
 
-const HH_ORIGIN = 'https://api.hh.ru';
+const RABOTA_ORIGIN = 'https://rabota.by';
+const RABOTA_LIST_PATH = '/search/vacancy';
 const GSZ_ORIGIN = 'https://gsz.gov.by';
 const HABR_ORIGIN = 'https://career.habr.com';
 const GSZ_LIST_PATH = '/registration/vacancy-search/';
@@ -34,7 +35,7 @@ export async function collectSource(
   input: CollectInput,
 ): Promise<CollectResult> {
   const paced = withPause(input);
-  if (source === VacancySource.RabotaBy) return collectHh(paced);
+  if (source === VacancySource.RabotaBy) return collectRabota(paced);
   if (source === VacancySource.Gsz) return collectGsz(paced);
   if (source === VacancySource.HabrCareer) return collectHabr(paced);
   throw new Error(`source ${source} is outside stage 7`);
@@ -45,15 +46,13 @@ export function shouldRetry(status: number, attempt: number): boolean {
   return attempt === 0 && (status === 429 || status === 503);
 }
 
-async function collectHh(input: CollectInput): Promise<CollectResult> {
-  const listUrl = `${HH_ORIGIN}${buildHhListPath({ page: 0 })}`;
-  const list = parseHhList(await readJson(input, listUrl));
-  const refs = list.refs.slice(0, input.limit);
-  const raws: RawVacancy[] = [];
-  for (const ref of refs) {
-    raws.push(parseHhVacancy(await readJson(input, `${HH_ORIGIN}/vacancies/${ref.externalId}`)));
-  }
-  return { raws, truncated: hhListIsTruncated(list.found) };
+async function collectRabota(input: CollectInput): Promise<CollectResult> {
+  await assertRobots(input, RABOTA_ORIGIN, RABOTA_LIST_PATH);
+  const html = await readText(input, `${RABOTA_ORIGIN}${RABOTA_LIST_PATH}`);
+  return details(input, parseRabotaList(html), RABOTA_ORIGIN, (item) => ({
+    path: item.path,
+    parse: (page) => parseRabotaVacancy(page, item.externalId),
+  }));
 }
 
 async function collectGsz(input: CollectInput): Promise<CollectResult> {
@@ -92,10 +91,6 @@ async function assertRobots(input: CollectInput, origin: string, path: string): 
   const response = await input.http.get(`${origin}/robots.txt`, headers());
   const robots = response.status >= 400 ? null : response.body;
   if (!isFetchAllowed(robots, path)) throw new Error(`robots.txt blocks ${path}`);
-}
-
-async function readJson(input: CollectInput, url: string): Promise<unknown> {
-  return JSON.parse(await readText(input, url));
 }
 
 async function readText(input: CollectInput, url: string): Promise<string> {

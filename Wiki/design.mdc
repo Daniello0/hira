@@ -49,7 +49,7 @@ This replaces the 2026 solution (Streamlit + FastAPI + Sentence-BERT bi-encoder 
 
 ## 3. Functional Requirements
 
-- **Multi-source ingestion:** Connectors for rabota.by (official HeadHunter REST API), the state employment portal (gsz.gov.by), Habr Career, praca.by, LinkedIn, and Indeed, on a cron schedule, with cross-source deduplication and expiry detection. The two English-language sources are rate-limited aggressively, restricted to public pages, and collected ahead of time so that demonstrations run against a database snapshot.
+- **Multi-source ingestion:** Connectors for rabota.by (public HTML pages, ADR-035), the state employment portal (gsz.gov.by), Habr Career, praca.by, LinkedIn, and Indeed, on a cron schedule, with cross-source deduplication and expiry detection. The two English-language sources are rate-limited aggressively, restricted to public pages, and collected ahead of time so that demonstrations run against a database snapshot.
 - **Bilingual corpus, English UI:** Russian and English vacancies coexist; FTS configuration is per document language; skill aliases in both languages; foreign currencies converted to BYN; **UI is English-only**; Hira answers in the language of the user's message (ADR-028). Dark theme only (blue–dark-blue–black palette).
 - **Geography:** Minimum coverage — all of Belarus; EU/US/world if resources allow; foreign remote jobs flagged with UI filter.
 - **Freelance and project work:** Modelled explicitly as employment types with hourly/daily/per-project rates and an optional project duration, rather than being forced into a monthly-salary schema.

@@ -33,6 +33,6 @@ function readCurrency(value: string): string | null {
   if (/usd|\$/i.test(value)) return 'USD';
   if (/eur|€/i.test(value)) return 'EUR';
   if (/₽|rub/i.test(value)) return 'RUB';
-  if (/руб|byn/i.test(value)) return 'BYN';
+  if (/\bbr\b/i.test(value) || /руб|byn/i.test(value)) return 'BYN';
   return null;
 }

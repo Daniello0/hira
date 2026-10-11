@@ -2,7 +2,7 @@
 
 Статус: код этапов 6 и 7 лежит в этой ветке. TEI всегда в обычном Compose — [ADR-033](../Wiki/10-decision-log.md), разбор в [tei-compose-choice.md](tei-compose-choice.md).
 
-Этап 6 в `Wiki/progress-log.md` уже на 70%: бенчмарк FP32 лежит в `cpu-tei-benchmark/`, в Compose есть контейнеры `tei` (`BAAI/bge-m3`) и `tei-rerank` (`BAAI/bge-reranker-v2-m3`). Этап 7 на 0%: rabota.by через API HeadHunter, ГСЗ, Хабр Карьера, нормализация, дедуп, BullMQ, cron.
+Этап 6 в `Wiki/progress-log.md` уже начат: бенчмарк FP32 лежит в `cpu-tei-benchmark/`, в Compose есть контейнеры `tei` (`BAAI/bge-m3`) и `tei-rerank` (`BAAI/bge-reranker-v2-m3`). Этап 7: rabota.by с публичных страниц ([ADR-035](../Wiki/10-decision-log.md)), ГСЗ, Хабр Карьера, нормализация, дедуп, BullMQ, cron.
 
 Навыки, ESCO, граф и запись эмбеддингов в pgvector — этап 8. Поиск и клиент `/rerank` — этапы 9–10. Этот план их не захватывает.
 
@@ -21,7 +21,7 @@
 
 Не переиспользовать:
 
-- HTML-парсер rabota.by из курсовой 2026. ADR-004 заменяет его на `api.hh.ru`.
+- Вызов `api.hh.ru`. [ADR-035](../Wiki/10-decision-log.md) заменяет ADR-004: rabota.by читается с публичных страниц.
 - `axios-post` из llm-service. Он завязан на стрим OpenRouter и дедлайн генерации. Коннекторам нужен свой HTTP с таймаутом, паузой и разбором статуса.
 - Второй набор TypeORM-сущностей и второй `DataSource`. Схема одна, владелец миграций — core-api.
 
@@ -74,7 +74,7 @@
 
 | Источник | Доступ | Замечания |
 |---|---|---|
-| `RABOTA_BY` | `api.hh.ru`, регион Беларусь (`area=16`) | Честный `User-Agent`. Пауза 2–5 с. У поиска HH окно около 2000 вакансий на один запрос, поэтому список надо резать по дате или роли, иначе корпус в 10 000+ не соберётся. Инкремент — `date_from` с прошлого успешного прогона. Архив источника → `CLOSED`. |
+| `RABOTA_BY` | HTML `rabota.by/search/vacancy` и `/vacancy/{id}` | Без query string: `robots.txt` запрещает `*?*`. Честный `User-Agent`. Пауза 2–5 с. Селекторы проверяются фикстурой. |
 | `GSZ` | HTML, `robots.txt` | Нет API. Селекторы проверяются фикстурой. Это самый хрупкий коннектор. |
 | `HABR_CAREER` | HTML, `robots.txt` | Так записано в `Wiki/03-data-sources.md`. Неофициальный JSON площадки не подменять молча. |
 

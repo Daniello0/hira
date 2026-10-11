@@ -4,7 +4,7 @@ import { SeniorityLevel, WorkFormat, EmploymentType } from '@hira/contracts';
 export function mapSeniority(raw: string | null): SeniorityLevel | null {
   const text = raw?.toLowerCase().trim() ?? '';
   if (text.length === 0) return null;
-  if (text.includes('нет опыта') || text.includes('noexperience'))
+  if (text.includes('нет опыта') || text.includes('не требуется') || text.includes('noexperience'))
     return SeniorityLevel.NoExperience;
   if (text.includes('lead') || text.includes('ведущ')) return SeniorityLevel.Lead;
   if (text.includes('более 6') || text.includes('morethan6')) return SeniorityLevel.Senior;

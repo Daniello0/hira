@@ -2,29 +2,21 @@ import { VacancySource } from '@hira/contracts';
 import { describe, expect, it } from 'vitest';
 import { collectSource, shouldRetry, type HttpGet } from './collect-source';
 
-const DETAIL = {
-  id: '55',
-  name: 'Backend',
-  archived: false,
-  alternate_url: 'https://rabota.by/vacancy/55',
-  description: '<p>API</p>',
-  area: { name: 'Минск' },
-  employer: { name: 'ООО Рога' },
-  salary: null,
-  experience: { name: 'Нет опыта' },
-  employment: { name: 'Полная занятость' },
-  schedule: { name: 'Удаленная работа' },
-};
+const ROBOTS = 'User-agent: *\nDisallow: *?*\n';
+const LIST_HTML = `<article data-qa="vacancy-serp__vacancy"><a data-qa="serp-item__title" href="https://rabota.by/vacancy/55?hhtmFrom=vacancy_search_list"><span data-qa="serp-item__title-text">Backend</span></a></article>`;
+const DETAIL_HTML =
+  '<h1 data-qa="vacancy-title">Backend</h1><div data-qa="vacancy-description"><p>Текст</p></div>';
 
 describe('collectSource', () => {
-  it('loads a HeadHunter detail after the list and does not retry a 404', async () => {
+  it('loads a rabota.by page after the list and does not retry a 404', async () => {
     const urls: string[] = [];
     let pauses = 0;
     const http: HttpGet = {
       get: async (url) => {
         urls.push(url);
-        if (url.endsWith('/vacancies/55')) return { status: 200, body: JSON.stringify(DETAIL) };
-        return { status: 200, body: JSON.stringify({ found: 1, pages: 1, items: [{ id: '55' }] }) };
+        if (url.endsWith('/robots.txt')) return { status: 200, body: ROBOTS };
+        if (url.endsWith('/vacancy/55')) return { status: 200, body: DETAIL_HTML };
+        return { status: 200, body: LIST_HTML };
       },
     };
     const result = await collectSource(VacancySource.RabotaBy, {
@@ -36,8 +28,10 @@ describe('collectSource', () => {
     });
     expect(result.truncated).toBe(false);
     expect(result.raws.map((row) => row.externalId)).toEqual(['55']);
-    expect(urls.some((url) => url.includes('area=16'))).toBe(true);
-    expect(pauses).toBe(1);
+    expect(urls).toContain('https://rabota.by/search/vacancy');
+    expect(urls).toContain('https://rabota.by/vacancy/55');
+    expect(urls.some((url) => url.includes('api.hh.ru') || url.includes('?'))).toBe(false);
+    expect(pauses).toBe(2);
     expect(shouldRetry(404, 0)).toBe(false);
     expect(shouldRetry(429, 0)).toBe(true);
     expect(shouldRetry(429, 1)).toBe(false);
@@ -57,27 +51,19 @@ describe('collectSource', () => {
     expect(urls).toEqual(['https://career.habr.com/robots.txt']);
   });
 
-  it('pauses between HeadHunter requests and surfaces a forbidden body', async () => {
-    let pauses = 0;
+  it('surfaces a forbidden search page and does not call the API', async () => {
+    const urls: string[] = [];
     const http: HttpGet = {
       get: async (url) => {
-        if (url.endsWith('/vacancies/55')) return { status: 200, body: JSON.stringify(DETAIL) };
-        if (url.includes('/vacancies?')) {
-          return { status: 403, body: '{"errors":[{"type":"forbidden"}]}' };
-        }
-        return { status: 200, body: '' };
+        urls.push(url);
+        if (url.endsWith('/robots.txt')) return { status: 200, body: ROBOTS };
+        return { status: 403, body: '{"errors":[{"type":"forbidden"}]}' };
       },
     };
     await expect(
-      collectSource(VacancySource.RabotaBy, {
-        http,
-        limit: 1,
-        pause: async () => {
-          pauses += 1;
-        },
-      }),
+      collectSource(VacancySource.RabotaBy, { http, limit: 1, pause: async () => undefined }),
     ).rejects.toThrow(/forbidden/);
-    expect(pauses).toBe(0);
+    expect(urls.some((url) => url.includes('api.hh.ru'))).toBe(false);
   });
 
   it('asks GSZ for the detail href published on the card', async () => {

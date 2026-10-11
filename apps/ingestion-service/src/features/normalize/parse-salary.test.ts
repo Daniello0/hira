@@ -33,6 +33,12 @@ describe('parseSalaryText', () => {
       currency: 'BYN',
       gross: null,
     });
+    expect(parseSalaryText('от 3 000 Br за месяц')).toEqual({
+      min: 3000,
+      max: null,
+      currency: 'BYN',
+      gross: null,
+    });
   });
 
   it('returns empty pay when the source did not state a number', () => {
