@@ -108,6 +108,35 @@ describe('ingestBatch', () => {
     expect(changed.updated).toBe(1);
     expect(writer.rows[0]?.embedding).toBeNull();
     expect(writer.rows[0]?.skillsExtractedAt).toBeNull();
+    expect(writer.rows[0]?.skillsText).toBe('');
+  });
+
+  it('keeps extracted skills when the same source text is ingested again', async () => {
+    const writer = new MemoryWriter();
+    await ingestBatch({
+      source: VacancySource.RabotaBy,
+      raws: [raw()],
+      rates: {},
+      writer,
+      now,
+    });
+    const row = writer.rows[0];
+    if (row === undefined) throw new Error('missing row');
+    row.skillsText = 'Python';
+    row.contentHash = 'f'.repeat(64);
+    row.embedding = '[1]';
+    row.skillsExtractedAt = now;
+    const again = await ingestBatch({
+      source: VacancySource.RabotaBy,
+      raws: [raw()],
+      rates: {},
+      writer,
+      now,
+    });
+    expect(again.skipped).toBe(1);
+    expect(writer.rows[0]?.skillsText).toBe('Python');
+    expect(writer.rows[0]?.embedding).toBe('[1]');
+    expect(writer.rows[0]?.skillsExtractedAt).toEqual(now);
   });
 
   it('counts a blank title as failed and does not insert it', async () => {

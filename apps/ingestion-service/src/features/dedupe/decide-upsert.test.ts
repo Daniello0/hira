@@ -89,4 +89,43 @@ describe('crossSourceDecision', () => {
       }).duplicate,
     ).toBe(false);
   });
+
+  it('confirms a copy by cosine when the simhash differs and keeps simhash as fuzzy', () => {
+    const existing = {
+      id: 'canon',
+      source: VacancySource.RabotaBy,
+      companyName: 'рога и копыта',
+      title: 'Backend',
+      city: 'Минск',
+      simhash: description,
+      status: VacancyStatus.Active,
+    };
+    const incoming = {
+      source: VacancySource.HabrCareer,
+      companyName: 'рога и копыта',
+      title: 'backend',
+      city: 'Минск',
+      simhash: simhash('совсем другой текст вакансии'),
+    };
+    expect(crossSourceDecision({ incoming, existing, cosine: 0.93 })).toEqual({
+      duplicate: true,
+      canonicalId: 'canon',
+      detectedBy: DuplicateDetection.Embedding,
+    });
+    expect(crossSourceDecision({ incoming, existing, cosine: 0.929 }).duplicate).toBe(false);
+    expect(
+      crossSourceDecision({
+        incoming: { ...incoming, city: 'Брест' },
+        existing,
+        cosine: 0.99,
+      }).duplicate,
+    ).toBe(false);
+    expect(
+      crossSourceDecision({
+        incoming: { ...incoming, simhash: description },
+        existing,
+        cosine: 0.99,
+      }).detectedBy,
+    ).toBe(DuplicateDetection.Fuzzy);
+  });
 });

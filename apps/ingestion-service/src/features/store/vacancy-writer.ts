@@ -11,6 +11,8 @@ export interface StoredVacancy {
   description: string;
   simhash: string;
   contentHash: string;
+  sourceHash: string;
+  skillsText: string;
   status: VacancyStatus;
   lastSeenAt: Date;
   embedding: string | null;

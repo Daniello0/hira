@@ -1,4 +1,4 @@
-import type { GenerateRequest, UnderstandRequest } from '@hira/contracts';
+import type { ExtractSkillsRequest, GenerateRequest, UnderstandRequest } from '@hira/contracts';
 import axios from 'axios';
 import type { Logger } from 'pino';
 import type { Router } from 'express';
@@ -8,6 +8,7 @@ import { generateAnswer, type LlmStreamEvent } from '../generate/generate.servic
 import { createAxiosPost } from '../provider/axios-post';
 import { createOpenRouterClient } from '../provider/openrouter-client';
 import { createLlmRedisClient, readLlmRedisUrl } from '../provider/redis-client';
+import { extractSkills } from '../extract-skills/extract-skills.service';
 import { understandQuery } from '../understand/understand.service';
 import { createLlmRouter } from './llm.router';
 import { readLlmConfig } from './read-llm-config';
@@ -22,6 +23,7 @@ export function buildLlmRouter(logger: Logger, env: NodeJS.ProcessEnv): Router {
     model: config.model,
     understand: (request) => understandWith(logger, config.model, provider, cache, request),
     generate: (request, emit) => generateWith(provider, request, emit),
+    extractSkills: (request) => extractWith(logger, config.model, provider, cache, request),
   });
 }
 
@@ -33,6 +35,16 @@ function understandWith(
   request: UnderstandRequest,
 ) {
   return understandQuery({ provider, cache, sleep: delay, model, logger, now: Date.now }, request);
+}
+
+function extractWith(
+  logger: Logger,
+  model: string,
+  provider: ReturnType<typeof createOpenRouterClient>,
+  cache: ReturnType<typeof createRedisPromptCache>,
+  request: ExtractSkillsRequest,
+) {
+  return extractSkills({ provider, cache, sleep: delay, model, logger, now: Date.now }, request);
 }
 
 function generateWith(

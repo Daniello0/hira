@@ -5,12 +5,15 @@ import cron from 'node-cron';
 import type { Logger } from 'pino';
 import type { Pool, PoolClient } from 'pg';
 import { IngestionStatus } from '@hira/contracts';
-import { INGEST_QUEUE, QUEUE_PREFIX } from '../ingestion.constants';
+import { INGEST_QUEUE, JOB_EMBED, JOB_EXTRACT_SKILLS, QUEUE_PREFIX } from '../ingestion.constants';
+import { clearReindex } from '../reindex/clear-reindex';
 import { createRunsRouter } from '../runs/runs.router';
 import type { HttpGet } from '../connectors/collect-source';
 import { createDailyRates, fetchNbrbRates } from '../normalize/nbrb-rates';
 import { performIngest } from '../store/perform-ingest';
 import { createPgRunStore } from '../store/pg-run.store';
+import { runEmbedding, runSkillExtraction, startSkillWorkers } from './skill-jobs';
+import { registerSkillIndexCron } from './skill-schedules';
 import type { IngestJob, IngestQueue } from './schedules';
 import { registerIngestionCron } from './schedules';
 
@@ -46,17 +49,28 @@ export function attachIngestionRuntime(
     },
   );
   registerIngestionCron(cron, queueAdapter(queue));
+  const skills = startSkillWorkers(pool, redisUrl, logger);
+  registerSkillIndexCron(cron, skills.queue);
   worker.on('failed', (job, error) =>
     logger.error({ err: error, jobId: job?.id }, 'ingestion job failed'),
   );
   return {
-    router: runsRouter(runs, queue),
-    close: () => closeRuntime(worker, queue, queueConnection, workerConnection),
+    router: runsRouter(runs, queue, pool),
+    close: () => closeAll(worker, queue, queueConnection, workerConnection, skills.close),
   };
 }
 
-function runsRouter(runs: ReturnType<typeof createPgRunStore>, queue: Queue<IngestJob>): Router {
-  return createRunsRouter({ runs, queue: queueAdapter(queue), now: () => new Date() });
+function runsRouter(
+  runs: ReturnType<typeof createPgRunStore>,
+  queue: Queue<IngestJob>,
+  pool: Pool,
+): Router {
+  return createRunsRouter({
+    runs,
+    queue: queueAdapter(queue),
+    now: () => new Date(),
+    reindex: (command) => clearReindex(pool, command.scope, command.vacancyIds),
+  });
 }
 
 function queueAdapter(queue: Queue<IngestJob>): IngestQueue {
@@ -78,14 +92,28 @@ async function handleJob(
   const runId = job.runId ?? (await runs.start(job.source, job.jobType, new Date())).id;
   const client = await pool.connect();
   try {
-    const quoted = await quotedRates(rates, logger);
-    await runs.finish(runId, await performIngest(performInput(client, job, limit, quoted)));
+    await runs.finish(runId, await runOne(client, job, limit, logger, rates));
   } catch (error) {
     logger.error({ err: error, runId }, 'ingestion run failed');
     await failRun(runs, runId, error);
   } finally {
     client.release();
   }
+}
+
+async function runOne(
+  client: PoolClient,
+  job: IngestJob,
+  limit: number,
+  logger: Logger,
+  rates: () => Promise<Record<string, number>>,
+) {
+  if (job.jobType === JOB_EXTRACT_SKILLS) {
+    return runSkillExtraction(client, job.source, process.env, new Date());
+  }
+  if (job.jobType === JOB_EMBED) return runEmbedding(client, job.source, process.env, new Date());
+  const quoted = await quotedRates(rates, logger);
+  return performIngest(performInput(client, job, limit, quoted));
 }
 
 async function quotedRates(
@@ -141,6 +169,17 @@ async function failRun(
     errors: [{ message: error instanceof Error ? error.message : 'run failed' }],
     finishedAt: new Date(),
   });
+}
+
+async function closeAll(
+  worker: Worker<IngestJob>,
+  queue: Queue<IngestJob>,
+  queueConnection: Redis,
+  workerConnection: Redis,
+  closeSkills: () => Promise<void>,
+): Promise<void> {
+  await closeSkills();
+  await closeRuntime(worker, queue, queueConnection, workerConnection);
 }
 
 async function closeRuntime(

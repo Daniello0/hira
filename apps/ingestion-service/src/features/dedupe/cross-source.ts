@@ -1,4 +1,5 @@
 import { DuplicateDetection, VacancySource, VacancyStatus } from '@hira/contracts';
+import { DUPLICATE_COSINE_THRESHOLD } from '../ingestion.constants';
 import { descriptionsMatch } from './simhash';
 
 export interface CrossSourceSide {
@@ -20,20 +21,24 @@ export interface CrossSourceResult {
   detectedBy?: DuplicateDetection;
 }
 
-/** Confirms a cross-source copy. The cosine threshold 0.93 is not used here. */
+/** Confirms a cross-source copy by simhash, or by cosine when the hashes differ. */
 export function crossSourceDecision(input: {
   incoming: CrossSourceSide;
   existing: CrossSourceExisting;
+  cosine?: number | null;
 }): CrossSourceResult {
   if (!samePosting(input.incoming, input.existing)) return { duplicate: false };
-  if (!descriptionsMatch(input.incoming.simhash, input.existing.simhash)) {
-    return { duplicate: false };
+  if (descriptionsMatch(input.incoming.simhash, input.existing.simhash)) {
+    return confirmed(input.existing.id, DuplicateDetection.Fuzzy);
   }
-  return {
-    duplicate: true,
-    canonicalId: input.existing.id,
-    detectedBy: DuplicateDetection.Fuzzy,
-  };
+  if (input.cosine != null && input.cosine >= DUPLICATE_COSINE_THRESHOLD) {
+    return confirmed(input.existing.id, DuplicateDetection.Embedding);
+  }
+  return { duplicate: false };
+}
+
+function confirmed(canonicalId: string, detectedBy: DuplicateDetection): CrossSourceResult {
+  return { duplicate: true, canonicalId, detectedBy };
 }
 
 function samePosting(incoming: CrossSourceSide, existing: CrossSourceExisting): boolean {

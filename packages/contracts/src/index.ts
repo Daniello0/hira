@@ -14,6 +14,7 @@ export { ParseStatus } from './common/enums/parse-status.enum';
 export { ProfileSkillSource } from './common/enums/profile-skill-source.enum';
 export { QueryComplexity } from './common/enums/query-complexity.enum';
 export { RateUnit } from './common/enums/rate-unit.enum';
+export { ReindexScope } from './common/enums/reindex-scope.enum';
 export { RetrievalBranch } from './common/enums/retrieval-branch.enum';
 export { SeniorityLevel } from './common/enums/seniority-level.enum';
 export { SkillAliasSource } from './common/enums/skill-alias-source.enum';
@@ -51,6 +52,13 @@ export {
 } from './common/dto/search/search-intent.dto';
 export { type MemoryFactDto } from './common/dto/memory/memory-fact.dto';
 export { type GenerateRequest } from './common/dto/llm/generate-request.dto';
+export {
+  type ExtractedSkill,
+  type ExtractedSkills,
+  type ExtractSkillsRequest,
+  type ExtractSkillsResponse,
+  type ExtractSkillsVacancy,
+} from './common/dto/llm/extract-skills.dto';
 export { type LlmMeta, type TokenUsage } from './common/dto/llm/token-usage.dto';
 export {
   type PromptMemory,

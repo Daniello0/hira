@@ -1,6 +1,6 @@
 # 04. Модель данных
 
-Статус: черновик · Последнее обновление: 2026-10-11 · лексическая колонка — ADR-030
+Статус: черновик · Последнее обновление: 2026-10-17 · лексическая колонка — ADR-030, PMI/IDF/typicality — ADR-036
 
 СУБД: PostgreSQL 17, локально. Расширения: `vector` (pgvector), `pg_trgm`, `pg_textsearch` (BM25, ADR-017), `uuid-ossp`. ORM: TypeORM, миграции живут в `core-api`.
 
@@ -262,11 +262,11 @@ CREATE INDEX idx_vac_title_trgm ON vacancies USING gin (title gin_trgm_ops);
 |---|---|---|
 | `id` | `int` serial PK | |
 | `canonical_name` | `varchar(256)` UNIQUE | канон: «Kubernetes» |
-| `skill_type` | `skill_type` enum | `HARD` / `SOFT` / `TOOL` / `LANGUAGE` / `DOMAIN` |
+| `skill_type` | `skill_type` enum | `HARD` / `SOFT` / `TOOL` / `LANGUAGE` / `DOMAIN`. Из ESCO — ADR-037: language, затем transversal, затем digital, затем `knowledge` → `DOMAIN`, `skill/competence` → `HARD` |
 | `esco_uri` | `varchar(256)` NULL | привязка к таксономии, если есть |
 | `description` | `text` NULL | |
 | `embedding` | `vector(1024)` NULL | NULL, пока ночная индексация не посчитала вектор |
-| `idf` | `real` | обратная частота по корпусу, пересчитывается ночью |
+| `idf` | `real` | `ln(N / df)` по вакансиям, у которых есть навык; 0, если навык нигде не встретился или есть в каждой такой вакансии. Ночной пересчёт, ADR-036 |
 | `vacancy_count` | `int` | денормализация для быстрой статистики |
 | `needs_review` | `boolean` | автосозданный узел, не проверенный человеком |
 
@@ -288,7 +288,7 @@ CREATE INDEX idx_vac_title_trgm ON vacancies USING gin (title gin_trgm_ops);
 
 PK `(source_skill_id, target_skill_id, edge_type)`. Индексы по обоим направлениям — обход идёт в обе стороны.
 
-`RELATED_TO` считается из корпуса: для пары навыков берётся нормализованная поточечная взаимная информация (PMI) по совместной встречаемости в вакансиях, рёбра ниже порога отбрасываются. Это заменяет три зашитых доменных словаря из курсовой 2026 обоснованной статистикой.
+`RELATED_TO` считается из корпуса нормированной PMI (Bouma, 2009; ADR-036): `ln(p(xy) / (p(x)p(y))) / -ln(p(xy))`. Ребро пишется в обе стороны с этим весом, только если навыки вместе встретились хотя бы в 5 вакансиях и значение не ниже 0.2. Рёбра таксономии ночной пересчёт не удаляет. Это заменяет три зашитых доменных словаря из курсовой 2026.
 
 ### `vacancy_skills`
 
@@ -299,7 +299,7 @@ PK `(source_skill_id, target_skill_id, edge_type)`. Индексы по обои
 ### `occupations`, `occupation_skills`, `occupation_transitions`
 
 - `occupations`: `id`, `canonical_name` UNIQUE, `esco_uri`, `embedding` `vector(1024)` NULL, `description`.
-- `occupation_skills`: `occupation_id`, `skill_id`, `typicality` (0..1) — насколько навык характерен для профессии.
+- `occupation_skills`: `occupation_id`, `skill_id`, `typicality` (0..1). Essential из ESCO — 1, optional — 0.5 (ADR-036).
 - `occupation_transitions`: `from_occupation_id`, `to_occupation_id`, `frequency`, `skill_gap` (`int[]` — каких навыков не хватает для перехода). Основа сценария US-6 «куда расти».
 
 ### Пример обхода (S1c) на рекурсивном CTE

@@ -1,4 +1,4 @@
-import { IngestionStatus, VacancySource } from '@hira/contracts';
+import { IngestionStatus, ReindexScope, VacancySource } from '@hira/contracts';
 import pino from 'pino';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
@@ -94,12 +94,69 @@ describe('ingestion runs API', () => {
     const job = await request(app)
       .post('/internal/v1/runs')
       .set('X-Internal-Token', 'secret')
-      .send({ source: VacancySource.Gsz, jobType: 'EMBED' });
+      .send({ source: VacancySource.Gsz, jobType: 'NOPE' });
     expect(job.status).toBe(400);
     const missing = await request(app)
       .get('/internal/v1/runs/missing')
       .set('X-Internal-Token', 'secret');
     expect(missing.status).toBe(404);
     expect(missing.body.errorCode).toBe('NOT_FOUND');
+  });
+
+  it('starts a skill extraction run for a stage-7 source', async () => {
+    const queued: IngestJob[] = [];
+    const app = appWith(
+      {
+        add: async (job) => {
+          queued.push(job);
+        },
+      },
+      new MemoryRuns(),
+    );
+    const created = await request(app)
+      .post('/internal/v1/runs')
+      .set('X-Internal-Token', 'secret')
+      .send({ source: VacancySource.HabrCareer, jobType: 'EXTRACT_SKILLS' });
+    expect(created.status).toBe(202);
+    expect(queued[0]?.jobType).toBe('EXTRACT_SKILLS');
+  });
+
+  it('clears vectors for an embeddings reindex and rejects an unknown scope', async () => {
+    const scopes: string[] = [];
+    const app = createApp({
+      logger: silent,
+      internalToken: 'secret',
+      probes: [],
+      internalRouter: createRunsRouter({
+        runs: new MemoryRuns(),
+        queue: { add: async () => undefined },
+        now: () => new Date('2026-10-11T12:00:00Z'),
+        reindex: async (command) => {
+          scopes.push(command.scope);
+          return 2;
+        },
+      }),
+    });
+    const ok = await request(app)
+      .post('/internal/v1/reindex')
+      .set('X-Internal-Token', 'secret')
+      .send({
+        scope: ReindexScope.Embeddings,
+        vacancyIds: ['3f1c2c2e-4b3a-4d5e-8f70-123456789abc'],
+      });
+    expect(ok.status).toBe(202);
+    expect(ok.body).toEqual({ updated: 2 });
+    expect(scopes).toEqual([ReindexScope.Embeddings]);
+    const bad = await request(app)
+      .post('/internal/v1/reindex')
+      .set('X-Internal-Token', 'secret')
+      .send({ scope: 'CHUNKS' });
+    expect(bad.status).toBe(400);
+    expect(bad.body.errorCode).toBe('VALIDATION_FAILED');
+    const brokenId = await request(app)
+      .post('/internal/v1/reindex')
+      .set('X-Internal-Token', 'secret')
+      .send({ scope: ReindexScope.All, vacancyIds: ['not-a-uuid'] });
+    expect(brokenId.status).toBe(400);
   });
 });

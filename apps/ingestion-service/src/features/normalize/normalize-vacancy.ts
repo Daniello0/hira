@@ -9,7 +9,7 @@ import {
 import type { RawVacancy } from '../connectors/raw-vacancy';
 import { normalizeCompanyName } from './company-name';
 import { dictionaryCity } from './dictionary-city';
-import { contentHash } from './content-hash';
+import { conditionsText, contentHash, sourceHash } from './content-hash';
 import { mapEmployment, mapSeniority, mapWorkFormat } from './map-enums';
 import { stripHtml } from './strip-html';
 import { simhash } from '../dedupe/simhash';
@@ -42,6 +42,7 @@ export interface CanonicalVacancy {
   status: VacancyStatus;
   publishedAt: string | null;
   contentHash: string;
+  sourceHash: string;
   skillsText: '';
   simhash: string;
 }
@@ -76,6 +77,11 @@ function buildCanonical(
     schedule: raw.schedule,
     status: raw.archived ? VacancyStatus.Closed : VacancyStatus.Active,
     contentHash: hashOf(title, description, workFormat, raw.schedule),
+    sourceHash: sourceHash({
+      title,
+      description,
+      conditions: conditionsText(workFormat, raw.schedule),
+    }),
     simhash: simhash(description),
   };
 }
@@ -143,7 +149,7 @@ function hashOf(
     title,
     description,
     skillsText: '',
-    conditions: `${workFormat ?? ''}|${schedule ?? ''}`,
+    conditions: conditionsText(workFormat, schedule),
   });
 }
 

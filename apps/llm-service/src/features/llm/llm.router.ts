@@ -1,7 +1,13 @@
 import { createApiErrorResponse, type ApiErrorResponse } from '@hira/contracts';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { readRequestId } from '../../common/middleware/request-id.middleware';
-import type { GenerateRequest, UnderstandRequest, UnderstandResponse } from '@hira/contracts';
+import type {
+  ExtractSkillsRequest,
+  ExtractSkillsResponse,
+  GenerateRequest,
+  UnderstandRequest,
+  UnderstandResponse,
+} from '@hira/contracts';
 import type { LlmStreamEvent } from '../generate/generate.service';
 import {
   LLM_NOT_CONFIGURED_CODE,
@@ -12,6 +18,7 @@ import {
   SSE_ERROR_EVENT,
 } from './llm.constants';
 import { LlmRouteError, StreamInterruptedError } from './llm.errors';
+import { parseExtractSkillsRequest } from '../extract-skills/extract-skills.schema';
 import { parseGenerateRequest, parseUnderstandRequest } from './llm-request.schema';
 import { toRouteError } from './route-error';
 
@@ -20,13 +27,24 @@ export interface LlmRouterDeps {
   model: string;
   understand: (request: UnderstandRequest) => Promise<UnderstandResponse>;
   generate: (request: GenerateRequest, emit: (event: LlmStreamEvent) => void) => Promise<void>;
+  extractSkills: (request: ExtractSkillsRequest) => Promise<ExtractSkillsResponse>;
 }
 
 /** Internal understand and generate routes. Health stays on the parent app. */
 export function createLlmRouter(deps: LlmRouterDeps): Router {
   const router = Router();
-  router.post('/understand', asyncHandler((req, res) => postUnderstand(deps, req, res)));
-  router.post('/generate', asyncHandler((req, res) => postGenerate(deps, req, res)));
+  router.post(
+    '/understand',
+    asyncHandler((req, res) => postUnderstand(deps, req, res)),
+  );
+  router.post(
+    '/generate',
+    asyncHandler((req, res) => postGenerate(deps, req, res)),
+  );
+  router.post(
+    '/extract-skills',
+    asyncHandler((req, res) => postExtractSkills(deps, req, res)),
+  );
   return router;
 }
 
@@ -36,6 +54,17 @@ async function postUnderstand(deps: LlmRouterDeps, req: Request, res: Response):
     const body = parseUnderstandRequest(req.body);
     res.setHeader(LLM_PROVIDER_HEADER, LLM_PROVIDER_ID);
     res.status(200).json(await deps.understand(body));
+  } catch (error) {
+    sendFailure(res, req, error);
+  }
+}
+
+async function postExtractSkills(deps: LlmRouterDeps, req: Request, res: Response): Promise<void> {
+  try {
+    assertConfigured(deps);
+    const body = parseExtractSkillsRequest(req.body);
+    res.setHeader(LLM_PROVIDER_HEADER, LLM_PROVIDER_ID);
+    res.status(200).json(await deps.extractSkills(body));
   } catch (error) {
     sendFailure(res, req, error);
   }

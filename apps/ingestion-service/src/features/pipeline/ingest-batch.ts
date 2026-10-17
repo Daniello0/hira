@@ -73,7 +73,7 @@ async function writeOne(
   canonical: CanonicalVacancy,
 ): Promise<'created' | 'updated' | 'skipped'> {
   const existing = await input.writer.findByNaturalKey(canonical.source, canonical.externalId);
-  const decision = decideUpsert(existing?.contentHash ?? null, canonical.contentHash);
+  const decision = decideUpsert(existing?.sourceHash ?? null, canonical.sourceHash);
   const row = await applyWrite(input.writer, decision, existing, canonical, input.now);
   if (decision !== 'skip') await hideIfCopy(input.writer, row);
   if (decision === 'insert') return 'created';
@@ -120,6 +120,8 @@ function toStored(canonical: CanonicalVacancy, id: string, seenAt: Date): Stored
     description: canonical.description,
     simhash: canonical.simhash,
     contentHash: canonical.contentHash,
+    sourceHash: canonical.sourceHash,
+    skillsText: canonical.skillsText,
     status: canonical.status,
     lastSeenAt: seenAt,
     embedding: null,
