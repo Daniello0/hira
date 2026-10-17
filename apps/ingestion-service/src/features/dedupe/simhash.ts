@@ -20,6 +20,11 @@ export function descriptionsMatch(left: string, right: string): boolean {
   return hammingDistance(left, right) <= SIMHASH_MAX_DISTANCE;
 }
 
+/** 1 when the hashes match, less as the Hamming distance grows. */
+export function fuzzySimilarity(left: string, right: string): number {
+  return 1 - hammingDistance(left, right) / SIMHASH_BITS;
+}
+
 function tokensOf(text: string): string[] {
   return text
     .toLowerCase()

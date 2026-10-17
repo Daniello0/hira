@@ -15,6 +15,7 @@ export const VALIDATION_FAILED_CODE = 'VALIDATION_FAILED';
 export const VALIDATION_FAILED_MESSAGE = 'Run request is invalid';
 export const HH_USER_AGENT = 'HiraVacancyAggregator/0.1 (course project)';
 export const NBRB_RATES_URL = 'https://api.nbrb.by/exrates/rates?periodicity=0';
+export const RATE_TIME_ZONE = 'Europe/Minsk';
 
 export const STAGE_SOURCES = [
   VacancySource.RabotaBy,

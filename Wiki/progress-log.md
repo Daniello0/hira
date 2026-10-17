@@ -1,12 +1,12 @@
 # Progress Log
 
-Статус: активен · Последнее обновление: 2026-10-11
+Статус: активен · Последнее обновление: 2026-10-17
 
 Журнал этапов разработки продукта. Обновляется по мере выполнения — меняй **%** в последней колонке и дату в шапке.
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~38%
+**Общий прогресс (среднее по этапам):** ~40%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
@@ -15,8 +15,8 @@
 | 3 | **База данных** | TypeORM entities, миграции, `vector`, `pg_trgm`, `pg_textsearch`, HNSW/BM25-индексы, seed для dev | **90** |
 | 4 | **Auth и core-api (фундамент)** | Register/login, JWT + refresh, argon2id, demo session, rate limits Redis (3 / 20 day), Swagger | **100** |
 | 5 | **llm-service** | OpenRouter, `/understand` + json_schema, `/generate` (SSE), Redis cache, ретраи | **100** |
-| 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3** в обычном Compose, без профиля ([ADR-033](10-decision-log.md)); арена 8192; живые `/embed` (1024, ONNX FP32) и `/rerank` (safetensors, [ADR-034](10-decision-log.md)). Оба процесса вместе в лимит Docker 16 ГБ не влезли | **90** |
-| 7 | **Ingestion: источники 1–3** | rabota.by (публичные страницы, [ADR-035](10-decision-log.md)), ГСЗ, Хабр Карьера; normalize, dedupe simhash, BullMQ, cron, `POST/GET /internal/v1/runs`. Навыки и эмбеддинги — этап 8. Живой снимок по 5 вакансий с каждого источника записан | **75** |
+| 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3** в обычном Compose, без профиля ([ADR-033](10-decision-log.md)); арена 8192. Реранкер становится healthy раньше энкодера. 2026-10-17 оба живы вместе: `/embed` 1024 FP32, `/rerank` с оценкой ([ADR-034](10-decision-log.md)), `retrieval-service` `GET /health/ready` — 200 | **100** |
+| 7 | **Ingestion: источники 1–3** | rabota.by (публичные страницы, [ADR-035](10-decision-log.md)), ГСЗ, Хабр Карьера; normalize, курс НБ РБ на календарные сутки Минска, dedupe simhash, BullMQ, cron, `POST/GET /internal/v1/runs`. Навыки и эмбеддинги — этап 8. Живой снимок по 5 вакансий с каждого источника записан | **100** |
 | 8 | **Ingestion: навыки и граф** | extract-skills, ESCO, `vacancy_skills`, PMI/IDF nightly, embed → pgvector (**overnight**) | 0 |
 | 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | 0 |
 | 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | 0 |
@@ -71,8 +71,8 @@
 
 ## Следующий шаг
 
-**Этапы 6 и 7.** TEI входит в обычный `docker compose up` ([ADR-033](10-decision-log.md)), арена батча — 8192. 2026-10-11 `/embed` вернул вектор из 1024 чисел (`model_dtype: float32`, ONNX). `/rerank` вернул оценку; реранкер — safetensors через Candle ([ADR-034](10-decision-log.md)). В покое энкодер занял около 13.4 ГиБ, реранкер около 5.9 ГиБ, поэтому вместе их не держали: лимит Docker 15.6 ГиБ. `retrieval-service` из-за этого не стартовал. В Compose он ждёт `GET /health` обоих, а `GET /health/ready` проверяет размер вектора и оценку реранкера.
+**Этап 8.** Навыки, ESCO, граф и запись эмбеддингов в pgvector. Этапы 6 и 7 закрыты.
 
-`POST /internal/v1/runs` — один источник за запрос. При `INGEST_LIMIT=5` ГСЗ, Хабр Карьера и rabota.by завершились `PARTIAL`: список длиннее лимита, записано по 5 вакансий, ошибок нет. rabota.by — публичные страницы ([ADR-035](10-decision-log.md)); `Accept: text/html`, без query string. Повторный прогрев обоих TEI не запускался: он занимает все ядра.
+2026-10-17 лимит Docker — 23.22 ГиБ. Одновременный старт обоих TEI получил OOM (exit 137): пик загрузки второй модели около 13 ГиБ. Если реранкер уже healthy, энкодер поднимается рядом. В покое энкодер занял 13.24 ГиБ, реранкер 5.94 ГиБ. `/embed` вернул 1024 конечных числа, `/rerank` — оценку `0.000049707` для пробы «вакансия» / «разработчик Python». `GET /health/ready` у `retrieval-service` ответил 200: `postgres`, `tei` и `tei-rerank` в состоянии `up`. В Compose энкодер зависит от `service_healthy` реранкера.
 
-Ingestion пишет вакансии источников 1–3 в уже существующие таблицы: список и карточка, нормализация, upsert по `(source, external_id)`, simhash-дедуп, протухание через 48 часов. `node-cron` только кладёт задачи в BullMQ (`bull:ingestion`). `extract-skills`, граф и векторы остаются этапом 8. Дальше — этап 8. Совместный старт TEI и `retrieval-service` — когда можно занять CPU на прогрев.
+Прогон ingestion по-прежнему берёт один источник. При `INGEST_LIMIT=5` ГСЗ, Хабр Карьера и rabota.by завершились `PARTIAL`: список длиннее лимита, записано по 5 вакансий. Курс НБ РБ кэшируется на календарные сутки Минска; сбой курса не роняет вакансии в BYN и попадает в `errors`. Ошибка отдельной вакансии тоже пишется туда, с `externalId`.

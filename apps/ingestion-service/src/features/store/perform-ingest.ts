@@ -8,13 +8,20 @@ import { expireSource, type RunFinish } from './pg-run.store';
 import { createPgVacancyStore } from './pg-vacancy.store';
 import type { SqlClient } from './sql-client';
 
+export interface RunItemError {
+  message: string;
+  externalId?: string;
+}
+
 export interface PerformInput {
   job: IngestJob;
   client: SqlClient;
   http: HttpGet;
   rates: Record<string, number>;
+  rateError: string | null;
   limit: number;
   now: Date;
+  pause?: () => Promise<void>;
 }
 
 interface Counts {
@@ -23,6 +30,7 @@ interface Counts {
   updated: number;
   skipped: number;
   failed: number;
+  errors: RunItemError[];
 }
 
 /** Runs one queued job on a single SQL connection and returns the run counters. */
@@ -34,15 +42,19 @@ export async function performIngest(input: PerformInput): Promise<RunFinish> {
 async function expireJob(input: PerformInput): Promise<RunFinish> {
   const cutoff = new Date(input.now.getTime() - STALE_THRESHOLD_HOURS * HOUR_MS);
   const updated = await expireSource(input.client, input.job.source, cutoff);
-  return done(IngestionStatus.Success, emptyCounts(updated), null, input.now);
+  return done(IngestionStatus.Success, emptyCounts(updated), input.rateError, input.now);
 }
 
 async function collectJob(input: PerformInput): Promise<RunFinish> {
-  const collected = await collectSource(input.job.source, { http: input.http, limit: input.limit });
+  const collected = await collectSource(input.job.source, {
+    http: input.http,
+    limit: input.limit,
+    pause: input.pause,
+  });
   const counts = await writeCollected(input, collected.raws);
   const status =
     collected.truncated || counts.failed > 0 ? IngestionStatus.Partial : IngestionStatus.Success;
-  return done(status, counts, null, input.now);
+  return done(status, counts, input.rateError, input.now);
 }
 
 async function writeCollected(input: PerformInput, raws: RawVacancy[]): Promise<Counts> {
@@ -64,15 +76,34 @@ async function writeOne(
     if (saved.outcome === 'created') counts.created += 1;
     else if (saved.outcome === 'updated') counts.updated += 1;
     else counts.skipped += 1;
-  } catch {
+  } catch (error) {
     counts.failed += 1;
+    counts.errors.push({ externalId: raw.externalId, message: errorMessage(error) });
   }
 }
 
 function emptyCounts(updated: number): Counts {
-  return { fetched: 0, created: 0, updated, skipped: 0, failed: 0 };
+  return { fetched: 0, created: 0, updated, skipped: 0, failed: 0, errors: [] };
 }
 
-function done(status: IngestionStatus, counts: Counts, errors: unknown, now: Date): RunFinish {
-  return { status, ...counts, errors, finishedAt: now };
+function done(
+  status: IngestionStatus,
+  counts: Counts,
+  rateError: string | null,
+  now: Date,
+): RunFinish {
+  const { errors, ...counters } = counts;
+  return { status, ...counters, errors: publishedErrors(rateError, errors), finishedAt: now };
+}
+
+function publishedErrors(
+  rateError: string | null,
+  itemErrors: RunItemError[],
+): RunItemError[] | null {
+  const errors = rateError === null ? itemErrors : [{ message: rateError }, ...itemErrors];
+  return errors.length === 0 ? null : errors;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'vacancy failed';
 }

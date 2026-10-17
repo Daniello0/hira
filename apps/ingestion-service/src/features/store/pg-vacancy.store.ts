@@ -1,8 +1,7 @@
 import type { SqlClient } from './sql-client';
 import { DuplicateDetection, VacancyStatus } from '@hira/contracts';
 import { crossSourceDecision } from '../dedupe/cross-source';
-import { hammingDistance, simhash } from '../dedupe/simhash';
-import { SIMHASH_BITS } from '../ingestion.constants';
+import { fuzzySimilarity, simhash } from '../dedupe/simhash';
 import type { CanonicalVacancy } from '../normalize/normalize-vacancy';
 import { resolveCompanyId } from './pg-company';
 import { resolveLocationId } from './pg-location';
@@ -106,7 +105,7 @@ async function hideCopy(client: SqlClient, vacancy: CanonicalVacancy, id: string
   );
   const match = result.rows.map(readCandidate).find((row) => isCopy(vacancy, row));
   if (match === undefined) return;
-  await markDuplicate(client, String(match.id), id, vacancy);
+  await markDuplicate(client, String(match.id), id, copyScore(vacancy, match));
 }
 
 function isCopy(vacancy: CanonicalVacancy, row: CandidateRow): boolean {
@@ -124,14 +123,16 @@ function isCopy(vacancy: CanonicalVacancy, row: CandidateRow): boolean {
   }).duplicate;
 }
 
+function copyScore(vacancy: CanonicalVacancy, match: CandidateRow): number {
+  return fuzzySimilarity(vacancy.simhash, simhash(match.description ?? ''));
+}
+
 async function markDuplicate(
   client: SqlClient,
   canonicalId: string,
   duplicateId: string,
-  vacancy: CanonicalVacancy,
+  similarity: number,
 ): Promise<void> {
-  const similarity =
-    1 - hammingDistance(vacancy.simhash, simhash(vacancy.description)) / SIMHASH_BITS;
   await client.query(`UPDATE vacancies SET status = 'DUPLICATE' WHERE id = $1`, [duplicateId]);
   await client.query(
     `INSERT INTO vacancy_duplicates (canonical_vacancy_id, duplicate_vacancy_id, similarity, detected_by)

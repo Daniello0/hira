@@ -5,7 +5,7 @@ import { DuplicateDetection, VacancySource, VacancyStatus } from '@hira/contract
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runMigrations } from '../../../../core-api/src/features/database/run-migrations';
-import { simhash } from '../dedupe/simhash';
+import { fuzzySimilarity, simhash } from '../dedupe/simhash';
 import type { CanonicalVacancy } from '../normalize/normalize-vacancy';
 import { createPgVacancyStore } from './pg-vacancy.store';
 
@@ -115,8 +115,11 @@ describe('postgres vacancy store', () => {
       `SELECT COUNT(*)::int AS count FROM companies WHERE unp = '100000002'`,
     );
     expect(companies.rows[0]?.count).toBe(1);
-    const pair = await client.query(`SELECT detected_by FROM vacancy_duplicates`);
+    const pair = await client.query(`SELECT detected_by, similarity FROM vacancy_duplicates`);
     expect(pair.rows[0]?.detected_by).toBe(DuplicateDetection.Fuzzy);
+    expect(Number(pair.rows[0]?.similarity)).toBe(
+      fuzzySimilarity(simhash(DESCRIPTION), simhash(DESCRIPTION)),
+    );
     const hidden = await client.query(
       `SELECT status::text FROM vacancies WHERE external_id = 'gsz-1'`,
     );

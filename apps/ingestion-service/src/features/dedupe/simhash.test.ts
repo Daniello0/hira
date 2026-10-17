@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SIMHASH_MAX_DISTANCE } from '../ingestion.constants';
-import { descriptionsMatch, hammingDistance, simhash } from './simhash';
+import { descriptionsMatch, fuzzySimilarity, hammingDistance, simhash } from './simhash';
 
 describe('simhash', () => {
   it('treats the same description as a match and a different one as not', () => {
@@ -16,5 +16,10 @@ describe('simhash', () => {
 
   it('rejects a hash of the wrong length', () => {
     expect(() => hammingDistance('abc', 'def')).toThrow(/hash/i);
+  });
+
+  it('scores two hashes by the bits that differ', () => {
+    expect(fuzzySimilarity('0000000000000000', '0000000000000000')).toBe(1);
+    expect(fuzzySimilarity('0000000000000000', '0000000000000001')).toBeCloseTo(1 - 1 / 64);
   });
 });

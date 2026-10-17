@@ -1,6 +1,6 @@
 # 01. Архитектура системы
 
-Статус: черновик · Последнее обновление: 2026-10-11
+Статус: черновик · Последнее обновление: 2026-10-17
 
 ---
 
@@ -263,7 +263,7 @@ job-finder-ai/
 
 `docker-compose.yml` поднимает: `postgres`, **`redis`**, `tei`, `tei-rerank`, `core-api`, `retrieval-service`, `llm-service`, `ingestion-service`, `web`. Внутри сети: retrieval `4001`, llm `4002`, ingestion `4003`, оба TEI — `80`. Наружу торчат только `web:3000` и `core-api:4000` (для Swagger).
 
-Профиля Compose для TEI нет: оба контейнера входят в обычный `docker compose up` ([ADR-033](10-decision-log.md)). `retrieval-service` стартует после того, как каждый ответил `GET /health`. Его `GET /health/ready` вызывает `/embed` и готов только при векторе из 1024 чисел, и `/rerank` — только если в ответе есть числовая оценка.
+Профиля Compose для TEI нет: оба контейнера входят в обычный `docker compose up` ([ADR-033](10-decision-log.md)). Энкодер стартует после `GET /health` реранкера: одновременная загрузка обеих моделей не помещается в память Docker. `retrieval-service` стартует после того, как каждый ответил `GET /health`. Его `GET /health/ready` вызывает `/embed` и готов только при векторе из 1024 чисел, и `/rerank` — только если в ответе есть числовая оценка.
 
 ### Redis
 

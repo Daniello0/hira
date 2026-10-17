@@ -7,6 +7,8 @@ import type { Pool, PoolClient } from 'pg';
 import { IngestionStatus } from '@hira/contracts';
 import { INGEST_QUEUE, QUEUE_PREFIX } from '../ingestion.constants';
 import { createRunsRouter } from '../runs/runs.router';
+import type { HttpGet } from '../connectors/collect-source';
+import { createDailyRates, fetchNbrbRates } from '../normalize/nbrb-rates';
 import { performIngest } from '../store/perform-ingest';
 import { createPgRunStore } from '../store/pg-run.store';
 import type { IngestJob, IngestQueue } from './schedules';
@@ -31,9 +33,13 @@ export function attachIngestionRuntime(
     connection: queueConnection,
     prefix: QUEUE_PREFIX,
   });
+  const rates = createDailyRates(
+    () => fetchNbrbRates(liveHttp()),
+    () => new Date(),
+  );
   const worker = new Worker<IngestJob>(
     INGEST_QUEUE,
-    (job) => handleJob(pool, job.data, limit, logger),
+    (job) => handleJob(pool, job.data, limit, logger, rates),
     {
       connection: workerConnection,
       prefix: QUEUE_PREFIX,
@@ -61,12 +67,19 @@ function queueAdapter(queue: Queue<IngestJob>): IngestQueue {
   };
 }
 
-async function handleJob(pool: Pool, job: IngestJob, limit: number, logger: Logger): Promise<void> {
+async function handleJob(
+  pool: Pool,
+  job: IngestJob,
+  limit: number,
+  logger: Logger,
+  rates: () => Promise<Record<string, number>>,
+): Promise<void> {
   const runs = createPgRunStore(pool);
   const runId = job.runId ?? (await runs.start(job.source, job.jobType, new Date())).id;
   const client = await pool.connect();
   try {
-    await runs.finish(runId, await performIngest(performInput(client, job, limit)));
+    const quoted = await quotedRates(rates, logger);
+    await runs.finish(runId, await performIngest(performInput(client, job, limit, quoted)));
   } catch (error) {
     logger.error({ err: error, runId }, 'ingestion run failed');
     await failRun(runs, runId, error);
@@ -75,19 +88,41 @@ async function handleJob(pool: Pool, job: IngestJob, limit: number, logger: Logg
   }
 }
 
-function performInput(client: PoolClient, job: IngestJob, limit: number) {
+async function quotedRates(
+  load: () => Promise<Record<string, number>>,
+  logger: Logger,
+): Promise<{ rates: Record<string, number>; rateError: string | null }> {
+  try {
+    return { rates: await load(), rateError: null };
+  } catch (error) {
+    logger.error({ err: error }, 'NBRB rates are unavailable');
+    return { rates: {}, rateError: error instanceof Error ? error.message : 'NBRB rates failed' };
+  }
+}
+
+function performInput(
+  client: PoolClient,
+  job: IngestJob,
+  limit: number,
+  quoted: { rates: Record<string, number>; rateError: string | null },
+) {
   return {
     job,
     client,
-    http: {
-      get: async (url: string, headers: Record<string, string>) => {
-        const response = await fetch(url, { headers });
-        return { status: response.status, body: await response.text() };
-      },
-    },
-    rates: {},
+    http: liveHttp(),
+    rates: quoted.rates,
+    rateError: quoted.rateError,
     limit,
     now: new Date(),
+  };
+}
+
+function liveHttp(): HttpGet {
+  return {
+    get: async (url, headers) => {
+      const response = await fetch(url, { headers });
+      return { status: response.status, body: await response.text() };
+    },
   };
 }
 

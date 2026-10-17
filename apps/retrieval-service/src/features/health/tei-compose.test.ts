@@ -21,6 +21,11 @@ describe('tei compose runtime', () => {
     expect(compose).toContain('start_period: 600s');
   });
 
+  it('loads the reranker before the encoder', () => {
+    const encoder = serviceBlock(compose, 'tei');
+    expect(encoder).toMatch(/tei-rerank:\n\s+condition: service_healthy/);
+  });
+
   it('sets the token arena to the model context of 8192', () => {
     expect(compose.match(/'--max-batch-tokens', '8192'/g)).toHaveLength(2);
     expect(compose).not.toContain("'1024'");
