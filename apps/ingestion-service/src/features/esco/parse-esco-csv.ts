@@ -20,6 +20,16 @@ export interface OccupationSkillLink {
   relation: 'essential' | 'optional';
 }
 
+export interface BroaderRelation {
+  uri: string;
+  broaderUri: string;
+}
+
+export interface EscoTranslation {
+  uri: string;
+  label: string;
+}
+
 /** Reads the skills classification CSV. `escoSkillType` stays the ESCO string. */
 export function parseEscoSkills(csv: string): EscoSkillRow[] {
   return parseTable(csv).flatMap(readSkill);
@@ -40,6 +50,30 @@ export function parseEscoCollection(csv: string): string[] {
   return parseTable(csv)
     .map((row) => field(row, 'concepturi'))
     .filter((uri) => uri.length > 0);
+}
+
+/** Reads broader relations. A row without both URIs is omitted. */
+export function parseBroaderRelations(csv: string): BroaderRelation[] {
+  return parseTable(csv).flatMap(readBroader);
+}
+
+/** Reads Russian preferred labels. A blank label is omitted. */
+export function parseEscoTranslations(csv: string): EscoTranslation[] {
+  return parseTable(csv).flatMap(readTranslation);
+}
+
+function readBroader(row: Record<string, string>): BroaderRelation[] {
+  const uri = field(row, 'concepturi');
+  const broaderUri = field(row, 'broaderuri');
+  if (uri.length === 0 || broaderUri.length === 0) return [];
+  return [{ uri, broaderUri }];
+}
+
+function readTranslation(row: Record<string, string>): EscoTranslation[] {
+  const uri = field(row, 'concepturi');
+  const label = field(row, 'preferredlabel') || field(row, 'label');
+  if (uri.length === 0 || label.length === 0) return [];
+  return [{ uri, label }];
 }
 
 function readSkill(row: Record<string, string>): EscoSkillRow[] {

@@ -2,7 +2,13 @@ import { SkillAliasSource, type SkillType } from '@hira/contracts';
 import type { SqlClient } from '../store/sql-client';
 import { occupationTypicality } from '../skills/graph-stats';
 import { mapEscoSkillType } from './map-esco-skill-type';
-import type { EscoOccupationRow, EscoSkillRow, OccupationSkillLink } from './parse-esco-csv';
+import type {
+  BroaderRelation,
+  EscoOccupationRow,
+  EscoSkillRow,
+  EscoTranslation,
+  OccupationSkillLink,
+} from './parse-esco-csv';
 
 export interface EscoCollections {
   language: readonly string[];
@@ -15,6 +21,8 @@ export interface EscoClassification {
   skills: readonly EscoSkillRow[];
   links: readonly OccupationSkillLink[];
   collections?: EscoCollections;
+  broader?: readonly BroaderRelation[];
+  translations?: readonly EscoTranslation[];
 }
 
 export interface ClassificationResult {
@@ -36,6 +44,8 @@ export async function importEscoClassification(
 ): Promise<ClassificationResult> {
   const occupations = await insertOccupations(client, dump.occupations);
   const skills = await insertSkills(client, dump.skills, dump.collections ?? EMPTY_COLLECTIONS);
+  await insertBroader(client, dump.broader ?? []);
+  await insertTranslations(client, dump.translations ?? []);
   const links = await insertLinks(client, dump.links);
   return { occupations, ...skills, links };
 }
@@ -138,6 +148,48 @@ async function insertAlias(client: SqlClient, skillId: number, alias: string): P
      VALUES ($1, $2, 'en', $3)
      ON CONFLICT (alias, lang) DO NOTHING`,
     [skillId, alias, SkillAliasSource.Esco],
+  );
+}
+
+async function insertBroader(
+  client: SqlClient,
+  relations: readonly BroaderRelation[],
+): Promise<void> {
+  for (const relation of relations) {
+    await insertTaxonomyEdge(client, relation.uri, relation.broaderUri, 'BROADER');
+    await insertTaxonomyEdge(client, relation.broaderUri, relation.uri, 'NARROWER');
+  }
+}
+
+async function insertTaxonomyEdge(
+  client: SqlClient,
+  sourceUri: string,
+  targetUri: string,
+  edgeType: 'BROADER' | 'NARROWER',
+): Promise<void> {
+  await client.query(
+    `INSERT INTO skill_edges (source_skill_id, target_skill_id, edge_type, weight, evidence)
+     SELECT source.id, target.id, $3, 1, 'TAXONOMY'
+     FROM skills source, skills target
+     WHERE source.esco_uri = $1 AND target.esco_uri = $2
+     ON CONFLICT DO NOTHING`,
+    [sourceUri, targetUri, edgeType],
+  );
+}
+
+async function insertTranslations(
+  client: SqlClient,
+  translations: readonly EscoTranslation[],
+): Promise<void> {
+  for (const translation of translations) await insertRussianAlias(client, translation);
+}
+
+async function insertRussianAlias(client: SqlClient, translation: EscoTranslation): Promise<void> {
+  await client.query(
+    `INSERT INTO skill_aliases (skill_id, alias, lang, source)
+     SELECT id, $2, 'ru', 'ESCO_TRANSLATED' FROM skills WHERE esco_uri = $1
+     ON CONFLICT (alias, lang) DO NOTHING`,
+    [translation.uri, translation.label],
   );
 }
 

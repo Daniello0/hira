@@ -181,6 +181,7 @@ services:
       INGEST_LIMIT: ${INGEST_LIMIT:-2000}
       TEI_EMBED_URL: http://tei:80
       LLM_SERVICE_URL: http://llm-service:4002
+      ESCO_DIR: ${ESCO_DIR:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

@@ -450,6 +450,8 @@ describe('skill graph store', () => {
           'http://esco/occ/dev,optional,http://esco/skill/new',
         ].join('\n'),
       ),
+      broader: [{ uri: 'http://esco/skill/new', broaderUri: 'http://esco/skill/python' }],
+      translations: [{ uri: 'http://esco/skill/new', label: 'Новый навык' }],
     });
     expect(imported).toMatchObject({
       occupations: 1,
@@ -465,7 +467,7 @@ describe('skill graph store', () => {
       `SELECT a.alias, a.source::text AS source
        FROM skill_aliases a
        JOIN skills s ON s.id = a.skill_id
-       WHERE s.esco_uri = 'http://esco/skill/new'`,
+       WHERE s.esco_uri = 'http://esco/skill/new' AND a.lang = 'en'`,
     );
     expect(alias.rows).toEqual([{ alias: 'ns', source: 'ESCO' }]);
     const skipped = await client.query(
@@ -488,6 +490,22 @@ describe('skill graph store', () => {
        WHERE o.esco_uri = 'http://esco/occ/dev' AND s.esco_uri = 'http://esco/skill/new'`,
     );
     expect(Number(optional.rows[0]?.typicality)).toBe(0.5);
+    const hierarchy = await client.query(
+      `SELECT edge_type::text AS type, weight, evidence
+       FROM skill_edges e
+       JOIN skills source ON source.id = e.source_skill_id
+       JOIN skills target ON target.id = e.target_skill_id
+       WHERE source.esco_uri = 'http://esco/skill/new'
+         AND target.esco_uri = 'http://esco/skill/python'`,
+    );
+    expect(hierarchy.rows).toEqual([{ type: 'BROADER', weight: 1, evidence: 'TAXONOMY' }]);
+    const russian = await client.query(
+      `SELECT a.alias, a.lang, a.source::text AS source
+       FROM skill_aliases a
+       JOIN skills s ON s.id = a.skill_id
+       WHERE s.esco_uri = 'http://esco/skill/new' AND a.lang = 'ru'`,
+    );
+    expect(russian.rows).toEqual([{ alias: 'Новый навык', lang: 'ru', source: 'ESCO_TRANSLATED' }]);
   });
 });
 

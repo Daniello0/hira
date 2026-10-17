@@ -19,4 +19,5 @@ export const ENV = {
   redisUrl: 'REDIS_URL',
   teiEmbedUrl: 'TEI_EMBED_URL',
   llmServiceUrl: 'LLM_SERVICE_URL',
+  escoDir: 'ESCO_DIR',
 } as const;

@@ -274,7 +274,7 @@ CREATE INDEX idx_vac_title_trgm ON vacancies USING gin (title gin_trgm_ops);
 
 `id`, `skill_id` FK, `alias`, `lang` (`ru` / `en`), `source` (`ESCO` / `ESCO_TRANSLATED` / `MANUAL` / `LLM`). UNIQUE `(alias, lang)`. Индекс `gin (alias gin_trgm_ops)`.
 
-Таблица двуязычная по построению: у одного узла `Kubernetes` будут алиасы `kubernetes`, `k8s` (en) и `кубернетес`, `к8с` (ru). Это то, что связывает англоязычные вакансии LinkedIn/Indeed с русскоязычными запросами через один и тот же узел графа. Значение `ESCO_TRANSLATED` помечает метки, полученные машинным переводом, — их качество отслеживается отдельно и они первыми идут на ручную вычитку.
+Таблица двуязычная по построению: у одного узла `Kubernetes` будут алиасы `kubernetes`, `k8s` (en) и `кубернетес`, `к8с` (ru). Это то, что связывает англоязычные вакансии LinkedIn/Indeed с русскоязычными запросами через один и тот же узел графа. Значение `ESCO_TRANSLATED` помечает метки из `ESCO_DIR/translations_ru.csv` (ADR-038). Их качество отслеживается отдельно, и они первыми идут на ручную вычитку.
 
 ### `skill_edges` — рёбра графа
 

@@ -26,7 +26,7 @@
 | [07-auth-and-memory.md](07-auth-and-memory.md) | Регистрация/вход, сессии, чаты, память модели, выключатель межчатовой памяти | Черновик |
 | [08-evaluation.md](08-evaluation.md) | План экспериментальной оценки: метрики, бенчмарк, абляции | Черновик |
 | [09-open-questions.md](09-open-questions.md) | **Открытые вопросы к тебе.** Решения, которые нельзя принять за тебя | Активен |
-| [10-decision-log.md](10-decision-log.md) | Журнал архитектурных решений — ADR-001…037 | Активен |
+| [10-decision-log.md](10-decision-log.md) | Журнал архитектурных решений — ADR-001…038 | Активен |
 | [progress-log.md](progress-log.md) | **Этапы разработки**, % завершённости, latency-ориентиры | Активен |
 | [design.mdc](design.mdc) | Design Document — сжатая техническая спецификация (переписан с курсовой 2026) | Черновик |
 | [diagrams/](diagrams/) | Схемы: `architecture.dot` / `.png` / `.svg` (Graphviz) | Активен |

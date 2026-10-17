@@ -6,7 +6,7 @@
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~43%
+**Общий прогресс (среднее по этапам):** ~44%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
@@ -17,7 +17,7 @@
 | 5 | **llm-service** | OpenRouter, `/understand` + json_schema, `/generate` (SSE), Redis cache, ретраи | **100** |
 | 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3** в обычном Compose, без профиля ([ADR-033](10-decision-log.md)); арена 8192. Реранкер становится healthy раньше энкодера. 2026-10-17 оба живы вместе: `/embed` 1024 FP32, `/rerank` с оценкой ([ADR-034](10-decision-log.md)), `retrieval-service` `GET /health/ready` — 200 | **100** |
 | 7 | **Ingestion: источники 1–3** | rabota.by (публичные страницы, [ADR-035](10-decision-log.md)), ГСЗ, Хабр Карьера; normalize, курс НБ РБ на календарные сутки Минска, dedupe simhash, BullMQ, cron, `POST/GET /internal/v1/runs`. Навыки и эмбеддинги — этап 8. Живой снимок по 5 вакансий с каждого источника записан | **100** |
-| 8 | **Ingestion: навыки и граф** | extract-skills, ESCO, `vacancy_skills`, PMI/IDF nightly, embed → pgvector (**overnight**) | **50** |
+| 8 | **Ingestion: навыки и граф** | extract-skills, ESCO, `vacancy_skills`, PMI/IDF nightly, embed → pgvector (**overnight**) | **75** |
 | 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | 0 |
 | 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | 0 |
 | 11 | **Оркестрация поиска (core-api)** | Search orchestrator, SSE (intent → results → tokens), чаты, `POST /search` для eval | 0 |
@@ -71,7 +71,7 @@
 
 ## Следующий шаг
 
-**Этап 8.** Импорт ESCO пишет узлы навыков по коллекциям (ADR-037). Полный CSV с портала и русские алиасы `ESCO_TRANSLATED` ещё не загружены.
+**Этап 8.** Пайплайн закрыт: навыки, иерархия и алиасы ESCO, ночной PMI/IDF, эмбеддинги. Полные CSV с портала кладутся в `ESCO_DIR` (ADR-038); в репозитории их нет.
 
 2026-10-17 лимит Docker — 23.22 ГиБ. Одновременный старт обоих TEI получил OOM (exit 137): пик загрузки второй модели около 13 ГиБ. Если реранкер уже healthy, энкодер поднимается рядом. В покое энкодер занял 13.24 ГиБ, реранкер 5.94 ГиБ. `/embed` вернул 1024 конечных числа, `/rerank` — оценку `0.000049707` для пробы «вакансия» / «разработчик Python». `GET /health/ready` у `retrieval-service` ответил 200: `postgres`, `tei` и `tei-rerank` в состоянии `up`. В Compose энкодер зависит от `service_healthy` реранкера.
 

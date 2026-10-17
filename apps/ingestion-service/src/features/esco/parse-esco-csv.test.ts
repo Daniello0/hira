@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  parseBroaderRelations,
   parseEscoOccupations,
   parseEscoSkills,
+  parseEscoTranslations,
   parseOccupationSkillRelations,
 } from './parse-esco-csv';
 
@@ -79,5 +81,16 @@ describe('ESCO CSV', () => {
         relation: 'optional',
       },
     ]);
+  });
+
+  it('reads broader links and Russian labels', () => {
+    expect(
+      parseBroaderRelations(
+        'conceptUri,broaderUri\nhttp://esco/skill/python,http://esco/group/ict',
+      ),
+    ).toEqual([{ uri: 'http://esco/skill/python', broaderUri: 'http://esco/group/ict' }]);
+    expect(
+      parseEscoTranslations('conceptUri,preferredLabel\nhttp://esco/skill/python,Питон\n,'),
+    ).toEqual([{ uri: 'http://esco/skill/python', label: 'Питон' }]);
   });
 });

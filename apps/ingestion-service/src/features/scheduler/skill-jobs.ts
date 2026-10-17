@@ -16,6 +16,9 @@ import {
   QUEUE_PREFIX,
 } from '../ingestion.constants';
 import { requestEmbeddings, type EmbedPost } from '../embed/embed-client';
+import { surfaceVector } from '../embed/surface-vector';
+import { importEscoClassification } from '../esco/import-classification';
+import { loadEscoDirectory } from '../esco/load-esco-directory';
 import { EMBED_CLAIM_LIMIT, SKILL_CLAIM_LIMIT } from '../embed/pending-kind';
 import { listUnembeddedSkills } from '../embed/unembedded-skills';
 import { writeVector } from '../embed/write-vector';
@@ -80,7 +83,7 @@ function workerOf(
 
 async function runQueued(pool: Pool, job: SkillIndexJob, logger: Logger): Promise<void> {
   if (job.jobType === JOB_GRAPH || job.source === undefined) {
-    await runGraphRefresh(pool);
+    await runGraphRefresh(pool, process.env);
     return;
   }
   const runs = createPgRunStore(pool);
@@ -121,7 +124,7 @@ export async function runSkillExtraction(
         title: vacancy.title,
         description: vacancy.description,
       }),
-    hits: (surface) => loadLinkHits(client, surface, null),
+    hits: (surface) => linkHits(client, env, surface),
     ensureSkill: (surface, skill) => ensureReviewSkill(client, surface, skill),
     write: (vacancyId, skills) => writeVacancySkills(client, vacancyId, skills, now),
   });
@@ -143,9 +146,24 @@ export async function runEmbedding(
   return finish(vacancies.updated + skills.updated, failedCount, vacancies.errors, now);
 }
 
-/** Recounts skills, writes IDF, and replaces RELATED_TO edges. No run row: there is no vacancy source. */
-export async function runGraphRefresh(client: SqlClient): Promise<void> {
+/** Imports `ESCO_DIR` when it is set, then recounts skills and replaces RELATED_TO edges. */
+export async function runGraphRefresh(client: SqlClient, env: NodeJS.ProcessEnv): Promise<void> {
+  await importConfiguredEsco(client, env);
   await refreshSkillGraph(client);
+}
+
+async function importConfiguredEsco(client: SqlClient, env: NodeJS.ProcessEnv): Promise<void> {
+  const dir = env[ENV.escoDir]?.trim() ?? '';
+  if (dir.length === 0) return;
+  const dump = await loadEscoDirectory(dir);
+  if (dump === null) return;
+  await importEscoClassification(client, dump);
+}
+
+async function linkHits(client: SqlClient, env: NodeJS.ProcessEnv, surface: string) {
+  const baseUrl = env[ENV.teiEmbedUrl]?.trim() ?? '';
+  const vector = baseUrl.length === 0 ? null : await surfaceVector(liveEmbed(), baseUrl, surface);
+  return loadLinkHits(client, surface, vector);
 }
 
 async function embedVacancies(
