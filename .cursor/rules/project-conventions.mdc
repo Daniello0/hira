@@ -26,10 +26,7 @@ You must follow these conventions for all TypeScript, JavaScript, TSX, and JSX f
 ## Development Workflow
 - **Test-First Approach**: Before implementing any new logic, feature, or bug fix, you must first create the necessary **mocks** and **unit tests**. 
 - **TDD Cycle**: Write the test, verify that it fails, and only then add the implementation.
-- **Mandatory Verification**: After every change or addition, the project must successfully pass the following checks:
-  1. **Build**: `npm run build` must complete without errors.
-  2. **Linting**: `npm run lint` must pass (no style or syntax violations).
-  3. **Testing**: `npm run test` must result in 100% pass rate for the affected logic.
+- **Verification**: When to run lint, typecheck, build, and tests — before a commit and before a merge — is defined in `.cursor/rules/git-workflow.mdc`. Follow that rule; do not run the full suite after every edit.
 
 ## Architecture & Design Decisions
 - Always refer to `docs/` files when suggesting architectural changes or new features. Follow existing ADRs strictly.
