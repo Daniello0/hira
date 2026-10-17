@@ -23,6 +23,19 @@ describe('createPgVacancyStore', () => {
     expect(db.statusOf('HABR_CAREER', 'habr-1')).toBe(VacancyStatus.Duplicate);
     expect(db.pairCount()).toBe(1);
   });
+
+  it('closes an unchanged posting when the source marks it archived', async () => {
+    const db = new PairDb();
+    const store = createPgVacancyStore(db);
+    const seen = new Date('2026-10-17T12:00:00Z');
+    await store.save(vacancy({ externalId: 'old' }), seen);
+    const saved = await store.save(
+      vacancy({ externalId: 'old', status: VacancyStatus.Closed }),
+      seen,
+    );
+    expect(saved.outcome).toBe('updated');
+    expect(db.statusOf(VacancySource.RabotaBy, 'old')).toBe(VacancyStatus.Closed);
+  });
 });
 
 function vacancy(patch: Partial<CanonicalVacancy> = {}): CanonicalVacancy {
@@ -79,8 +92,8 @@ class PairDb implements SqlClient {
     if (sql.includes('content_hash = $26')) return this.touch(params);
     if (sql.includes('FROM vacancies v')) return { rows: this.candidates(params) };
     if (sql.includes('INSERT INTO vacancy_duplicates')) return this.addPair(sql, params);
-    if (sql.includes('SET status')) return this.markDuplicate(params);
-    if (sql.includes('last_seen_at')) return { rows: [], rowCount: 1 };
+    if (sql.includes("status = 'DUPLICATE'")) return this.markDuplicate(params);
+    if (sql.includes('last_seen_at')) return this.noteSeen(sql, params);
     throw new Error(`unexpected sql: ${sql}`);
   }
 
@@ -116,7 +129,9 @@ class PairDb implements SqlClient {
   }
 
   private find(params: readonly unknown[]): Array<Record<string, unknown>> {
-    const row = this.rows.find((item) => item.source === params[0] && item.externalId === params[1]);
+    const row = this.rows.find(
+      (item) => item.source === params[0] && item.externalId === params[1],
+    );
     if (row === undefined) return [];
     return [{ id: row.id, contentHash: row.hash }];
   }
@@ -148,6 +163,12 @@ class PairDb implements SqlClient {
         city: 'Минск',
         companyName: 'рога',
       }));
+  }
+
+  private noteSeen(sql: string, params: readonly unknown[]) {
+    const row = this.rows.find((item) => item.id === params[0]);
+    if (row !== undefined && sql.includes('status')) row.status = String(params[2]);
+    return { rows: [], rowCount: 1 };
   }
 
   private markDuplicate(params: readonly unknown[]) {

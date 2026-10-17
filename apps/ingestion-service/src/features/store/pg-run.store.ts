@@ -25,20 +25,6 @@ export function createPgRunStore(client: SqlClient): RunWriter & {
   };
 }
 
-/** Expires active rows of one source that were last seen before `cutoff`. */
-export async function expireSource(
-  client: SqlClient,
-  source: VacancySource,
-  cutoff: Date,
-): Promise<number> {
-  const result = await client.query(
-    `UPDATE vacancies SET status = 'EXPIRED'
-     WHERE source = $1 AND status = 'ACTIVE' AND last_seen_at < $2`,
-    [source, cutoff],
-  );
-  return result.rowCount ?? 0;
-}
-
 async function startRun(
   client: SqlClient,
   source: VacancySource,

@@ -1,14 +1,18 @@
 import { IngestionStatus } from '@hira/contracts';
+import { assertDetailsAllowed, checkAlive } from '../connectors/check-alive';
 import {
   collectSource,
+  paceRequests,
   type CollectFailure,
+  type CollectInput,
   type HttpGet,
 } from '../connectors/collect-source';
 import type { RawVacancy } from '../connectors/raw-vacancy';
-import { HOUR_MS, JOB_LIVENESS, STALE_THRESHOLD_HOURS } from '../ingestion.constants';
+import { JOB_LIVENESS, LIVENESS_BATCH_SIZE } from '../ingestion.constants';
 import { normalizeVacancy } from '../normalize/normalize-vacancy';
 import type { IngestJob } from '../scheduler/schedules';
-import { expireSource, type RunFinish } from './pg-run.store';
+import { applyLiveness, listActiveVacancies, type ActiveVacancy } from './pg-liveness';
+import type { RunFinish } from './pg-run.store';
 import { createPgVacancyStore } from './pg-vacancy.store';
 import type { SqlClient } from './sql-client';
 
@@ -39,14 +43,55 @@ interface Counts {
 
 /** Runs one queued job on a single SQL connection and returns the run counters. */
 export async function performIngest(input: PerformInput): Promise<RunFinish> {
-  if (input.job.jobType === JOB_LIVENESS) return expireJob(input);
+  if (input.job.jobType === JOB_LIVENESS) return checkLiveness(input);
   return collectJob(input);
 }
 
-async function expireJob(input: PerformInput): Promise<RunFinish> {
-  const cutoff = new Date(input.now.getTime() - STALE_THRESHOLD_HOURS * HOUR_MS);
-  const updated = await expireSource(input.client, input.job.source, cutoff);
-  return done(IngestionStatus.Success, emptyCounts(updated), input.rateError, input.now);
+async function checkLiveness(input: PerformInput): Promise<RunFinish> {
+  const paced = paceRequests({ http: input.http, limit: input.limit, pause: input.pause });
+  await assertDetailsAllowed(input.job.source, paced);
+  const counts = emptyCounts(0);
+  await checkBatches(input, paced, counts);
+  const status = counts.failed > 0 ? IngestionStatus.Partial : IngestionStatus.Success;
+  return done(status, counts, input.rateError, input.now);
+}
+
+async function checkBatches(
+  input: PerformInput,
+  paced: CollectInput,
+  counts: Counts,
+): Promise<void> {
+  let afterId: string | null = null;
+  for (;;) {
+    const batch = await listActiveVacancies(
+      input.client,
+      input.job.source,
+      afterId,
+      LIVENESS_BATCH_SIZE,
+    );
+    if (batch.length === 0) return;
+    for (const row of batch) await checkRow(input, paced, row, counts);
+    const last = batch[batch.length - 1];
+    if (last === undefined || batch.length < LIVENESS_BATCH_SIZE) return;
+    afterId = last.id;
+  }
+}
+
+async function checkRow(
+  input: PerformInput,
+  paced: CollectInput,
+  row: ActiveVacancy,
+  counts: Counts,
+): Promise<void> {
+  counts.fetched += 1;
+  try {
+    const verdict = await checkAlive(input.job.source, row.externalId, paced);
+    await applyLiveness(input.client, row.id, verdict, input.now);
+    counts.updated += 1;
+  } catch (error) {
+    counts.failed += 1;
+    counts.errors.push({ externalId: row.externalId, message: errorMessage(error) });
+  }
 }
 
 async function collectJob(input: PerformInput): Promise<RunFinish> {

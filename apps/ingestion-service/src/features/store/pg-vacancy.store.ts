@@ -66,14 +66,28 @@ async function upsertVacancy(
     return { outcome: 'created', id };
   }
   if (existing.contentHash === vacancy.contentHash) {
-    await client.query(`UPDATE vacancies SET last_seen_at = $2 WHERE id = $1`, [
-      existing.id,
-      seenAt,
-    ]);
-    return { outcome: 'skipped', id: existing.id };
+    return touchUnchanged(client, existing.id, vacancy.status, seenAt);
   }
   await updateVacancy(client, existing.id, vacancy, companyId, locationId, seenAt);
   return { outcome: 'updated', id: existing.id };
+}
+
+async function touchUnchanged(
+  client: SqlClient,
+  id: string,
+  status: CanonicalVacancy['status'],
+  seenAt: Date,
+): Promise<SaveResult> {
+  if (status !== VacancyStatus.Closed) {
+    await client.query(`UPDATE vacancies SET last_seen_at = $2 WHERE id = $1`, [id, seenAt]);
+    return { outcome: 'skipped', id };
+  }
+  await client.query(`UPDATE vacancies SET last_seen_at = $2, status = $3 WHERE id = $1`, [
+    id,
+    seenAt,
+    status,
+  ]);
+  return { outcome: 'updated', id };
 }
 
 async function findVacancy(

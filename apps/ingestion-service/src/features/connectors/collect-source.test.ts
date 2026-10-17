@@ -94,10 +94,7 @@ describe('collectSource', () => {
   });
 
   it('keeps the other cards when one detail page is missing', async () => {
-    const list = [
-      card('55', 'Backend'),
-      card('56', 'Frontend'),
-    ].join('');
+    const list = [card('55', 'Backend'), card('56', 'Frontend')].join('');
     const http: HttpGet = {
       get: async (url) => {
         if (url.endsWith('/robots.txt')) return { status: 200, body: ROBOTS };
@@ -112,9 +109,7 @@ describe('collectSource', () => {
       pause: async () => undefined,
     });
     expect(result.raws.map((row) => row.externalId)).toEqual(['55']);
-    expect(result.failures).toEqual([
-      { externalId: '56', message: expect.stringMatching(/404/) },
-    ]);
+    expect(result.failures).toEqual([{ externalId: '56', message: expect.stringMatching(/404/) }]);
   });
 
   it('keeps the Habr card city when the detail page has none', async () => {

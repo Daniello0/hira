@@ -6,6 +6,7 @@ export const SIMHASH_MAX_DISTANCE = 3;
 export const SIMHASH_HEX_LENGTH = 16;
 export const HOUR_MS = 60 * 60 * 1000;
 export const SOURCE_PAUSE_MS = 2000;
+export const LIVENESS_BATCH_SIZE = 20;
 export const DEV_VACANCY_LIMIT = 2000;
 export const QUEUE_PREFIX = 'bull:ingestion';
 export const INGEST_QUEUE = 'ingest';

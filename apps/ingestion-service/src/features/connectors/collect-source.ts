@@ -40,7 +40,7 @@ export async function collectSource(
   source: VacancySource,
   input: CollectInput,
 ): Promise<CollectResult> {
-  const paced = withPause(input);
+  const paced = paceRequests(input);
   if (source === VacancySource.RabotaBy) return collectRabota(paced);
   if (source === VacancySource.Gsz) return collectGsz(paced);
   if (source === VacancySource.HabrCareer) return collectHabr(paced);
@@ -117,19 +117,54 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : 'vacancy failed';
 }
 
-async function assertRobots(input: CollectInput, origin: string, path: string): Promise<void> {
+/** Refuses the fetch when robots.txt disallows the path. */
+export async function assertRobots(
+  input: CollectInput,
+  origin: string,
+  path: string,
+): Promise<void> {
   const response = await input.http.get(`${origin}/robots.txt`, headers());
   const robots = response.status >= 400 ? null : response.body;
   if (!isFetchAllowed(robots, path)) throw new Error(`robots.txt blocks ${path}`);
 }
 
+/** One HTTP GET, including a single retry on 429 and 503. */
+export async function readResponse(
+  input: CollectInput,
+  url: string,
+): Promise<{ status: number; body: string }> {
+  return readWithRetry(input, url, 0);
+}
+
 async function readText(input: CollectInput, url: string): Promise<string> {
-  const response = await readWithRetry(input, url, 0);
+  const response = await readResponse(input, url);
   if (response.status >= 400) throw new Error(failure(response.status, response.body, url));
   return response.body;
 }
 
-function withPause(input: CollectInput): CollectInput {
+/** Detail page address for one external id. */
+export function detailTarget(
+  source: VacancySource,
+  externalId: string,
+): { origin: string; path: string } {
+  if (source === VacancySource.RabotaBy)
+    return { origin: RABOTA_ORIGIN, path: `/vacancy/${externalId}` };
+  if (source === VacancySource.Gsz) return gszTarget(externalId);
+  if (source === VacancySource.HabrCareer) {
+    return { origin: HABR_ORIGIN, path: `/vacancies/${externalId}` };
+  }
+  throw new Error(`source ${source} is outside stage 7`);
+}
+
+function gszTarget(externalId: string): { origin: string; path: string } {
+  return {
+    origin: GSZ_ORIGIN,
+    path: `/registration/employer/vacancy/${externalId}/detail-public/`,
+  };
+}
+
+/** Pauses before every request except the first. */
+export function paceRequests(input: CollectInput): CollectInput {
   let first = true;
   return {
     ...input,
