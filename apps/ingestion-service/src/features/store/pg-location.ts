@@ -1,22 +1,48 @@
+import { dictionaryCity } from '../normalize/dictionary-city';
 import type { CanonicalVacancy } from '../normalize/normalize-vacancy';
 import type { SqlClient } from './sql-client';
 
+type Place = Pick<CanonicalVacancy, 'region' | 'city'>;
+
 /** Reuses a seeded city or inserts a new one under its region. */
-export async function resolveLocationId(
+export async function resolveLocationId(client: SqlClient, vacancy: Place): Promise<number | null> {
+  const city = dictionaryCity(vacancy.city);
+  if (vacancy.region === null) return seededCityId(client, city);
+  return cityInRegion(client, vacancy.region, city);
+}
+
+async function seededCityId(client: SqlClient, city: string | null): Promise<number | null> {
+  if (city === null) return null;
+  const result = await client.query(
+    `SELECT id FROM locations WHERE lower(city) = lower($1) LIMIT 1`,
+    [city],
+  );
+  return numberId(result.rows[0]?.id);
+}
+
+async function cityInRegion(
   client: SqlClient,
-  vacancy: CanonicalVacancy,
+  region: string,
+  city: string | null,
 ): Promise<number | null> {
-  if (vacancy.region === null) return null;
-  const found = await findLocation(client, vacancy.region, vacancy.city);
-  if (found !== null) return found;
-  if (vacancy.city === null) return null;
-  const parent = await findLocation(client, vacancy.region, null);
+  const found = await findLocation(client, region, city);
+  if (found !== null || city === null) return found;
+  const parent = await findLocation(client, region, null);
   if (parent === null) return null;
+  return insertCity(client, region, city, parent);
+}
+
+async function insertCity(
+  client: SqlClient,
+  region: string,
+  city: string,
+  parent: number,
+): Promise<number | null> {
   const inserted = await client.query(
     `INSERT INTO locations (region, city, parent_id) VALUES ($1, $2, $3) RETURNING id`,
-    [vacancy.region, vacancy.city, parent],
+    [region, city, parent],
   );
-  return Number(inserted.rows[0]?.id);
+  return numberId(inserted.rows[0]?.id);
 }
 
 async function findLocation(
@@ -28,6 +54,9 @@ async function findLocation(
     `SELECT id FROM locations WHERE region = $1 AND city IS NOT DISTINCT FROM $2 LIMIT 1`,
     [region, city],
   );
-  const id = result.rows[0]?.id;
-  return id === undefined ? null : Number(id);
+  return numberId(result.rows[0]?.id);
+}
+
+function numberId(id: unknown): number | null {
+  return id === undefined || id === null ? null : Number(id);
 }

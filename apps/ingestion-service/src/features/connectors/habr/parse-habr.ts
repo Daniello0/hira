@@ -1,5 +1,6 @@
 import { parseSalaryText } from '../../normalize/parse-salary';
 import { stripHtml } from '../../normalize/strip-html';
+import { isArchivedVacancy } from '../archived-page';
 import type { RawVacancy } from '../raw-vacancy';
 
 export interface HabrListItem {
@@ -36,7 +37,7 @@ export function parseHabrVacancy(html: string, externalId: string): RawVacancy {
     companyName: companyName(html),
     unp: null,
     region: null,
-    city: null,
+    city: readCity(html),
     descriptionHtml: description,
     seniorityRaw: null,
     employmentRaw: null,
@@ -47,7 +48,7 @@ export function parseHabrVacancy(html: string, externalId: string): RawVacancy {
     salaryCurrency: salary.currency,
     isGross: salary.gross,
     publishedAt: null,
-    archived: false,
+    archived: isArchivedVacancy(html),
   };
 }
 

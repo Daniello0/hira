@@ -76,5 +76,17 @@ describe('crossSourceDecision', () => {
         existing: { ...existing, status: VacancyStatus.Closed },
       }).duplicate,
     ).toBe(false);
+    expect(
+      crossSourceDecision({
+        incoming: { ...base, city: null },
+        existing: { ...existing, city: null },
+      }).duplicate,
+    ).toBe(false);
+    expect(
+      crossSourceDecision({
+        incoming: { ...base, city: '  ' },
+        existing: { ...existing, city: '' },
+      }).duplicate,
+    ).toBe(false);
   });
 });

@@ -61,6 +61,11 @@ describe('normalizeVacancy', () => {
     expect(vacancy.salaryMinByn).toBeNull();
   });
 
+  it('strips the city prefix so it can match the locations dictionary', () => {
+    expect(normalizeVacancy(raw({ city: 'г. Минск' }), {}).city).toBe('Минск');
+    expect(normalizeVacancy(raw({ city: '   ' }), {}).city).toBeNull();
+  });
+
   it('closes an archived posting and rejects an empty title', () => {
     expect(normalizeVacancy(raw({ archived: true }), {}).status).toBe(VacancyStatus.Closed);
     expect(() => normalizeVacancy(raw({ title: '   ' }), {})).toThrow(/title/i);

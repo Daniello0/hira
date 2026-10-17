@@ -46,6 +46,14 @@ describe('Habr Career parser', () => {
     expect(vacancy.url).toBe('https://career.habr.com/vacancies/1000161368');
   });
 
+  it('reads the city chip and an explicit archive flag without inventing a region', () => {
+    const html = `${DETAIL}<svg class="svg-icon svg-icon--icon-placemark"></svg><div class="chip-with-icon__text">Самара</div>"archived":true`;
+    const vacancy = parseHabrVacancy(html, '1000161368');
+    expect(vacancy.city).toBe('Самара');
+    expect(vacancy.region).toBeNull();
+    expect(vacancy.archived).toBe(true);
+  });
+
   it('rejects a detail page that has no description block', () => {
     expect(() => parseHabrVacancy('<h1 class="page-title__title">Пусто</h1>', '1')).toThrow(
       /description/i,

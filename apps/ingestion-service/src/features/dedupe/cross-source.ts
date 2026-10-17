@@ -40,6 +40,16 @@ function samePosting(incoming: CrossSourceSide, existing: CrossSourceExisting): 
   if (existing.status !== VacancyStatus.Active) return false;
   if (existing.source === incoming.source) return false;
   if (existing.companyName !== incoming.companyName) return false;
-  if (existing.city !== incoming.city) return false;
+  if (!sameCity(existing.city, incoming.city)) return false;
   return existing.title.trim().toLowerCase() === incoming.title.trim().toLowerCase();
+}
+
+function sameCity(left: string | null, right: string | null): boolean {
+  const known = knownCity(left);
+  return known !== null && known === knownCity(right);
+}
+
+function knownCity(city: string | null): string | null {
+  const name = city?.trim().toLowerCase() ?? '';
+  return name.length === 0 ? null : name;
 }

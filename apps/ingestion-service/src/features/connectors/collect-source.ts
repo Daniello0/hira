@@ -24,9 +24,15 @@ export interface CollectInput {
   pause?: () => Promise<void>;
 }
 
+export interface CollectFailure {
+  externalId: string;
+  message: string;
+}
+
 export interface CollectResult {
   raws: RawVacancy[];
   truncated: boolean;
+  failures: CollectFailure[];
 }
 
 /** Fetches one stage-7 source. HTML sources stop when robots.txt forbids the path. */
@@ -67,10 +73,15 @@ async function collectGsz(input: CollectInput): Promise<CollectResult> {
 async function collectHabr(input: CollectInput): Promise<CollectResult> {
   await assertRobots(input, HABR_ORIGIN, '/vacancies');
   const html = await readText(input, `${HABR_ORIGIN}${HABR_LIST_PATH}`);
-  return details(input, parseHabrList(html), HABR_ORIGIN, (item) => {
-    const path = `/vacancies/${item.externalId}`;
-    return { path, parse: (page) => parseHabrVacancy(page, item.externalId) };
-  });
+  return details(input, parseHabrList(html), HABR_ORIGIN, (item) => ({
+    path: `/vacancies/${item.externalId}`,
+    parse: (page) => withCardCity(parseHabrVacancy(page, item.externalId), item.city),
+  }));
+}
+
+function withCardCity(raw: RawVacancy, city: string | null): RawVacancy {
+  if (raw.city !== null) return raw;
+  return { ...raw, city };
 }
 
 async function details<T extends { externalId: string }>(
@@ -80,11 +91,30 @@ async function details<T extends { externalId: string }>(
   toPage: (item: T) => { path: string; parse: (html: string) => RawVacancy },
 ): Promise<CollectResult> {
   const raws: RawVacancy[] = [];
+  const failures: CollectFailure[] = [];
   for (const item of items.slice(0, input.limit)) {
-    const page = toPage(item);
-    raws.push(page.parse(await readText(input, `${origin}${page.path}`)));
+    await readDetail(input, origin, item.externalId, toPage(item), raws, failures);
   }
-  return { raws, truncated: items.length > input.limit };
+  return { raws, failures, truncated: items.length > input.limit };
+}
+
+async function readDetail(
+  input: CollectInput,
+  origin: string,
+  externalId: string,
+  page: { path: string; parse: (html: string) => RawVacancy },
+  raws: RawVacancy[],
+  failures: CollectFailure[],
+): Promise<void> {
+  try {
+    raws.push(page.parse(await readText(input, `${origin}${page.path}`)));
+  } catch (error) {
+    failures.push({ externalId, message: messageOf(error) });
+  }
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : 'vacancy failed';
 }
 
 async function assertRobots(input: CollectInput, origin: string, path: string): Promise<void> {

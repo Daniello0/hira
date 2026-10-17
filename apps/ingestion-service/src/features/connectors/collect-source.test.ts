@@ -7,6 +7,10 @@ const LIST_HTML = `<article data-qa="vacancy-serp__vacancy"><a data-qa="serp-ite
 const DETAIL_HTML =
   '<h1 data-qa="vacancy-title">Backend</h1><div data-qa="vacancy-description"><p>Текст</p></div>';
 
+function card(externalId: string, title: string): string {
+  return `<article data-qa="vacancy-serp__vacancy"><a data-qa="serp-item__title" href="https://rabota.by/vacancy/${externalId}"><span data-qa="serp-item__title-text">${title}</span></a></article>`;
+}
+
 describe('collectSource', () => {
   it('loads a rabota.by page after the list and does not retry a 404', async () => {
     const urls: string[] = [];
@@ -87,6 +91,49 @@ describe('collectSource', () => {
     });
     expect(result.raws.map((row) => row.title)).toEqual(['Инженер']);
     expect(urls.some((url) => url.includes('detail-public/?source=search'))).toBe(true);
+  });
+
+  it('keeps the other cards when one detail page is missing', async () => {
+    const list = [
+      card('55', 'Backend'),
+      card('56', 'Frontend'),
+    ].join('');
+    const http: HttpGet = {
+      get: async (url) => {
+        if (url.endsWith('/robots.txt')) return { status: 200, body: ROBOTS };
+        if (url.endsWith('/vacancy/56')) return { status: 404, body: 'missing' };
+        if (url.endsWith('/vacancy/55')) return { status: 200, body: DETAIL_HTML };
+        return { status: 200, body: list };
+      },
+    };
+    const result = await collectSource(VacancySource.RabotaBy, {
+      http,
+      limit: 5,
+      pause: async () => undefined,
+    });
+    expect(result.raws.map((row) => row.externalId)).toEqual(['55']);
+    expect(result.failures).toEqual([
+      { externalId: '56', message: expect.stringMatching(/404/) },
+    ]);
+  });
+
+  it('keeps the Habr card city when the detail page has none', async () => {
+    const list = `<div class="vacancy-card "><a class="vacancy-card__title-link" href="/vacancies/9">Backend</a><svg class="svg-icon svg-icon--icon-placemark"></svg><div class="chip-with-icon__text">Самара</div></div>`;
+    const detail = `<h1 class="page-title__title">Backend</h1><div class="vacancy-description__text"><div><p>Текст</p></div></div>`;
+    const http: HttpGet = {
+      get: async (url) => {
+        if (url.endsWith('/robots.txt')) return { status: 200, body: 'User-agent: *\nAllow: /\n' };
+        if (url.endsWith('/vacancies/9')) return { status: 200, body: detail };
+        return { status: 200, body: list };
+      },
+    };
+    const result = await collectSource(VacancySource.HabrCareer, {
+      http,
+      limit: 1,
+      pause: async () => undefined,
+    });
+    expect(result.raws.map((row) => row.city)).toEqual(['Самара']);
+    expect(result.raws.map((row) => row.region)).toEqual([null]);
   });
 
   it('rejects a source that belongs to a later stage', async () => {

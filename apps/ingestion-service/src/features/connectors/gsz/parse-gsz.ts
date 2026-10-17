@@ -1,5 +1,6 @@
 import { parseSalaryText } from '../../normalize/parse-salary';
 import { stripHtml } from '../../normalize/strip-html';
+import { isArchivedVacancy } from '../archived-page';
 import type { RawVacancy } from '../raw-vacancy';
 
 export interface GszListItem {
@@ -44,7 +45,7 @@ export function parseGszVacancy(html: string, externalId: string): RawVacancy {
     schedule: null,
     ...salaryFields(salary),
     publishedAt: null,
-    archived: false,
+    archived: isArchivedVacancy(html),
   };
 }
 

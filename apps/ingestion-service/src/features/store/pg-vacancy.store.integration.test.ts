@@ -126,6 +126,68 @@ describe('postgres vacancy store', () => {
     expect(hidden.rows[0]?.status).toBe(VacancyStatus.Duplicate);
   });
 
+  it('keeps a city from the dictionary and a later edit of an existing duplicate', async () => {
+    const store = createPgVacancyStore(client);
+    const seen = new Date('2026-10-17T12:00:00Z');
+    const shared = {
+      unp: '100000090',
+      companyName: 'рога локация',
+      companyDisplayName: 'Рога Локация',
+      title: 'Backend',
+    };
+    await store.save(
+      canonical({ ...shared, externalId: 'rabota-loc', region: null, city: 'Минск' }),
+      seen,
+    );
+    const place = await client.query(
+      `SELECT l.region, l.city FROM vacancies v
+       JOIN locations l ON l.id = v.location_id WHERE v.external_id = 'rabota-loc'`,
+    );
+    expect(place.rows[0]).toMatchObject({ region: 'Минск', city: 'Минск' });
+    await store.save(
+      canonical({
+        ...shared,
+        source: VacancySource.Gsz,
+        externalId: 'gsz-loc',
+        contentHash: 'e'.repeat(64),
+      }),
+      seen,
+    );
+    await store.save(
+      canonical({
+        ...shared,
+        source: VacancySource.HabrCareer,
+        externalId: 'habr-loc',
+        region: null,
+        city: null,
+        contentHash: 'f'.repeat(64),
+      }),
+      seen,
+    );
+    const habrPairs = await client.query(
+      `SELECT COUNT(*)::int AS count FROM vacancy_duplicates d
+       JOIN vacancies dup ON dup.id = d.duplicate_vacancy_id
+       WHERE dup.external_id = 'habr-loc'`,
+    );
+    expect(habrPairs.rows[0]?.count).toBe(0);
+    const nextHash = '9'.repeat(64);
+    await store.save(
+      canonical({
+        ...shared,
+        source: VacancySource.Gsz,
+        externalId: 'gsz-loc',
+        contentHash: nextHash,
+        schedule: '5/2',
+      }),
+      seen,
+    );
+    const edited = await client.query(
+      `SELECT content_hash, status::text AS status FROM vacancies WHERE external_id = 'gsz-loc'`,
+    );
+    expect(edited.rows[0]?.content_hash).toBe(nextHash);
+    expect(edited.rows[0]?.status).toBe(VacancyStatus.Duplicate);
+  });
+
   it('rejects a write that would set search_document explicitly', async () => {
     await expect(
       client.query(

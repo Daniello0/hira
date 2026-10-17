@@ -8,6 +8,7 @@ import {
 } from '@hira/contracts';
 import type { RawVacancy } from '../connectors/raw-vacancy';
 import { normalizeCompanyName } from './company-name';
+import { dictionaryCity } from './dictionary-city';
 import { contentHash } from './content-hash';
 import { mapEmployment, mapSeniority, mapWorkFormat } from './map-enums';
 import { stripHtml } from './strip-html';
@@ -112,7 +113,7 @@ function identity(
     companyDisplayName: raw.companyName.trim(),
     unp: raw.unp,
     region: raw.region,
-    city: raw.city,
+    city: dictionaryCity(raw.city),
     description,
     descriptionRaw: raw.descriptionHtml,
     isForeignRemote: false,

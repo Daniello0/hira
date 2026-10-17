@@ -60,6 +60,14 @@ describe('rabota.by parser', () => {
     expect(vacancy.archived).toBe(false);
   });
 
+  it('marks an archived page and still keeps the city', () => {
+    const html = `${DETAIL}<div data-qa="vacancy-title-archived-text">В архиве</div>`;
+    const vacancy = parseRabotaVacancy(html, '138273374');
+    expect(vacancy.archived).toBe(true);
+    expect(vacancy.city).toBe('Минск');
+    expect(vacancy.region).toBeNull();
+  });
+
   it('rejects a detail page without a title', () => {
     expect(() => parseRabotaVacancy('<div>пусто</div>', '1')).toThrow(/title/i);
   });

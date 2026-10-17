@@ -1,5 +1,9 @@
 import { IngestionStatus } from '@hira/contracts';
-import { collectSource, type HttpGet } from '../connectors/collect-source';
+import {
+  collectSource,
+  type CollectFailure,
+  type HttpGet,
+} from '../connectors/collect-source';
 import type { RawVacancy } from '../connectors/raw-vacancy';
 import { HOUR_MS, JOB_LIVENESS, STALE_THRESHOLD_HOURS } from '../ingestion.constants';
 import { normalizeVacancy } from '../normalize/normalize-vacancy';
@@ -52,9 +56,18 @@ async function collectJob(input: PerformInput): Promise<RunFinish> {
     pause: input.pause,
   });
   const counts = await writeCollected(input, collected.raws);
+  rememberFailures(counts, collected.failures);
   const status =
     collected.truncated || counts.failed > 0 ? IngestionStatus.Partial : IngestionStatus.Success;
   return done(status, counts, input.rateError, input.now);
+}
+
+function rememberFailures(counts: Counts, failures: CollectFailure[]): void {
+  for (const failure of failures) {
+    counts.fetched += 1;
+    counts.failed += 1;
+    counts.errors.push(failure);
+  }
 }
 
 async function writeCollected(input: PerformInput, raws: RawVacancy[]): Promise<Counts> {

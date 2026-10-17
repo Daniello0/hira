@@ -136,7 +136,9 @@ async function markDuplicate(
   await client.query(`UPDATE vacancies SET status = 'DUPLICATE' WHERE id = $1`, [duplicateId]);
   await client.query(
     `INSERT INTO vacancy_duplicates (canonical_vacancy_id, duplicate_vacancy_id, similarity, detected_by)
-     VALUES ($1, $2, $3, $4)`,
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (canonical_vacancy_id, duplicate_vacancy_id)
+     DO UPDATE SET similarity = EXCLUDED.similarity`,
     [canonicalId, duplicateId, similarity, DuplicateDetection.Fuzzy],
   );
 }

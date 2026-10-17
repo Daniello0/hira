@@ -1,5 +1,6 @@
 import { parseSalaryText } from '../../normalize/parse-salary';
 import { stripHtml } from '../../normalize/strip-html';
+import { isArchivedVacancy } from '../archived-page';
 import type { RawVacancy } from '../raw-vacancy';
 
 export interface RabotaListItem {
@@ -44,7 +45,7 @@ function vacancy(html: string, externalId: string, title: string): RawVacancy {
     salaryCurrency: salary.currency,
     isGross: grossOf(html),
     publishedAt: null,
-    archived: false,
+    archived: isArchivedVacancy(html),
   };
 }
 
