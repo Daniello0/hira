@@ -2,6 +2,7 @@ import type { SqlClient } from './sql-client';
 import { DuplicateDetection, VacancyStatus } from '@hira/contracts';
 import { crossSourceDecision } from '../dedupe/cross-source';
 import { fuzzySimilarity, simhash } from '../dedupe/simhash';
+import { conditionsText, sourceHash } from '../normalize/content-hash';
 import type { CanonicalVacancy } from '../normalize/normalize-vacancy';
 import { resolveCompanyId } from './pg-company';
 import { resolveLocationId } from './pg-location';
@@ -14,6 +15,10 @@ export interface SaveResult {
 interface ExistingVacancy {
   id: string;
   contentHash: string;
+  title: string;
+  description: string;
+  workFormat: string | null;
+  schedule: string | null;
 }
 
 /** Writes vacancies with parameterized SQL. Migrations stay in core-api. */
@@ -65,11 +70,29 @@ async function upsertVacancy(
     const id = await insertVacancy(client, vacancy, companyId, locationId, seenAt);
     return { outcome: 'created', id };
   }
-  if (existing.contentHash === vacancy.contentHash) {
+  if (sameSource(existing, vacancy)) {
     return touchUnchanged(client, existing.id, vacancy.status, seenAt);
   }
+  await client.query(`DELETE FROM vacancy_skills WHERE vacancy_id = $1`, [existing.id]);
   await updateVacancy(client, existing.id, vacancy, companyId, locationId, seenAt);
   return { outcome: 'updated', id: existing.id };
+}
+
+function sameSource(existing: ExistingVacancy, vacancy: CanonicalVacancy): boolean {
+  return sourceHash(textOf(existing)) === sourceHash(textOf(vacancy));
+}
+
+function textOf(row: {
+  title: string;
+  description: string;
+  workFormat: string | null;
+  schedule: string | null;
+}): { title: string; description: string; conditions: string } {
+  return {
+    title: row.title,
+    description: row.description,
+    conditions: conditionsText(row.workFormat, row.schedule),
+  };
 }
 
 async function touchUnchanged(
@@ -95,7 +118,9 @@ async function findVacancy(
   vacancy: CanonicalVacancy,
 ): Promise<ExistingVacancy | null> {
   const result = await client.query(
-    `SELECT id::text AS id, content_hash AS "contentHash" FROM vacancies
+    `SELECT id::text AS id, content_hash AS "contentHash", title, description,
+            work_format AS "workFormat", schedule
+     FROM vacancies
      WHERE source = $1 AND external_id = $2`,
     [vacancy.source, vacancy.externalId],
   );
@@ -104,7 +129,14 @@ async function findVacancy(
 
 function readExisting(row: Record<string, unknown> | undefined): ExistingVacancy | null {
   if (row === undefined) return null;
-  return { id: String(row.id), contentHash: String(row.contentHash ?? '').trim() };
+  return {
+    id: String(row.id),
+    contentHash: String(row.contentHash ?? '').trim(),
+    title: String(row.title ?? ''),
+    description: String(row.description ?? ''),
+    workFormat: row.workFormat == null ? null : String(row.workFormat),
+    schedule: row.schedule == null ? null : String(row.schedule),
+  };
 }
 
 async function hideCopy(client: SqlClient, vacancy: CanonicalVacancy, id: string): Promise<void> {
@@ -264,5 +296,5 @@ const UPDATE_SQL = `UPDATE vacancies SET
   work_format = $13, schedule = $14, salary_min = $15, salary_max = $16, salary_currency = $17,
   salary_min_byn = $18, salary_max_byn = $19, is_gross = $20, is_foreign_remote = $21, status = $22,
   published_at = $23, company_name = $24, last_seen_at = $25, content_hash = $26,
-  embedding = NULL, skills_extracted_at = NULL
+  skills_text = '', embedding = NULL, skills_extracted_at = NULL
 WHERE id = $1`;

@@ -132,7 +132,10 @@ describe('llm routes', () => {
   });
 
   it('writes an error event after a token and does not open another stream', async () => {
-    const rig = rigGenerate({ kind: 'delta', text: 'Hello' }, new ProviderTransportError(500, 'cut'));
+    const rig = rigGenerate(
+      { kind: 'delta', text: 'Hello' },
+      new ProviderTransportError(500, 'cut'),
+    );
     const response = await request(createTestApp(rig.routes))
       .post('/internal/v1/generate')
       .set('X-Internal-Token', 'secret')
@@ -162,6 +165,7 @@ function configured(): LlmRouterDeps {
     model: 'test-model',
     understand: vi.fn(),
     generate: vi.fn(),
+    extractSkills: vi.fn(),
   };
 }
 
@@ -195,10 +199,18 @@ function rigUnderstand(...steps: Array<string | Error>) {
     model: 'test-model',
     understand: (body) =>
       understandQuery(
-        { provider, cache, sleep: async () => undefined, model: 'test-model', logger, now: () => 0 },
+        {
+          provider,
+          cache,
+          sleep: async () => undefined,
+          model: 'test-model',
+          logger,
+          now: () => 0,
+        },
         body,
       ),
     generate: vi.fn(),
+    extractSkills: vi.fn(),
   };
   return { provider, cache, routes };
 }
@@ -212,7 +224,10 @@ function rigGenerate(...script: Array<{ kind: 'delta' | 'usage'; text?: string }
         script.length === 0
           ? [
               { kind: 'delta' as const, text: 'Hello' },
-              { kind: 'usage' as const, tokenUsage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 } },
+              {
+                kind: 'usage' as const,
+                tokenUsage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+              },
             ]
           : script;
       for (const item of events) {
@@ -228,6 +243,7 @@ function rigGenerate(...script: Array<{ kind: 'delta' | 'usage'; text?: string }
     understand: vi.fn(),
     generate: (body, emit) =>
       generateAnswer({ provider, sleep: async () => undefined, now: () => 0 }, body, emit),
+    extractSkills: vi.fn(),
   };
   return { provider, cache, routes };
 }

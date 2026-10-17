@@ -16,12 +16,47 @@ describe('createPgVacancyStore', () => {
     await store.save(vacancy({ source: VacancySource.HabrCareer, externalId: 'habr-1' }), seen);
     const nextHash = 'b'.repeat(64);
     await store.save(
-      vacancy({ source: VacancySource.HabrCareer, externalId: 'habr-1', contentHash: nextHash }),
+      vacancy({
+        source: VacancySource.HabrCareer,
+        externalId: 'habr-1',
+        description: 'обновлённое описание',
+        contentHash: nextHash,
+      }),
       seen,
     );
     expect(db.hashOf('HABR_CAREER', 'habr-1')).toBe(nextHash);
     expect(db.statusOf('HABR_CAREER', 'habr-1')).toBe(VacancyStatus.Duplicate);
     expect(db.pairCount()).toBe(1);
+  });
+
+  it('skips a rewrite that only differs by the skill hash and keeps the skill text', async () => {
+    const db = new PairDb();
+    const store = createPgVacancyStore(db);
+    const seen = new Date('2026-10-17T12:00:00Z');
+    await store.save(vacancy({ externalId: 'skilled' }), seen);
+    db.setHash(VacancySource.RabotaBy, 'skilled', 'b'.repeat(64));
+    db.setSkills(VacancySource.RabotaBy, 'skilled', 'Python');
+    const saved = await store.save(vacancy({ externalId: 'skilled' }), seen);
+    expect(saved.outcome).toBe('skipped');
+    expect(db.skillsOf(VacancySource.RabotaBy, 'skilled')).toBe('Python');
+  });
+
+  it('clears extracted skills when the description changes', async () => {
+    const db = new PairDb();
+    const store = createPgVacancyStore(db);
+    const seen = new Date('2026-10-17T12:00:00Z');
+    await store.save(vacancy({ externalId: 'skilled' }), seen);
+    db.setSkills(VacancySource.RabotaBy, 'skilled', 'Python');
+    await store.save(
+      vacancy({
+        externalId: 'skilled',
+        description: 'другой текст',
+        contentHash: 'c'.repeat(64),
+      }),
+      seen,
+    );
+    expect(db.skillsOf(VacancySource.RabotaBy, 'skilled')).toBe('');
+    expect(db.skillLinks(VacancySource.RabotaBy, 'skilled')).toBe(0);
   });
 
   it('closes an unchanged posting when the source marks it archived', async () => {
@@ -89,6 +124,7 @@ class PairDb implements SqlClient {
     if (sql.includes('FROM companies') || sql.includes('FROM locations')) return { rows: [] };
     if (sql.includes('AS "contentHash"')) return { rows: this.find(params) };
     if (sql.includes('INSERT INTO vacancies')) return { rows: [this.insert(params)] };
+    if (sql.includes('DELETE FROM vacancy_skills')) return this.clearLinks(params);
     if (sql.includes('content_hash = $26')) return this.touch(params);
     if (sql.includes('FROM vacancies v')) return { rows: this.candidates(params) };
     if (sql.includes('INSERT INTO vacancy_duplicates')) return this.addPair(sql, params);
@@ -99,6 +135,24 @@ class PairDb implements SqlClient {
 
   hashOf(source: string, externalId: string): string {
     return this.row(source, externalId).hash;
+  }
+
+  setHash(source: string, externalId: string, hash: string): void {
+    this.row(source, externalId).hash = hash;
+  }
+
+  setSkills(source: string, externalId: string, skillsText: string): void {
+    const row = this.row(source, externalId);
+    row.skillsText = skillsText;
+    row.skillLinks = skillsText.length === 0 ? 0 : 1;
+  }
+
+  skillsOf(source: string, externalId: string): string {
+    return this.row(source, externalId).skillsText;
+  }
+
+  skillLinks(source: string, externalId: string): number {
+    return this.row(source, externalId).skillLinks;
   }
 
   statusOf(source: string, externalId: string): string {
@@ -133,7 +187,16 @@ class PairDb implements SqlClient {
       (item) => item.source === params[0] && item.externalId === params[1],
     );
     if (row === undefined) return [];
-    return [{ id: row.id, contentHash: row.hash }];
+    return [
+      {
+        id: row.id,
+        contentHash: row.hash,
+        title: row.title,
+        description: row.description,
+        workFormat: row.workFormat,
+        schedule: row.schedule,
+      },
+    ];
   }
 
   private insert(params: readonly unknown[]): Record<string, unknown> {
@@ -148,7 +211,18 @@ class PairDb implements SqlClient {
     if (row === undefined) return { rows: [], rowCount: 0 };
     row.hash = String(params[params.length - 1]);
     row.status = String(params[21]);
+    row.title = String(params[5]);
     row.description = String(params[8]);
+    row.workFormat = params[12] == null ? null : String(params[12]);
+    row.schedule = params[13] == null ? null : String(params[13]);
+    row.skillsText = '';
+    row.skillLinks = 0;
+    return { rows: [], rowCount: 1 };
+  }
+
+  private clearLinks(params: readonly unknown[]) {
+    const row = this.rows.find((item) => item.id === params[0]);
+    if (row !== undefined) row.skillLinks = 0;
     return { rows: [], rowCount: 1 };
   }
 
@@ -201,6 +275,10 @@ interface Stored {
   status: string;
   title: string;
   description: string;
+  workFormat: string | null;
+  schedule: string | null;
+  skillsText: string;
+  skillLinks: number;
 }
 
 function stored(id: string, params: readonly unknown[]): Stored {
@@ -212,5 +290,9 @@ function stored(id: string, params: readonly unknown[]): Stored {
     status: String(params[20]),
     title: String(params[4]),
     description: String(params[7]),
+    workFormat: params[11] == null ? null : String(params[11]),
+    schedule: params[12] == null ? null : String(params[12]),
+    skillsText: '',
+    skillLinks: 0,
   };
 }

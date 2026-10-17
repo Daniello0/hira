@@ -135,7 +135,7 @@ Grouped by domain; full column-level detail in `Wiki/04-data-model.md`.
 3. **Deduplicator** matches within a source by `(source, external_id)` and across sources by normalized company plus title plus city, confirmed by description embedding similarity above 0.93.
 4. **Change detection** compares `content_hash`; a change invalidates both the embedding and the extracted skills, queueing the vacancy for reprocessing. Vacancies unseen for 48 hours are marked expired.
 5. **Skill extractor** calls the LLM with structured output to obtain skills with type, importance, and a supporting quote; results are cached by content hash.
-6. **Graph linker** canonicalizes each skill through a cascade of exact match → alias table → trigram similarity (0.8) → embedding similarity (0.85) → new node flagged for review, then writes `vacancy_skills` edges. A nightly job recomputes `RELATED_TO` weights from corpus co-occurrence (PMI) and refreshes per-skill IDF.
+6. **Graph linker** canonicalizes each skill through a cascade of exact match → alias table → trigram similarity (0.8) → embedding similarity (0.85) → new node flagged for review, then writes `vacancy_skills` edges. A nightly job recomputes `RELATED_TO` weights as normalized PMI (Bouma 2009; threshold 0.2 and at least 5 co-occurring vacancies, ADR-036) and refreshes per-skill IDF as `ln(N/df)`.
 7. **Embedder** generates the document embedding and per-chunk embeddings in batches of 32 via TEI.
 
 ### Step B: Query processing (inference)

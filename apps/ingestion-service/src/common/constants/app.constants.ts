@@ -17,4 +17,7 @@ export const ENV = {
   internalToken: 'INTERNAL_API_TOKEN',
   databaseUrl: 'DATABASE_URL',
   redisUrl: 'REDIS_URL',
+  teiEmbedUrl: 'TEI_EMBED_URL',
+  llmServiceUrl: 'LLM_SERVICE_URL',
+  escoDir: 'ESCO_DIR',
 } as const;

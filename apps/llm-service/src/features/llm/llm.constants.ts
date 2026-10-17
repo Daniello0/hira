@@ -16,6 +16,11 @@ export const UNDERSTAND_ATTEMPT_TIMEOUT_MS = 7_000;
 export const GENERATE_ATTEMPT_TIMEOUT_MS = 12_000;
 export const UNDERSTAND_CACHE_TTL_SECONDS = 86_400;
 export const UNDERSTAND_CACHE_PREFIX = 'llm:understand:';
+export const EXTRACT_SKILLS_CACHE_PREFIX = 'llm:extract-skills:';
+export const EXTRACT_SKILLS_SCHEMA_VERSION = '1';
+export const EXTRACT_SKILLS_SCHEMA_NAME = 'extracted_skills';
+export const EXTRACT_SYSTEM_PROMPT =
+  'Extract skills mentioned in the vacancy. Use only the provided enums. evidenceSpan must be a substring of the description or null.';
 export const MAX_GENERATE_RESULTS = 10;
 export const LLM_INVALID_OUTPUT_CODE = 'LLM_INVALID_OUTPUT';
 export const LLM_INVALID_OUTPUT_MESSAGE = 'The model returned an invalid structured result';

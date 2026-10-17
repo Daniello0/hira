@@ -12,6 +12,15 @@ export const QUEUE_PREFIX = 'bull:ingestion';
 export const INGEST_QUEUE = 'ingest';
 export const JOB_INCREMENTAL = 'INCREMENTAL';
 export const JOB_LIVENESS = 'LIVENESS';
+export const JOB_EXTRACT_SKILLS = 'EXTRACT_SKILLS';
+export const JOB_EMBED = 'EMBED';
+export const JOB_GRAPH = 'GRAPH';
+export const EXTRACT_SKILLS_QUEUE = 'extract-skills';
+export const EMBED_QUEUE = 'embed';
+export const GRAPH_QUEUE = 'graph';
+export const DUPLICATE_COSINE_THRESHOLD = 0.93;
+export const TRIGRAM_MATCH_THRESHOLD = 0.8;
+export const VECTOR_MATCH_THRESHOLD = 0.85;
 export const VALIDATION_FAILED_CODE = 'VALIDATION_FAILED';
 export const VALIDATION_FAILED_MESSAGE = 'Run request is invalid';
 export const HH_USER_AGENT = 'HiraVacancyAggregator/0.1 (course project)';
@@ -24,4 +33,4 @@ export const STAGE_SOURCES = [
   VacancySource.HabrCareer,
 ] as const;
 
-export const JOB_TYPES = [JOB_INCREMENTAL, JOB_LIVENESS] as const;
+export const JOB_TYPES = [JOB_INCREMENTAL, JOB_LIVENESS, JOB_EXTRACT_SKILLS, JOB_EMBED] as const;
