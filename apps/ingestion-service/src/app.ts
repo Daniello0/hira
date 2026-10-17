@@ -1,4 +1,4 @@
-import express, { type Express } from 'express';
+import express, { type Express, type Router } from 'express';
 import type { Logger } from 'pino';
 import { JSON_BODY_LIMIT } from './common/constants/app.constants';
 import { errorMiddleware } from './common/middleware/error.middleware';
@@ -13,6 +13,7 @@ export interface AppOptions {
   logger: Logger;
   internalToken: string;
   probes: readonly DependencyProbe[];
+  internalRouter?: Router;
 }
 
 /** Express application: request id, internal token, health, and the shared error body. */
@@ -24,7 +25,13 @@ export function createApp(options: AppOptions): Express {
   app.use(requestLogMiddleware(options.logger));
   app.use(internalTokenMiddleware(options.internalToken));
   app.use('/health', healthRouter(options.probes));
+  mountInternal(app, options.internalRouter);
   app.use(notFoundMiddleware);
   app.use(errorMiddleware(options.logger));
   return app;
+}
+
+function mountInternal(app: Express, router: Router | undefined): void {
+  if (router === undefined) return;
+  app.use('/internal/v1', router);
 }

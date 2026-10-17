@@ -34,16 +34,29 @@ services:
 
   tei:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
-    command: ['--model-id', 'BAAI/bge-m3']
+    # Model context is 8192. A smaller arena makes TEI truncate a long vacancy.
+    # The reranker loads first: its startup peak plus a resident encoder does not fit in Docker.
+    command: ['--model-id', 'BAAI/bge-m3', '--max-batch-tokens', '8192']
     volumes:
       - tei-embed:/data
+    depends_on:
+      tei-rerank:
+        condition: service_healthy
+    healthcheck: &tei-health
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:80/health']
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 600s
     restart: unless-stopped
 
   tei-rerank:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
-    command: ['--model-id', 'BAAI/bge-reranker-v2-m3']
+    command: ['--model-id', 'BAAI/bge-reranker-v2-m3', '--max-batch-tokens', '8192']
     volumes:
       - tei-rerank:/data
+    healthcheck:
+      <<: *tei-health
     restart: unless-stopped
 
   migrate:
@@ -122,9 +135,9 @@ services:
       postgres:
         condition: service_healthy
       tei:
-        condition: service_started
+        condition: service_healthy
       tei-rerank:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       <<: *node-health
     restart: unless-stopped
@@ -165,6 +178,7 @@ services:
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN is required}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
+      INGEST_LIMIT: ${INGEST_LIMIT:-2000}
     depends_on:
       migrate:
         condition: service_completed_successfully

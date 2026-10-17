@@ -419,13 +419,13 @@ flowchart LR
     CE --> OUT[Final top-10 + explain]
 ```
 
-После RRF — **cross-encoder prod:** **`BAAI/bge-reranker-v2-m3`** (568M, top-20, TEI CPU/ONNX). Лёгкие reranker'ы (~278M) — абляции и режим без rerank.
+После RRF — **cross-encoder prod:** **`BAAI/bge-reranker-v2-m3`** (568M, top-20, TEI CPU). Формат весов — [ADR-034](10-decision-log.md). Лёгкие reranker'ы (~278M) — абляции и режим без rerank.
 
 ---
 
 ## 8. Сколько времени занимает каждый слой (i9-9880H, CPU)
 
-Замеры: [`cpu-tei-benchmark/`](../cpu-tei-benchmark/) (FP32 PyTorch, 2026-09-20). Prod TEI INT8 — ориентир **~1.5–2× быстрее**.
+Замеры: [`cpu-tei-benchmark/`](../cpu-tei-benchmark/) (FP32 PyTorch, 2026-09-20). Оценка INT8 (**~1.5–2×**) — не формат запущенного реранкера ([ADR-034](10-decision-log.md)).
 
 ### 8.1 Один запрос пользователя — retrieval (без LLM)
 

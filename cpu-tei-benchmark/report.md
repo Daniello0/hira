@@ -16,7 +16,7 @@
 | Reranker (prod) | `BAAI/bge-reranker-base` (~278M) | cross-encoder top-20 |
 | Reranker (reject) | `BAAI/bge-reranker-v2-m3` (~568M) | слишком тяжёлый для CPU |
 
-**Важно:** продакшн-план — **HF TEI + ONNX INT8**. Этот прогон — **FP32 PyTorch**, поэтому числа **хуже**, чем будет в TEI (ожидаемо **~1.5–2×** ускорение).
+**Важно:** этот прогон — **FP32 PyTorch**. Оценка «TEI + ONNX INT8 быстрее в ~1.5–2×» относится к расчёту на день замера. Запущенный реранкер — safetensors, не ONNX INT8 ([ADR-034](../Wiki/10-decision-log.md)).
 
 ---
 

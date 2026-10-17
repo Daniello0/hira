@@ -302,7 +302,7 @@ interface MatchExplanation {
 
 Практический вывод: **офлайн-индексация может быть медленной (это разовая ночная задача).** Latency на CPU не выбирает реранкер: прод — `bge-reranker-v2-m3` (ADR-022). Строки ниже — оценка, в том числе лёгкой модели для абляции.
 
-Оценка пропускной способности на этом CPU (ONNX Runtime, квантование INT8):
+Оценка пропускной способности на этом CPU (ONNX Runtime, квантование INT8). Это расчёт, не формат запущенного реранкера ([ADR-034](10-decision-log.md)):
 
 | Операция | Модель | Оценка |
 |---|---|---|
@@ -348,15 +348,15 @@ interface MatchExplanation {
 | `jina-reranker-v2-base-multilingual` | 278M | ~0.5 с | абляция |
 | `BAAI/bge-reranker-base` | 278M | ~0.5 с | абляция |
 
-**Решение (ADR-022): `BAAI/bge-reranker-v2-m3` (568M)** — prod reranker, top-20 (top-50 в абляциях), TEI CPU/ONNX. Замер i9-9880H: **~6.5 s** top-20 — приемлемо; latency обосновывается железом.
+**Решение (ADR-022): `BAAI/bge-reranker-v2-m3` (568M)** — prod reranker, top-20 (top-50 в абляциях), TEI CPU. Формат весов — [ADR-034](10-decision-log.md). Замер i9-9880H: **~6.5 s** top-20 — приемлемо; latency обосновывается железом.
 
 Лёгкие reranker'ы (~278M) — абляции и деградация (~2 s). Rerank отключаем; строка «без rerank» в таблице абляций.
 
 ### 4.3 Где запускать
 
-**Решение: Hugging Face Text Embeddings Inference (TEI), CPU-образ, модели в формате ONNX с INT8-квантованием.** Энкодер (`/embed`) и реранкер (`/rerank`) — отдельные процессы; имена контейнеров и порты — [01-architecture.md](01-architecture.md) §2.6. Батчинг из коробки, ни строчки Python.
+**Решение: Hugging Face Text Embeddings Inference (TEI), CPU-образ.** Энкодер (`/embed`) и реранкер (`/rerank`) — отдельные процессы; имена контейнеров, порты и формат весов — [01-architecture.md](01-architecture.md) §2.6, [ADR-034](10-decision-log.md). Батчинг из коробки, ни строчки Python.
 
-Запасной вариант, если TEI на Intel-маке окажется капризным: **Transformers.js v3** (`@huggingface/transformers`) — запускает те же ONNX-модели прямо в Node через ONNX Runtime. Медленнее TEI, но убирает целый контейнер и оставляет стек полностью на TypeScript. Проверяется на первой неделе разработки.
+Запасной вариант для энкодера, если TEI на Intel-маке окажется капризным: **Transformers.js v3** (`@huggingface/transformers`) — ONNX прямо в Node через ONNX Runtime. Медленнее TEI, но убирает контейнер энкодера. Реранкер так не запускается: в его репозитории нет ONNX ([ADR-034](10-decision-log.md)).
 
 ### 4.4 Генеративная LLM
 

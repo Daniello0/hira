@@ -1,6 +1,6 @@
 # 01. Архитектура системы
 
-Статус: черновик · Последнее обновление: 2026-10-11
+Статус: черновик · Последнее обновление: 2026-10-17
 
 ---
 
@@ -133,11 +133,11 @@ cd Wiki/diagrams && dot -Tpng -Gdpi=150 architecture.dot -o architecture.png
 
 ### 2.6 `embedding-runtime` — Hugging Face Text Embeddings Inference
 
-Два контейнера TEI (CPU-образ), по одной модели. `tei` поднимает энкодер `BAAI/bge-m3` (`/embed`), `tei-rerank` — `BAAI/bge-reranker-v2-m3` (`/rerank`). Внутри сети Compose оба слушают порт 80. Модели в формате ONNX с INT8-квантованием. Это позволяет не писать ни строчки Python и при этом использовать современные модели.
+Два контейнера TEI (CPU-образ), по одной модели. `tei` поднимает энкодер `BAAI/bge-m3` (`/embed`), `tei-rerank` — `BAAI/bge-reranker-v2-m3` (`/rerank`). Внутри сети Compose оба слушают порт 80. Арена батча — 8192 токена, контекст обеих моделей. Формат весов — [ADR-034](10-decision-log.md). Это позволяет не писать ни строчки Python и при этом использовать современные модели.
 
 Машина разработки — Intel i9-9880H, инференс только на CPU. Prod-реранкер — `BAAI/bge-reranker-v2-m3` (ADR-022): на top-20 это несколько секунд, и это принято. Модель ~278M — абляция, не прод. Подробности — [02-retrieval-layer.md](02-retrieval-layer.md), п. 4.2.
 
-Запасной вариант, если TEI на Intel-маке окажется капризным: Transformers.js v3 прямо в Node, без отдельного контейнера.
+Запасной вариант для энкодера, если TEI на Intel-маке окажется капризным: Transformers.js v3 прямо в Node, без отдельного контейнера. Реранкер этот путь не поднимает: файла ONNX у него нет ([ADR-034](10-decision-log.md)).
 
 ### 2.7 PostgreSQL
 
@@ -262,6 +262,8 @@ job-finder-ai/
 ## 6. Развёртывание
 
 `docker-compose.yml` поднимает: `postgres`, **`redis`**, `tei`, `tei-rerank`, `core-api`, `retrieval-service`, `llm-service`, `ingestion-service`, `web`. Внутри сети: retrieval `4001`, llm `4002`, ingestion `4003`, оба TEI — `80`. Наружу торчат только `web:3000` и `core-api:4000` (для Swagger).
+
+Профиля Compose для TEI нет: оба контейнера входят в обычный `docker compose up` ([ADR-033](10-decision-log.md)). Энкодер стартует после `GET /health` реранкера: одновременная загрузка обеих моделей не помещается в память Docker. `retrieval-service` стартует после того, как каждый ответил `GET /health`. Его `GET /health/ready` вызывает `/embed` и готов только при векторе из 1024 чисел, и `/rerank` — только если в ответе есть числовая оценка.
 
 ### Redis
 
