@@ -4,7 +4,7 @@ import type { RawVacancy } from './raw-vacancy';
 import { parseRabotaList, parseRabotaVacancy } from './rabota/parse-rabota';
 import { isRecord } from './record';
 import { isFetchAllowed } from './robots';
-import { parseGszList, parseGszVacancy } from './gsz/parse-gsz';
+import { gszVacancyPath, parseGszList, parseGszVacancy } from './gsz/parse-gsz';
 import { parseHabrList, parseHabrVacancy } from './habr/parse-habr';
 
 const RABOTA_ORIGIN = 'https://rabota.by';
@@ -159,7 +159,7 @@ export function detailTarget(
 function gszTarget(externalId: string): { origin: string; path: string } {
   return {
     origin: GSZ_ORIGIN,
-    path: `/registration/employer/vacancy/${externalId}/detail-public/`,
+    path: gszVacancyPath(externalId),
   };
 }
 

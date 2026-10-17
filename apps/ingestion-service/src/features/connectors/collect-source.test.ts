@@ -73,14 +73,17 @@ describe('collectSource', () => {
     expect(urls.some((url) => url.includes('api.hh.ru'))).toBe(false);
   });
 
-  it('asks GSZ for the detail href published on the card', async () => {
+  it('asks GSZ for the public vacancy page', async () => {
     const urls: string[] = [];
-    const card = `<div class="job-block"><a href="/registration/employer/vacancy/449560/detail-public/?source=search" title="Инженер" class="debounced-link">Инженер</a></div>`;
+    const externalId = 'a82c44d4-c57c-4340-afb0-9e0f4d026c88';
+    const card = `<div class="job-block"><a href="/registration/vacancy/${externalId}/" title="Инженер" class="debounced-link">Инженер</a></div>`;
     const http: HttpGet = {
       get: async (url) => {
         urls.push(url);
         if (url.endsWith('/robots.txt')) return { status: 200, body: 'User-agent: *\nAllow: /\n' };
-        if (url.includes('detail-public')) return { status: 200, body: '<h1>Инженер</h1>' };
+        if (url.endsWith(`/registration/vacancy/${externalId}/`)) {
+          return { status: 200, body: '<h1>Инженер</h1>' };
+        }
         return { status: 200, body: card };
       },
     };
@@ -90,7 +93,11 @@ describe('collectSource', () => {
       pause: async () => undefined,
     });
     expect(result.raws.map((row) => row.title)).toEqual(['Инженер']);
-    expect(urls.some((url) => url.includes('detail-public/?source=search'))).toBe(true);
+    expect(result.raws.map((row) => row.url)).toEqual([
+      `https://gsz.gov.by/registration/vacancy/${externalId}/`,
+    ]);
+    expect(urls).toContain(`https://gsz.gov.by/registration/vacancy/${externalId}/`);
+    expect(urls.some((url) => url.includes('detail-public'))).toBe(false);
   });
 
   it('keeps the other cards when one detail page is missing', async () => {

@@ -141,6 +141,39 @@ describe('liveness', () => {
     expect(calls.some((call) => call.sql.includes('EXPIRED'))).toBe(false);
   });
 
+  it('reads the public GSZ card and expires only when that page is missing', async () => {
+    const calls: SqlCall[] = [];
+    const urls: string[] = [];
+    const openId = 'a82c44d4-c57c-4340-afb0-9e0f4d026c88';
+    const goneId = '39f141ce-31be-4dbf-8523-5606bccb8ed5';
+    const result = await performIngest({
+      job: { source: VacancySource.Gsz, jobType: JOB_LIVENESS },
+      client: activeClient(calls, [openId, goneId]),
+      http: {
+        get: async (url) => {
+          urls.push(url);
+          if (url.endsWith('/robots.txt')) return { status: 200, body: 'User-agent: *\nAllow: /\n' };
+          if (url.endsWith(`/registration/vacancy/${openId}/`)) {
+            return { status: 200, body: '<h1>Инженер</h1>' };
+          }
+          return { status: 404, body: 'missing' };
+        },
+      },
+      rates: {},
+      rateError: null,
+      limit: 5,
+      now: new Date('2026-10-17T03:00:00Z'),
+      pause: async () => undefined,
+    });
+    expect(result.status).toBe(IngestionStatus.Success);
+    expect(result.updated).toBe(2);
+    expect(urls).toContain(`https://gsz.gov.by/registration/vacancy/${openId}/`);
+    expect(urls).toContain(`https://gsz.gov.by/registration/vacancy/${goneId}/`);
+    expect(urls.some((url) => url.includes('detail-public'))).toBe(false);
+    expect(writtenStatus(calls, openId, [openId, goneId])).toBeUndefined();
+    expect(writtenStatus(calls, goneId, [openId, goneId])).toBe(VacancyStatus.Expired);
+  });
+
   it('loads the next batch after a full page of active vacancies', async () => {
     const calls: SqlCall[] = [];
     await performIngest({

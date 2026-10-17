@@ -12,8 +12,17 @@ export interface GszListItem {
   address: string | null;
 }
 
-const VACANCY_LINK =
-  /<a href="([^"]*\/vacancy\/([^"/]+)\/detail-public[^"]*)"[^>]*class="debounced-link"[^>]*>\s*([^<]*?)\s*<\/a>/i;
+const GSZ_SITE = 'https://gsz.gov.by';
+const GSZ_VACANCY_ROOT = '/registration/vacancy/';
+const PUBLIC_VACANCY_LINK = new RegExp(
+  `<a href="(${GSZ_VACANCY_ROOT}([^"/?#]+)/)"[^>]*class="debounced-link"[^>]*>([\\s\\S]*?)</a>`,
+  'i',
+);
+
+/** Public card path. The retired employer detail URL answers 404 for an open vacancy. */
+export function gszVacancyPath(externalId: string): string {
+  return `${GSZ_VACANCY_ROOT}${externalId}/`;
+}
 
 /** Public vacancy cards from a GSZ search page. Account links are ignored. */
 export function parseGszList(html: string): GszListItem[] {
@@ -32,7 +41,7 @@ export function parseGszVacancy(html: string, externalId: string): RawVacancy {
   const salary = parseSalaryText(labeled(html, 'Заработная плата'));
   return {
     externalId,
-    url: `https://gsz.gov.by/registration/employer/vacancy/${externalId}/detail-public/`,
+    url: `${GSZ_SITE}${gszVacancyPath(externalId)}`,
     title,
     companyName: companyOf(html),
     unp: null,
@@ -61,17 +70,14 @@ export function parseGszAddress(address: string): { region: string | null; city:
 }
 
 function readCard(block: string): GszListItem[] {
-  const link = VACANCY_LINK.exec(block);
-  const path = link?.[1];
+  const link = PUBLIC_VACANCY_LINK.exec(block);
   const externalId = link?.[2];
-  const title = link?.[3]?.trim();
-  if (path === undefined || externalId === undefined || title === undefined || title.length === 0) {
-    return [];
-  }
+  const title = stripHtml(link?.[3] ?? '');
+  if (externalId === undefined || title.length === 0) return [];
   return [
     {
       externalId,
-      path,
+      path: gszVacancyPath(externalId),
       title,
       companyName: stripHtml(
         matchOne(block, /<li class="org[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i) ?? '',
