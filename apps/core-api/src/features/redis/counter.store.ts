@@ -8,6 +8,9 @@ export interface CounterStore {
    */
   increment(key: string, ttlSeconds: number | null): Promise<number>;
 
+  /** Current integer, or `null` when the key is missing. Does not increment. */
+  read(key: string): Promise<number | null>;
+
   /** Remaining TTL in seconds. `null` when the key is missing or has no expiry. */
   ttl(key: string): Promise<number | null>;
 

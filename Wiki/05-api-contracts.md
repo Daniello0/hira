@@ -31,6 +31,8 @@ interface ApiErrorResponse {
 
 Коды auth: `VALIDATION_FAILED` (400), `AUTH_EMAIL_TAKEN` (409), `AUTH_INVALID_CREDENTIALS` (401), `AUTH_REFRESH_INVALID` (401), `AUTH_REFRESH_REUSED` (401), `AUTH_UNAUTHORIZED` (401). Лимит входа и поисковая квота отвечают `RATE_LIMIT_EXCEEDED` (429) — §1.6.
 
+`GET /api/v1/auth/me` добавляет `searchQuota: { used, limit }`. Чтение не списывает квоту. Нет ключа Redis — `used: 0`, `limit: 20`. Демо этот маршрут не вызывает.
+
 ### 1.2 Чаты и сообщения
 
 | Метод | Путь | Описание |
@@ -62,6 +64,8 @@ event: error             data: ApiErrorResponse
 ```
 
 Событие `results` приходит **до** токенов генерации — карточки вакансий отрисовываются сразу, текст дописывается поверх. Это заметно улучшает воспринимаемую скорость.
+
+`GET` чата и истории кладут `intent` и `diagnostics` на сообщение пользователя, когда ход их уже записал. У ассистента по-прежнему `results`. `VacancyDto` в потоке и в истории включает `companyName` и `locationLabel` (город и регион). `GET /profile/skills` включает `canonicalName`.
 
 Поток открывается после записи user-сообщения. Сбой `understand` не даёт `error`: намерение строится эвристически, `rewrittenQuery` равен тексту реплики. Квота списывается после `intent` и только для `SEARCH`, `REFINE`, `COMPARE`; отказ — `event: error` с `RATE_LIMIT_EXCEEDED`, без `done`. `SMALL_TALK` и `CAREER_ADVICE` не ищут и квоту не тратят. Сбой retrieval — `event: error` с `SEARCH_UPSTREAM_UNAVAILABLE`, снимок не пишется. Сбой `generate` оставляет карточки и пустой или частичный текст, затем `assistant-message` и `done`, без `error`.
 

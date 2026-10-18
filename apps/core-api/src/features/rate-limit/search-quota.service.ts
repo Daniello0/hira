@@ -35,6 +35,15 @@ export class SearchQuotaService {
     return decideQuota(count, DEMO_SEARCH_LIMIT, null);
   }
 
+  /**
+   * Searches already used today. A missing key is zero.
+   * This does not call `increment`.
+   */
+  async readRegistered(userId: string): Promise<{ used: number; limit: number }> {
+    const count = await this.counters.read(userQuotaKey(userId, this.clock.now()));
+    return { used: count ?? 0, limit: REGISTERED_SEARCH_LIMIT };
+  }
+
   /** Consumes one registered search. A denial reports the seconds until UTC midnight. */
   async consumeRegistered(userId: string): Promise<QuotaConsumption> {
     const now = this.clock.now();

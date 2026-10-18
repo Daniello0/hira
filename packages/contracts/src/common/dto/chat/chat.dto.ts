@@ -1,5 +1,6 @@
 import type { MessageRole } from '../../enums/message-role.enum';
-import type { VacancyResult } from '../search/retrieval.dto';
+import type { RetrievalDiagnostics, VacancyResult } from '../search/retrieval.dto';
+import type { SearchIntent } from '../search/search-intent.dto';
 
 /** One chat in a list or detail response. */
 export interface ChatSummary {
@@ -21,6 +22,10 @@ export interface ChatMessageView {
   content: string;
   createdAt: string;
   results?: VacancyResult[];
+  /** Present on user turns after understand. The context panel reads this after reload. */
+  intent?: SearchIntent;
+  /** Relaxation and branch timings stored beside the user turn. */
+  diagnostics?: RetrievalDiagnostics;
 }
 
 /** Cursor page. `nextCursor` is null on the last page. */

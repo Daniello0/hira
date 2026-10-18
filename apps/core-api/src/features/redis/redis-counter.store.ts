@@ -24,6 +24,14 @@ export class RedisCounterStore implements CounterStore {
   }
 
   /** @inheritdoc */
+  async read(key: string): Promise<number | null> {
+    const value = await this.redis.get(key);
+    if (value === null) return null;
+    const count = Number(value);
+    return Number.isFinite(count) ? count : null;
+  }
+
+  /** @inheritdoc */
   async ttl(key: string): Promise<number | null> {
     const seconds = await this.redis.ttl(key);
     if (seconds < 1) return null;

@@ -1,8 +1,6 @@
-/** Placeholder home until the chat shell lands. */
+import { redirect } from 'next/navigation';
+
+/** The product opens on the chat. */
 export default function HomePage() {
-  return (
-    <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-4xl font-semibold tracking-tight">Hira</h1>
-    </main>
-  );
+  redirect('/chat');
 }

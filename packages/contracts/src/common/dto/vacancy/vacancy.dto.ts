@@ -18,7 +18,11 @@ export interface VacancyDto {
   url: string;
   title: string;
   companyId: string | null;
+  /** Denormalized `companies` name. Empty when the source omitted it. */
+  companyName: string;
   locationId: number | null;
+  /** City and region for the card. Null when both are missing. */
+  locationLabel: string | null;
   description: string;
   seniority: SeniorityLevel | null;
   employment: EmploymentType | null;

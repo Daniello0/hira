@@ -63,6 +63,11 @@ export const EMPTY_PROFILE: ProfileDto = {
 };
 
 /** Manual skills are confident claims. */
-export function manualSkill(skillId: number, level: SkillLevel, years: number | null): ProfileSkillDto {
-  return { skillId, level, years, source: ProfileSkillSource.SelfReported, confidence: 1 };
+export function manualSkill(
+  skillId: number,
+  level: SkillLevel,
+  years: number | null,
+  canonicalName: string,
+): ProfileSkillDto {
+  return { skillId, canonicalName, level, years, source: ProfileSkillSource.SelfReported, confidence: 1 };
 }
