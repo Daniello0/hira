@@ -326,10 +326,7 @@ describe('lexical and dense search against postgres', () => {
     expect(scores.get(floor.id)).toBeCloseTo(0.25);
     expect(scores.has(hidden.id)).toBe(false);
     const crowd = await insertSkill(client, 'Graph Crowd', 1);
-    for (let index = 0; index < 101; index += 1) {
-      const saved = await store.save(vacancy({ externalId: `graph-crowd-${index}` }), seen);
-      await linkSkill(client, saved.id, crowd, SkillImportance.Required, seen);
-    }
+    await insertCrowd(client, crowd, seen);
     const top = await searchGraph(client, [crowd], {});
     expect(top).toHaveLength(100);
     expect(top[0]?.rank).toBe(1);
@@ -489,6 +486,20 @@ async function insertChunk(
     `INSERT INTO vacancy_chunks (vacancy_id, chunk_index, content, token_count, embedding)
      VALUES ($1, $2, $3, 1, $4::vector)`,
     [vacancyId, chunkIndex, `chunk-${chunkIndex}`, embedding],
+  );
+}
+
+async function insertCrowd(client: Client, skillId: number, seen: Date): Promise<void> {
+  await client.query(
+    `INSERT INTO vacancies (source, language, external_id, title, status, first_seen_at, last_seen_at)
+     SELECT $1, 'ru', 'graph-crowd-' || n, 'Backend', $2, $3, $3
+     FROM generate_series(0, 100) AS n`,
+    [VacancySource.RabotaBy, VacancyStatus.Active, seen],
+  );
+  await client.query(
+    `INSERT INTO vacancy_skills (vacancy_id, skill_id, importance, weight)
+     SELECT v.id, $1, $2, 1 FROM vacancies v WHERE v.external_id LIKE 'graph-crowd-%'`,
+    [skillId, SkillImportance.Required],
   );
 }
 
