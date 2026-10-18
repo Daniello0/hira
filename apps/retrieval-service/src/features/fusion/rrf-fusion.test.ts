@@ -61,4 +61,14 @@ describe('fuseBranches', () => {
     );
     expect(skipped).toEqual([]);
   });
+
+  it('counts a repeated branch once', () => {
+    const hits = { [RetrievalBranch.Lexical]: [{ vacancyId: 'only', rank: 1, score: -3 }] };
+    const once = fuseBranches(hits, QueryComplexity.Simple, undefined, [RetrievalBranch.Lexical]);
+    const twice = fuseBranches(hits, QueryComplexity.Simple, undefined, [
+      RetrievalBranch.Lexical,
+      RetrievalBranch.Lexical,
+    ]);
+    expect(twice).toEqual(once);
+  });
 });

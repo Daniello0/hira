@@ -12,6 +12,10 @@ export const MAX_RESULT_LIMIT = 50;
 export const BM25_INDEX_RU = 'idx_vac_bm25_ru';
 export const BM25_INDEX_EN = 'idx_vac_bm25_en';
 
+/** `users.id` is a uuid. Anything else must not reach `user_profile_skills.user_id`. */
+export const USER_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const VALIDATION_FAILED_CODE = 'VALIDATION_FAILED';
 export const VALIDATION_FAILED_MESSAGE = 'Search request is invalid';
 export const RETRIEVAL_UNAVAILABLE_CODE = 'RETRIEVAL_UNAVAILABLE';

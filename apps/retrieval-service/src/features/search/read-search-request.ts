@@ -7,7 +7,7 @@ import {
   type SearchIntent,
   type SkillMention,
 } from '@hira/contracts';
-import { DEFAULT_RESULT_LIMIT, MAX_RESULT_LIMIT } from './search.constants';
+import { DEFAULT_RESULT_LIMIT, MAX_RESULT_LIMIT, USER_ID_PATTERN } from './search.constants';
 import { emptyIntent } from './run-branches';
 
 export interface ParsedSearch {
@@ -88,7 +88,7 @@ function knownValue<T extends Record<string, string>>(
 
 function readUserId(value: unknown): string | undefined | 'invalid' {
   if (value === undefined) return undefined;
-  if (typeof value !== 'string' || value.trim().length === 0) return 'invalid';
+  if (typeof value !== 'string' || !USER_ID_PATTERN.test(value)) return 'invalid';
   return value;
 }
 

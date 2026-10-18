@@ -14,7 +14,7 @@ interface Running {
   retrievedBy: RetrievalBranch[];
 }
 
-/** Sums `weight / (k + rank)` over the branches that actually ran. */
+/** Sums `weight / (k + rank)` over the branches that actually ran. A repeat counts once. */
 export function fuseBranches(
   lists: Partial<Record<RetrievalBranch, readonly BranchHit[]>>,
   complexity: QueryComplexity,
@@ -22,7 +22,7 @@ export function fuseBranches(
   active: readonly RetrievalBranch[],
 ): FusedHit[] {
   const totals = new Map<string, Running>();
-  for (const branch of active)
+  for (const branch of onceEach(active))
     addBranch(totals, branch, lists[branch] ?? [], weightOf(branch, complexity, overrides));
   return [...totals.entries()].map(toHit).sort(byScoreThenId);
 }
@@ -46,6 +46,10 @@ function addHit(
   current.score += term;
   current.retrievedBy.push(branch);
   totals.set(hit.vacancyId, current);
+}
+
+function onceEach(active: readonly RetrievalBranch[]): RetrievalBranch[] {
+  return [...new Set(active)];
 }
 
 function weightOf(
