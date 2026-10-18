@@ -122,7 +122,7 @@ Demo-чат создаётся автоматически при первом з
 
 ### 1.8 Библиотека, настройка памяти, вызов
 
-Поведение — [11-hira.md](11-hira.md). Всё ниже требует аккаунта; demo-сессия получает `403`.
+Поведение — [11-hira.md](11-hira.md). Всё ниже требует аккаунта; demo-сессия получает `403`. Чужой документ, факт, навык профиля или вызов — `404`. Реплика в уже завершённый вызов — `400`. `POST /calls/{id}/end` отвечает `200`; повтор не сдвигает время завершения.
 
 | Метод | Путь | Описание |
 |---|---|---|
@@ -186,15 +186,17 @@ interface VacancyResult {
 
 | Метод | Путь | Вход → Выход |
 |---|---|---|
-| `POST` | `/internal/v1/understand` | `{ query, history[], memory[] }` → `{ intent: SearchIntent, meta }` |
-| `POST` | `/internal/v1/generate` | `{ intent, results[], history[] }` → SSE `token` / `done` / `error` |
-| `POST` | `/internal/v1/summarize-chat` | `{ messages[] }` → `{ summary }` |
-| `POST` | `/internal/v1/extract-memory` | `{ messages[], existingMemory[] }` → `{ candidates: MemoryCandidate[] }` |
+| `POST` | `/internal/v1/understand` | `{ query, history[], memory[], summary?, documents? }` → `{ intent: SearchIntent, meta }` |
+| `POST` | `/internal/v1/generate` | `{ intent, results[], history[], summary?, documents? }` → SSE `token` / `done` / `error` |
+| `POST` | `/internal/v1/summarize-chat` | `{ previousSummary, messages[] }` → `{ summary }` |
+| `POST` | `/internal/v1/extract-memory` | `{ messages[], existingMemory[] }` → `{ candidates: MemoryCandidate[], suggestions[] }` |
 | `POST` | `/internal/v1/extract-skills` | `{ vacancies: { id, title, description }[] }` → `{ results: ExtractedSkills[] }` |
 | `POST` | `/internal/v1/title-chat` | `{ firstMessage }` → `{ title }` |
-| `POST` | `/internal/v1/parse-resume` | `{ resumeText }` → `{ skills[], experience[], suggestions[] }` |
+| `POST` | `/internal/v1/parse-resume` | `{ resumeText }` → `{ skills[], experience[] }` |
 
-Для `/understand`: `history[]` — `{ role: USER | ASSISTANT, content }`, `memory[]` — `{ content }`. `canonicalId` в `intent.skills` всегда `null` — [02-retrieval-layer.md](02-retrieval-layer.md), S0.
+Для `/understand`: `history[]` — `{ role: USER | ASSISTANT, content }`, `memory[]` — `{ content }`. `summary` — сводка текущего чата, не факт памяти. `documents[]` — `{ title, kind, content }` закреплённых и ближайших файлов; в `memory[]` они не входят. `canonicalId` в `intent.skills` всегда `null` — [02-retrieval-layer.md](02-retrieval-layer.md), S0.
+
+`/parse-resume` не создаёт строки профиля. `core-api` превращает `skills[]` и `experience[]` в `profile_suggestions`. Повтор того же текста берётся из Redis на 24 часа.
 
 `meta` — `{ tokenUsage: { promptTokens, completionTokens, totalTokens } }`.
 

@@ -8,6 +8,9 @@ import { generateAnswer, type LlmStreamEvent } from '../generate/generate.servic
 import { createAxiosPost } from '../provider/axios-post';
 import { createOpenRouterClient } from '../provider/openrouter-client';
 import { createLlmRedisClient, readLlmRedisUrl } from '../provider/redis-client';
+import { extractMemory } from '../extract-memory/extract-memory.service';
+import { parseResume } from '../parse-resume/parse-resume.service';
+import { summarizeChat } from '../summarize-chat/summarize-chat.service';
 import { extractSkills } from '../extract-skills/extract-skills.service';
 import { understandQuery } from '../understand/understand.service';
 import { createLlmRouter } from './llm.router';
@@ -24,6 +27,10 @@ export function buildLlmRouter(logger: Logger, env: NodeJS.ProcessEnv): Router {
     understand: (request) => understandWith(logger, config.model, provider, cache, request),
     generate: (request, emit) => generateWith(provider, request, emit),
     extractSkills: (request) => extractWith(logger, config.model, provider, cache, request),
+    summarize: (request) => summarizeChat({ provider, sleep: delay, now: Date.now }, request),
+    extractMemory: (request) => extractMemory({ provider, sleep: delay, now: Date.now }, request),
+    parseResume: (request) =>
+      parseResume({ provider, cache, sleep: delay, model: config.model, logger, now: Date.now }, request),
   });
 }
 

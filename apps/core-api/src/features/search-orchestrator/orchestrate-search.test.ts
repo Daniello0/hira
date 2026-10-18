@@ -216,6 +216,21 @@ class FakeLlm implements LlmGateway {
     yield { kind: 'token', delta: 'Hi' };
     yield { kind: 'done', tokenUsage: TOKEN_USAGE };
   }
+
+  /** @inheritdoc */
+  summarize(): Promise<{ summary: string }> {
+    return Promise.resolve({ summary: '' });
+  }
+
+  /** @inheritdoc */
+  extractMemory(): Promise<{ candidates: []; suggestions: [] }> {
+    return Promise.resolve({ candidates: [], suggestions: [] });
+  }
+
+  /** @inheritdoc */
+  parseResume(): Promise<{ skills: []; experience: [] }> {
+    return Promise.resolve({ skills: [], experience: [] });
+  }
 }
 
 class FakeRetrieval implements RetrievalGateway {

@@ -55,7 +55,7 @@ export class SearchController {
       const caller = this.chats.caller(actorHint(request));
       const chat = await this.chats.owned(caller, chatId);
       await this.search.postMessage(
-        { caller, chat, content: body.content, requestId: readRequestId(request) },
+        { caller, chat, content: body.content, requestId: readRequestId(request), useMemory: body.useMemory },
         { open: () => openSse(response), write: (event, data) => writeSse(response, event, data) },
       );
       response.end();

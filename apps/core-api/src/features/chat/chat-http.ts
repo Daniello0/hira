@@ -9,6 +9,7 @@ import {
   VALIDATION_ERROR_CODE,
 } from '../../common/constants/app.constants';
 import { ApiHttpException } from '../../common/filters/api-http.exception';
+import { mapAccountError } from '../auth/account-http';
 import { apiError } from '../auth/auth-http';
 import { UnauthorizedError } from '../auth/auth.errors';
 import {
@@ -55,7 +56,7 @@ export function mapChatError(error: unknown, request: Request): ApiHttpException
 
 /** Writes a JSON error, or an SSE error when the stream is already open. */
 export function failStream(error: unknown, request: Request, response: Response): void {
-  const http = mapChatError(error, request) ?? unexpected(request);
+  const http = mapChatError(error, request) ?? mapAccountError(error, request) ?? unexpected(request);
   if (response.headersSent) {
     writeSse(response, SSE_EVENT.error, http.getResponse());
     response.end();

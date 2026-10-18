@@ -15,9 +15,19 @@ export function buildGenerateMessages(request: GenerateRequest): ChatMessage[] {
 }
 
 function userContent(request: GenerateRequest): string {
-  return [queryLine(request), historyLine(request), resultsLine(request)]
+  return [summaryLine(request.summary), documentLine(request.documents), queryLine(request), historyLine(request), resultsLine(request)]
     .filter((line) => line.length > 0)
     .join('\n');
+}
+
+function summaryLine(summary: GenerateRequest['summary']): string {
+  if (summary === undefined || summary === null || summary.length === 0) return '';
+  return `Chat summary: ${summary}`;
+}
+
+function documentLine(documents: GenerateRequest['documents']): string {
+  if (documents === undefined || documents.length === 0) return '';
+  return documents.map((document) => `File ${document.title}: ${document.content}`).join('\n');
 }
 
 function queryLine(request: GenerateRequest): string {

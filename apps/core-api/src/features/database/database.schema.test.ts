@@ -28,6 +28,7 @@ const EXPECTED_TABLES = [
   'occupation_skills',
   'occupation_transitions',
   'occupations',
+  'profile_suggestions',
   'refresh_tokens',
   'search_logs',
   'skill_aliases',
@@ -116,6 +117,7 @@ describe('data source', () => {
       'InitialSchema1760000000000',
       'RefreshTokenHashIndex1762000000000',
       'DemoChat1763000000000',
+      'Stage12Memory1764000000000',
     ]);
   });
 

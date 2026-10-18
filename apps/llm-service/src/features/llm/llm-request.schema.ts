@@ -9,6 +9,7 @@ import {
   type GenerateRequest,
   type UnderstandRequest,
 } from '@hira/contracts';
+import { DocumentKind } from '@hira/contracts';
 import { z } from 'zod';
 
 const turnSchema = z
@@ -24,11 +25,21 @@ const memorySchema = z
   })
   .strict();
 
+const documentSchema = z
+  .object({
+    title: z.string().min(1),
+    kind: stringEnum(Object.values(DocumentKind)),
+    content: z.string(),
+  })
+  .strict();
+
 const understandRequestSchema = z
   .object({
     query: z.string().trim().min(1),
     history: z.array(turnSchema),
     memory: z.array(memorySchema),
+    summary: z.string().nullable().optional(),
+    documents: z.array(documentSchema).optional(),
   })
   .strict();
 
@@ -65,6 +76,8 @@ const generateRequestSchema = z
     intent: intentSchema,
     history: z.array(turnSchema),
     results: z.array(resultSchema()),
+    summary: z.string().nullable().optional(),
+    documents: z.array(documentSchema).optional(),
   })
   .strict();
 

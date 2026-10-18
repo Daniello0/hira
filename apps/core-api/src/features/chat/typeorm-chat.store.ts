@@ -115,6 +115,16 @@ export class TypeOrmChatStore implements ChatStore {
   }
 
   /** @inheritdoc */
+  setSummary(chatId: string, summary: string): Promise<void> {
+    return rows.setSummary(rows.asSql(this.dataSource), chatId, summary);
+  }
+
+  /** @inheritdoc */
+  chronologicalMessages(chatId: string): Promise<MessageRecord[]> {
+    return rows.chronologicalMessages(rows.asSql(this.dataSource), chatId);
+  }
+
+  /** @inheritdoc */
   insertSearchLog(input: DirectSearchLog): Promise<void> {
     return rows.insertSearchLog(rows.asSql(this.dataSource), input);
   }

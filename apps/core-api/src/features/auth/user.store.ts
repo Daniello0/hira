@@ -22,6 +22,7 @@ export interface UserStore {
   findByEmail(email: string): Promise<Account | null>;
   findById(id: string): Promise<Account | null>;
   insert(input: NewAccount): Promise<Account>;
+  setCrossChatMemory(userId: string, enabled: boolean): Promise<boolean>;
 }
 
 /** Raised when `users.email` is already taken. */

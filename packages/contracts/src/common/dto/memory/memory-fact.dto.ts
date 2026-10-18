@@ -8,5 +8,7 @@ export interface MemoryFactDto {
   confidence: number;
   isPinned: boolean;
   sourceMessageId: string | null;
+  sourceCallTurnId: string | null;
   expiresAt: string | null;
+  createdAt: string;
 }

@@ -291,6 +291,14 @@ class MemoryUserStore implements UserStore {
     this.accounts.push(account);
     return account;
   }
+
+  /** @inheritdoc */
+  async setCrossChatMemory(userId: string, enabled: boolean): Promise<boolean> {
+    const account = await this.findById(userId);
+    if (account === null) return false;
+    account.crossChatMemoryEnabled = enabled;
+    return true;
+  }
 }
 
 interface StoredRefresh {

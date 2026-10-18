@@ -9,9 +9,12 @@ export { IntentType } from './common/enums/intent-type.enum';
 export { Language } from './common/enums/language.enum';
 export { MatchFactor } from './common/enums/match-factor.enum';
 export { MemoryKind } from './common/enums/memory-kind.enum';
+export { MemoryOperation } from './common/enums/memory-operation.enum';
 export { MessageRole } from './common/enums/message-role.enum';
 export { ParseStatus } from './common/enums/parse-status.enum';
 export { ProfileSkillSource } from './common/enums/profile-skill-source.enum';
+export { ProfileSuggestionKind } from './common/enums/profile-suggestion-kind.enum';
+export { ProfileSuggestionStatus } from './common/enums/profile-suggestion-status.enum';
 export { QueryComplexity } from './common/enums/query-complexity.enum';
 export { RateUnit } from './common/enums/rate-unit.enum';
 export { ReindexScope } from './common/enums/reindex-scope.enum';
@@ -58,7 +61,37 @@ export {
   type SkillMention,
 } from './common/dto/search/search-intent.dto';
 export { type MemoryFactDto } from './common/dto/memory/memory-fact.dto';
+export { type MemorySettings, type UpdateMemoryRequest } from './common/dto/memory/memory-settings.dto';
+export {
+  type CreateTextDocumentRequest,
+  type DocumentDetailDto,
+  type DocumentSummaryDto,
+  type UpdateDocumentRequest,
+} from './common/dto/document/document.dto';
+export {
+  type CreateProfileSkillRequest,
+  type ProfileDto,
+  type ProfileSkillDto,
+  type ProfileSuggestionDto,
+  type ProfileSuggestionPayload,
+  type UpdateProfileRequest,
+} from './common/dto/profile/profile.dto';
+export { type CallSessionDto, type CreateCallTurnRequest } from './common/dto/call/call.dto';
 export { type GenerateRequest } from './common/dto/llm/generate-request.dto';
+export { type PromptDocument } from './common/dto/llm/prompt-document.dto';
+export { type SummarizeChatRequest, type SummarizeChatResponse } from './common/dto/llm/summarize-chat.dto';
+export {
+  type ExtractedSuggestion,
+  type ExtractMemoryRequest,
+  type ExtractMemoryResponse,
+  type MemoryCandidate,
+} from './common/dto/llm/extract-memory.dto';
+export {
+  type ParsedResumeExperience,
+  type ParsedResumeSkill,
+  type ParseResumeRequest,
+  type ParseResumeResponse,
+} from './common/dto/llm/parse-resume.dto';
 export {
   type ExtractedSkill,
   type ExtractedSkills,

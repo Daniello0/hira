@@ -6,7 +6,7 @@
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~59%
+**Общий прогресс (среднее по этапам):** ~64%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
@@ -21,7 +21,7 @@
 | 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | **75** |
 | 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | **90** |
 | 11 | **Оркестрация поиска (core-api)** | Search orchestrator, SSE (intent → results → tokens), чаты, `POST /search` для eval | **90** |
-| 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions | 0 |
+| 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions. Живой `core-api` после миграции `Stage12Memory1764000000000` (ADR-040) | **90** |
 | 13 | **Frontend: чат, стриминг, вызов** | Next.js, dark EN UI, SSE, vacancy cards, match explanation, экран Call, spinner «Searching…» | 0 |
 | 14 | **Frontend: профиль, библиотека, избранное, billing** | Profile, library, favorites, memory, mock `/billing` | 0 |
 | 15 | **Ingestion: источники 4–6** | praca.by, LinkedIn, Indeed; `is_foreign_remote` + filter | 0 |
@@ -71,9 +71,9 @@
 
 ## Следующий шаг
 
-**Этап 11.** core-api ведёт чаты и поисковый ход. `POST /api/v1/chats/{id}/messages` после записи реплики стримит `user-message → intent → results → token… → assistant-message → done`. Ищут и списывают квоту `SEARCH`, `REFINE`, `COMPARE`. `POST /api/v1/search` принимает готовый `RetrievalRequest` и не зовёт LLM. Сбой understand заменяется эвристикой, сбой generate отдаёт карточки без текста, сбой retrieval — событие `error`. В understand уходят только последние 10 реплик. Сводка и факты памяти — этап 12. Демо-чат висит на `demo_session_id`, не на строке `users` (ADR-039). Заголовок до появления `title-chat` — обрезка первого сообщения.
+**Этап 13.** Frontend: чат, стриминг, экран вызова.
 
-**Дальше — этап 12.** Память, библиотека, вызов: трёхуровневая память, выключатель межчатовой памяти, PDF/md/txt, call sessions, предложения в профиль.
+**Этап 12** отвечает из живого `core-api`. Миграция `Stage12Memory1764000000000` применена. Демо на библиотеке, памяти и вызове получает `403`. Чужой документ, факт, навык и вызов — `404`. Реплика в завершённый вызов — `400`, повторный `end` — `200` с тем же временем. PDF резюме разобран локально: предложение `EDUCATION` было в `GET /profile/suggestions` и попало в профиль только после accept. В этой базе `skills` пустая, поэтому имя навыка из резюме предложением не становится, пока не загружен ESCO (этап 8).
 
 **Этап 8.** Пайплайн закрыт: навыки, иерархия и алиасы ESCO, ночной PMI/IDF, эмбеддинги. Полные CSV с портала кладутся в `ESCO_DIR` (ADR-038); в репозитории их нет.
 

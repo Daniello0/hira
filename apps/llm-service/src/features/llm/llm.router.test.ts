@@ -166,6 +166,9 @@ function configured(): LlmRouterDeps {
     understand: vi.fn(),
     generate: vi.fn(),
     extractSkills: vi.fn(),
+    summarize: vi.fn(),
+    extractMemory: vi.fn(),
+    parseResume: vi.fn(),
   };
 }
 
@@ -211,6 +214,9 @@ function rigUnderstand(...steps: Array<string | Error>) {
       ),
     generate: vi.fn(),
     extractSkills: vi.fn(),
+    summarize: vi.fn(),
+    extractMemory: vi.fn(),
+    parseResume: vi.fn(),
   };
   return { provider, cache, routes };
 }
@@ -244,6 +250,9 @@ function rigGenerate(...script: Array<{ kind: 'delta' | 'usage'; text?: string }
     generate: (body, emit) =>
       generateAnswer({ provider, sleep: async () => undefined, now: () => 0 }, body, emit),
     extractSkills: vi.fn(),
+    summarize: vi.fn(),
+    extractMemory: vi.fn(),
+    parseResume: vi.fn(),
   };
   return { provider, cache, routes };
 }

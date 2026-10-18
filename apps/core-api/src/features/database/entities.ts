@@ -1,5 +1,6 @@
 import { CallSession } from '../call/call-session.entity';
 import { CallTurn } from '../call/call-turn.entity';
+import { ProfileSuggestion } from '../profile/profile-suggestion.entity';
 import { Chat } from '../chat/chat.entity';
 import { Message } from '../chat/message.entity';
 import { MessageVacancy } from '../chat/message-vacancy.entity';
@@ -54,6 +55,7 @@ export const ENTITIES = [
   MessageVacancy,
   CallSession,
   CallTurn,
+  ProfileSuggestion,
   Collection,
   Favorite,
   SearchLog,
