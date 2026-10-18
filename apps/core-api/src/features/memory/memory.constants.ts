@@ -25,6 +25,11 @@ export const PDF_MAX_BYTES = 10 * 1024 * 1024;
 /** Largest Markdown or text body. */
 export const TEXT_MAX_CHARS = 100_000;
 
+/** `user_documents.title` is varchar(256). */
+export const DOCUMENT_TITLE_MAX_CHARS = 256;
+
+export const DOCUMENT_TITLE_TOO_LONG_MESSAGE = 'The document title is too long';
+
 /** Same trigram cutoff retrieval uses for skill surfaces. */
 export const TRIGRAM_MATCH_THRESHOLD = 0.8;
 

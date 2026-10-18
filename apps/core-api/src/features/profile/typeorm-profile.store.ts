@@ -161,6 +161,7 @@ export class TypeOrmProfileStore implements ProfileStore {
        WHERE lower(trim(s.canonical_name)) = lower(trim($1))
           OR EXISTS (SELECT 1 FROM skill_aliases a WHERE a.skill_id = s.id AND lower(trim(a.alias)) = lower(trim($1)))
           OR similarity(s.canonical_name, $1) >= $2
+          OR COALESCE((SELECT MAX(similarity(a.alias, $1)) FROM skill_aliases a WHERE a.skill_id = s.id), 0) >= $2
        ORDER BY s.id
        LIMIT 20`,
       [surface, TRIGRAM_MATCH_THRESHOLD],

@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { MessageRole, type PromptTurn } from '@hira/contracts';
+import type { Logger } from 'pino';
+import { LOGGER } from '../../common/constants/app.constants';
 import { USER_STORE, type UserStore } from '../auth/user.store';
 import { CHAT_STORE, type ChatStore, type MessageRecord } from '../chat/chat.store';
 import type { Caller } from '../chat/resolve-actor';
@@ -28,6 +30,7 @@ export class TurnContextService {
     @Inject(TEXT_EMBEDDER) private readonly embed: (text: string) => Promise<number[] | null>,
     @Inject(LLM_GATEWAY) private readonly llm: LlmGateway,
     @Inject(ProfileService) private readonly profiles: ProfileService,
+    @Inject(LOGGER) private readonly logger: Logger,
   ) {}
 
   /** Facts, files, and the chat summary for one turn. */
@@ -55,7 +58,7 @@ export class TurnContextService {
     });
   }
 
-  /** Summary and fact extraction. Failures are logged by the scheduler. */
+  /** Summary and fact extraction. A failure is logged and does not cancel the other step. */
   async after(job: FollowUpJob): Promise<void> {
     const run = () => this.tail(job);
     if (job.userId === null) {
@@ -77,8 +80,8 @@ export class TurnContextService {
       if (messages.length === 0) return;
       const response = await this.llm.summarize({ previousSummary: job.previousSummary, messages }, job.chatId);
       await this.chats.setSummary(job.chatId, response.summary);
-    } catch {
-      return;
+    } catch (error) {
+      this.logger.warn({ err: error, chatId: job.chatId }, 'chat summary was left unchanged');
     }
   }
 
@@ -86,8 +89,8 @@ export class TurnContextService {
     if (!job.extract || job.userId === null) return;
     try {
       await this.extract(job, job.userId);
-    } catch {
-      return;
+    } catch (error) {
+      this.logger.warn({ err: error, userId: job.userId }, 'memory extraction was skipped');
     }
   }
 

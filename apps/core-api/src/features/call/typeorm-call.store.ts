@@ -32,15 +32,9 @@ export class TypeOrmCallStore implements CallStore {
 
   /** @inheritdoc */
   async endSession(id: string, userId: string, at: Date): Promise<CallSessionRecord | null> {
-    const current = await this.findSession(id);
-    if (current === null || current.userId !== userId) return null;
-    if (current.endedAt !== null) return current;
-    const rows = await this.query(
-      `UPDATE call_sessions SET ended_at = $3 WHERE id = $1 AND user_id = $2
-       RETURNING id, user_id AS "userId", started_at AS "startedAt", ended_at AS "endedAt"`,
-      [id, userId, at],
-    );
-    return rows[0] === undefined ? current : sessionOf(rows[0]);
+    const current = await this.ownedSession(id, userId);
+    if (current === null || current.endedAt !== null) return current;
+    return (await this.markEnded(id, userId, at)) ?? this.ownedSession(id, userId);
   }
 
   /** @inheritdoc */
@@ -62,6 +56,21 @@ export class TypeOrmCallStore implements CallStore {
       [sessionId],
     );
     return rows.map(turnOf).slice(-limit);
+  }
+
+  private async ownedSession(id: string, userId: string): Promise<CallSessionRecord | null> {
+    const session = await this.findSession(id);
+    if (session === null || session.userId !== userId) return null;
+    return session;
+  }
+
+  private async markEnded(id: string, userId: string, at: Date): Promise<CallSessionRecord | null> {
+    const rows = await this.query(
+      `UPDATE call_sessions SET ended_at = $3 WHERE id = $1 AND user_id = $2 AND ended_at IS NULL
+       RETURNING id, user_id AS "userId", started_at AS "startedAt", ended_at AS "endedAt"`,
+      [id, userId, at],
+    );
+    return rows[0] === undefined ? null : sessionOf(rows[0]);
   }
 
   private async query(statement: string, params: unknown[]): Promise<Record<string, unknown>[]> {

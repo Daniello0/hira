@@ -2,11 +2,12 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, Par
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DocumentFormat, DocumentKind, ParseStatus, type DocumentSummaryDto } from '@hira/contracts';
-import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength, validateSync } from 'class-validator';
 import type { Request } from 'express';
 import { LLM_GATEWAY } from '../search-orchestrator/search.constants';
 import type { LlmGateway } from '../search-orchestrator/upstream-gateway';
-import { validatedBody } from '../auth/validation-exception';
+import { validatedBody, validationException } from '../auth/validation-exception';
 import { OptionalAccessGuard } from '../auth/optional-access.guard';
 import { mapAccountError } from '../auth/account-http';
 import { requireUserId } from '../auth/require-user-id';
@@ -14,7 +15,13 @@ import { actorHint } from '../chat/actor-hint';
 import { ChatService } from '../chat/chat.service';
 import { ProfileService } from '../profile/profile.service';
 import { DocumentNotFoundError, LibraryInputError, LibraryService } from './library.service';
-import { PDF_MAX_BYTES, PDF_TOO_LARGE_MESSAGE, RESUME_FILE_MESSAGE } from '../memory/memory.constants';
+import {
+  DOCUMENT_TITLE_MAX_CHARS,
+  DOCUMENT_TITLE_TOO_LONG_MESSAGE,
+  PDF_MAX_BYTES,
+  PDF_TOO_LARGE_MESSAGE,
+  RESUME_FILE_MESSAGE,
+} from '../memory/memory.constants';
 
 class TextDocumentBody {
   @IsEnum(DocumentKind)
@@ -22,7 +29,7 @@ class TextDocumentBody {
 
   @IsString()
   @MinLength(1)
-  @MaxLength(256)
+  @MaxLength(DOCUMENT_TITLE_MAX_CHARS)
   title!: string;
 
   @IsEnum(DocumentFormat)
@@ -37,7 +44,7 @@ class DocumentPatchBody {
   @IsOptional()
   @IsString()
   @MinLength(1)
-  @MaxLength(256)
+  @MaxLength(DOCUMENT_TITLE_MAX_CHARS)
   title?: string;
 
   @IsOptional()
@@ -129,7 +136,7 @@ export class DocumentController {
 
   private async createPdf(userId: string, file: UploadFile, request: Request) {
     if (file.size > PDF_MAX_BYTES) throw new LibraryInputError(PDF_TOO_LARGE_MESSAGE);
-    const title = file.originalname?.trim() || 'Resume';
+    const title = pdfTitle(file.originalname);
     const document = await this.library.createPdf(userId, title, file.buffer);
     try {
       const parsed = await this.llm.parseResume({ resumeText: document.extractedText }, requestId(request));
@@ -171,10 +178,17 @@ function assertResumeFile(body: Partial<TextDocumentBody>): void {
 }
 
 function readTextBody(body: Partial<TextDocumentBody>): TextDocumentBody {
-  if (body.kind === undefined || body.title === undefined || body.format === undefined || body.content === undefined) {
-    throw new LibraryInputError('Document fields are incomplete');
-  }
-  return { kind: body.kind, title: body.title, format: body.format, content: body.content };
+  const parsed = plainToInstance(TextDocumentBody, body);
+  const errors = validateSync(parsed, { whitelist: true, forbidNonWhitelisted: true });
+  if (errors.length > 0) throw validationException(errors);
+  return parsed;
+}
+
+function pdfTitle(name: string | undefined): string {
+  const title = name?.trim() ?? '';
+  if (title.length > DOCUMENT_TITLE_MAX_CHARS) throw new LibraryInputError(DOCUMENT_TITLE_TOO_LONG_MESSAGE);
+  if (title.length === 0) return 'Resume';
+  return title;
 }
 
 function requestId(request: Request): string {

@@ -292,6 +292,32 @@ describe('stage 12 account surfaces', () => {
     expect(skill.status).toBe(404);
     expect(skill.body.errorCode).toBe('SKILL_NOT_FOUND');
   });
+
+  it('rejects an unknown kind, a long title, and a long resume name before saving', async () => {
+    const state = stores();
+    app = await createApp(state);
+    const token = await register(app);
+    const kind = await request(app.getHttpServer())
+      .post('/api/v1/documents')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ kind: 'NOPE', title: 'Note', format: DocumentFormat.Txt, content: 'hello' });
+    const title = await request(app.getHttpServer())
+      .post('/api/v1/documents')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ kind: DocumentKind.Note, title: 'n'.repeat(257), format: DocumentFormat.Txt, content: 'hello' });
+    const named = await request(app.getHttpServer())
+      .post('/api/v1/documents')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from('%PDF'), `${'r'.repeat(257)}.pdf`);
+    expect(kind.status).toBe(400);
+    expect(kind.body.errorCode).toBe('VALIDATION_FAILED');
+    expect(title.status).toBe(400);
+    expect(title.body.errorCode).toBe('VALIDATION_FAILED');
+    expect(named.status).toBe(400);
+    expect(named.body.errorCode).toBe('VALIDATION_FAILED');
+    expect(state.files.files.size).toBe(0);
+    expect(state.library.documents).toHaveLength(0);
+  });
 });
 
 function stores() {
