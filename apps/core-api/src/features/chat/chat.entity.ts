@@ -10,8 +10,11 @@ export class Chat {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'uuid' })
-  userId!: string;
+  @Column({ type: 'uuid', nullable: true })
+  userId!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  demoSessionId!: string | null;
 
   @Column({ type: 'varchar', length: 256, nullable: true })
   title!: string | null;

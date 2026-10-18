@@ -1,6 +1,6 @@
 # Этап 11. План до кода
 
-Статус: плана достаточно, кода оркестрации ещё нет. Процент этапа 11 в `Wiki/progress-log.md` — 0. `core-api` маршрут поиска не вызывает.
+Статус на момент плана: кода оркестрации ещё нет. Реализация по этому плану уже в ветке; расхождения имён файлов — в конце.
 
 Этап 11 в журнале: «Search orchestrator, SSE (intent → results → tokens), чаты, `POST /search` для eval». Источник фактов — `Wiki/01-architecture.md` §2.2 и §4–5, `Wiki/05-api-contracts.md` §1.2, §1.3, §1.6 и §3, `Wiki/07-auth-and-memory.md` §2–3.1 и demo-лимиты, `Wiki/04-data-model.md` §3, ADR-022, ADR-028, ADR-032. Где статьи спорят, в код идёт рекомендация из §6, если обсуждение PR её не заменит.
 
@@ -260,4 +260,13 @@ type TurnEvent =
 
 ## Отклонения от плана
 
-Пока нет. Раздел дописывается при реализации, прежний текст не стирается.
+Поведение совпадает с §3 и рекомендациями §6. Имена файлов другие, роли те же:
+
+- `read-caller.ts` — `actor-hint.ts` и `resolve-actor.ts`.
+- `run-turn.ts` — `orchestrate-search.ts`.
+- `llm-client.ts` и `retrieval-client.ts` — один `upstream-gateway.ts`.
+- `search-orchestrator.constants.ts` — `search.constants.ts`.
+- `dto/chat.dto.ts` — `chat.dto.ts`.
+- Поток сообщения отдаёт контроллер оркестратора, не `chat.controller.ts`: так модуль чата не импортирует оркестратор по кругу.
+
+Прежний текст плана не менялся.

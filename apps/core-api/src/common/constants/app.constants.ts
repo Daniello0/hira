@@ -16,6 +16,9 @@ export const ENV = {
   redisUrl: 'REDIS_URL',
   jwtSecret: 'JWT_SECRET',
   webOrigin: 'WEB_ORIGIN',
+  internalToken: 'INTERNAL_API_TOKEN',
+  retrievalServiceUrl: 'RETRIEVAL_SERVICE_URL',
+  llmServiceUrl: 'LLM_SERVICE_URL',
 } as const;
 
 export const LOGGER = Symbol('LOGGER');

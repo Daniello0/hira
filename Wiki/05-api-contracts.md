@@ -61,6 +61,8 @@ event: error             data: ApiErrorResponse
 
 Событие `results` приходит **до** токенов генерации — карточки вакансий отрисовываются сразу, текст дописывается поверх. Это заметно улучшает воспринимаемую скорость.
 
+Поток открывается после записи user-сообщения. Сбой `understand` не даёт `error`: намерение строится эвристически, `rewrittenQuery` равен тексту реплики. Квота списывается после `intent` и только для `SEARCH`, `REFINE`, `COMPARE`; отказ — `event: error` с `RATE_LIMIT_EXCEEDED`, без `done`. `SMALL_TALK` и `CAREER_ADVICE` не ищут и квоту не тратят. Сбой retrieval — `event: error` с `SEARCH_UPSTREAM_UNAVAILABLE`, снимок не пишется. Сбой `generate` оставляет карточки и пустой или частичный текст, затем `assistant-message` и `done`, без `error`.
+
 ### 1.3 Вакансии
 
 | Метод | Путь | Описание |
@@ -71,6 +73,8 @@ event: error             data: ApiErrorResponse
 | `POST` | `/api/v1/search` | Прямой поиск без чата — для отладки, демонстрации и главы 4 |
 
 Наличие «голого» `POST /api/v1/search` принципиально: он даёт воспроизводимый вход для экспериментов, не завязанный на диалог.
+
+Тело и ответ совпадают с внутренним `RetrievalRequest` / `RetrievalResponse`. `understand` и `generate` не вызываются: абляции гоняют одно и то же намерение. `userId` из тела игнорируется; в retrieval он подставляется только у зарегистрированного. В `search_logs` пишется строка с `message_id = null` и `raw_query = intent.rewrittenQuery`. Запрос всегда списывает поисковую квоту. Отказ — JSON `429`. Сбой retrieval — JSON `503` `SEARCH_UPSTREAM_UNAVAILABLE`. Прогон главы 4 бьёт во внутренний `POST /internal/v1/search` и квоту не тратит.
 
 ### 1.4 Избранное и коллекции
 

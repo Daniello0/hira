@@ -24,14 +24,31 @@ function shouldIssueDemo(request: Request): boolean {
   return readRefreshCookie(request) === undefined;
 }
 
+interface DemoRequest extends Request {
+  demoSessionId?: string;
+}
+
+/** Demo cookie already on the request, or the id this response is about to set. */
+export function readIssuedDemoSession(request: Request): string | undefined {
+  const stamped = (request as DemoRequest).demoSessionId;
+  if (isDemoSessionId(stamped)) return stamped;
+  const cookie = readDemoCookie(request);
+  return isDemoSessionId(cookie) ? cookie : undefined;
+}
+
 function ensureDemoCookie(request: Request, response: Response): void {
-  const current = readDemoCookie(request);
-  if (isDemoSessionId(current)) return;
-  response.cookie(
-    DEMO_SESSION_COOKIE_NAME,
-    randomUUID(),
-    sessionCookieOptions(DEMO_SESSION_TTL_SECONDS),
-  );
+  const current = readIssuedDemoSession(request);
+  if (isDemoSessionId(current)) {
+    stampDemoSession(request, current);
+    return;
+  }
+  const sessionId = randomUUID();
+  response.cookie(DEMO_SESSION_COOKIE_NAME, sessionId, sessionCookieOptions(DEMO_SESSION_TTL_SECONDS));
+  stampDemoSession(request, sessionId);
+}
+
+function stampDemoSession(request: Request, sessionId: string): void {
+  (request as DemoRequest).demoSessionId = sessionId;
 }
 
 function isHealthPath(request: Request): boolean {

@@ -8,11 +8,13 @@ import { createLogger, readLogLevel } from './common/logger';
 import { DatabaseModule } from './features/database/database.module';
 import { HealthModule } from './features/health/health.module';
 import { AuthModule } from './features/auth/auth.module';
+import { ChatModule } from './features/chat/chat.module';
 import { RedisModule } from './features/redis/redis.module';
+import { SearchOrchestratorModule } from './features/search-orchestrator/search-orchestrator.module';
 
 /** Root module: health, auth, and the cross-cutting request id and error shape. */
 @Module({
-  imports: [DatabaseModule, RedisModule, HealthModule, AuthModule],
+  imports: [DatabaseModule, RedisModule, HealthModule, AuthModule, ChatModule, SearchOrchestratorModule],
   providers: [
     {
       provide: LOGGER,
