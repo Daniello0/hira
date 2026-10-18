@@ -314,7 +314,23 @@ function searchLogParams(input: DirectSearchLog): unknown[] {
 
 async function rowsOf(sql: Sql, statement: string, params: unknown[]): Promise<Record<string, unknown>[]> {
   const rows = await sql.query(statement, params);
-  return Array.isArray(rows) ? (rows as Record<string, unknown>[]) : [];
+  return recordsOf(rows);
+}
+
+/** TypeORM returns `[rows, rowCount]` for UPDATE and DELETE. SELECT and INSERT return rows. */
+function recordsOf(rows: unknown): Record<string, unknown>[] {
+  if (isUpdateTuple(rows)) return rows[0];
+  if (Array.isArray(rows)) return rows as Record<string, unknown>[];
+  return [];
+}
+
+function isUpdateTuple(value: unknown): value is [Record<string, unknown>[], number | null] {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    Array.isArray(value[0]) &&
+    (typeof value[1] === 'number' || value[1] === null)
+  );
 }
 
 function toChat(row: Record<string, unknown> | undefined): ChatRecord {
