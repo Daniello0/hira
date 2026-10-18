@@ -29,12 +29,22 @@ async function answer(search: SearchPorts, req: Request, res: Response): Promise
 }
 
 function invalid(req: Request) {
-  return createApiErrorResponse(VALIDATION_FAILED_CODE, VALIDATION_FAILED_MESSAGE, readRequestId(req));
+  return createApiErrorResponse(
+    VALIDATION_FAILED_CODE,
+    VALIDATION_FAILED_MESSAGE,
+    readRequestId(req),
+  );
 }
 
 function sendUnavailable(req: Request, res: Response): void {
   if (res.headersSent) return;
   res
     .status(503)
-    .json(createApiErrorResponse(RETRIEVAL_UNAVAILABLE_CODE, RETRIEVAL_UNAVAILABLE_MESSAGE, readRequestId(req)));
+    .json(
+      createApiErrorResponse(
+        RETRIEVAL_UNAVAILABLE_CODE,
+        RETRIEVAL_UNAVAILABLE_MESSAGE,
+        readRequestId(req),
+      ),
+    );
 }

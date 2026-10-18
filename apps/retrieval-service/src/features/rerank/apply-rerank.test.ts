@@ -24,7 +24,9 @@ describe('applyRerank', () => {
   it('keeps RRF order when rerank is off or scores tie', () => {
     const off = applyRerank(fused(15), null, 10);
     expect(off.rerankApplied).toBe(false);
-    expect(off.hits.map((hit) => hit.vacancyId)).toEqual(Array.from({ length: 10 }, (_, index) => `v${index}`));
+    expect(off.hits.map((hit) => hit.vacancyId)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `v${index}`),
+    );
     const tied = applyRerank(fused(3), [1, 1, 1], 3);
     expect(tied.hits.map((hit) => hit.vacancyId)).toEqual(['v0', 'v1', 'v2']);
   });

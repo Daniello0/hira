@@ -9,7 +9,8 @@ describe('packRerankBatches', () => {
     const batches = packRerankBatches(query, [text, text, text]);
     expect(batches.map((batch) => batch.length)).toEqual([2, 1]);
     for (const batch of batches) {
-      const tokens = estimateTokens(query) + batch.reduce((sum, item) => sum + estimateTokens(item), 0);
+      const tokens =
+        estimateTokens(query) + batch.reduce((sum, item) => sum + estimateTokens(item), 0);
       expect(tokens).toBeLessThanOrEqual(RERANK_TOKEN_ARENA);
     }
   });
@@ -22,7 +23,10 @@ describe('rerankTexts', () => {
       {
         post: async (url, body, timeoutMs) => {
           seen.push({ url, body, timeoutMs });
-          return [{ index: 1, score: 0.2 }, { index: 0, score: 0.9 }];
+          return [
+            { index: 1, score: 0.2 },
+            { index: 0, score: 0.9 },
+          ];
         },
       },
       'http://rerank:80/',

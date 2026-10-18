@@ -7,7 +7,7 @@ import {
   type SearchIntent,
   type SkillMention,
 } from '@hira/contracts';
-import type { LinkedSkill } from '../graph/link-query-skill';
+import { seedIds, type LinkedSkill } from '../graph/link-query-skill';
 import type { BranchHit } from './branch-hit';
 
 export interface BranchSearch {
@@ -31,7 +31,7 @@ interface Timed<T> {
   ms: number;
 }
 
-/** Runs the lexical and dense branches selected for this request. */
+/** Runs the lexical, dense, and graph branches selected for this request. */
 export async function runBranches(
   intent: SearchIntent,
   options: RetrievalOptions | undefined,
@@ -40,14 +40,32 @@ export async function runBranches(
   if (intent.rewrittenQuery.trim().length === 0) return emptyRun();
   const selected = selectedBranches(options);
   const started = startTasks(intent, selected, search);
-  const [lexical, embedded] = await Promise.all([started.lexical, started.embed]);
-  const dense = await finishDense(search, intent.hardConstraints, selected.dense, embedded);
+  const [lexical, embedded, linked] = await Promise.all([
+    started.lexical,
+    started.embed,
+    started.link,
+  ]);
+  const [dense, graph] = await Promise.all([
+    finishDense(search, intent.hardConstraints, selected.dense, embedded),
+    finishGraph(search, intent.hardConstraints, selected.graph, linked),
+  ]);
+  return assembled(lexical, embedded, dense, graph, linked, selected.graph);
+}
+
+function assembled(
+  lexical: Timed<BranchHit[]>,
+  embedded: Timed<number[] | null>,
+  dense: Timed<BranchHit[]>,
+  graph: Timed<BranchHit[]>,
+  linked: Timed<LinkedSkill[]>,
+  graphOn: boolean,
+): BranchRun {
   return {
     lexical: lexical.value,
     dense: dense.value,
-    graph: [],
-    linked: [],
-    timings: timingsOf(lexical.ms, embedded.ms + dense.ms),
+    graph: graph.value,
+    linked: graphOn ? linked.value : [],
+    timings: timingsOf(lexical.ms, embedded.ms + dense.ms, linked.ms + graph.ms),
   };
 }
 
@@ -69,8 +87,13 @@ function startTasks(intent: SearchIntent, selected: BranchChoice, search: Branch
   const filters = intent.hardConstraints;
   const query = intent.rewrittenQuery;
   return {
-    lexical: selected.lexical ? timed(() => search.searchBm25(query, filters)) : idle<BranchHit[]>([]),
+    lexical: selected.lexical
+      ? timed(() => search.searchBm25(query, filters))
+      : idle<BranchHit[]>([]),
     embed: selected.dense ? timed(() => search.embedQuery(query)) : idle<number[] | null>(null),
+    link: selected.graph
+      ? timed(() => search.resolveSkills(intent.skills))
+      : idle<LinkedSkill[]>([]),
   };
 }
 
@@ -84,25 +107,36 @@ async function finishDense(
   return timed(() => search.searchDense(embedded.value as number[], filters));
 }
 
+async function finishGraph(
+  search: BranchSearch,
+  filters: HardConstraints,
+  enabled: boolean,
+  linked: Timed<LinkedSkill[]>,
+): Promise<Timed<BranchHit[]>> {
+  if (!enabled) return { value: [], ms: 0 };
+  return timed(() => search.searchGraph(seedIds(linked.value), filters));
+}
+
 function selectedBranches(options: RetrievalOptions | undefined): BranchChoice {
   const list = options?.branches;
-  if (list === undefined) return { lexical: true, dense: true };
+  if (list === undefined) return { lexical: true, dense: true, graph: true };
   return {
     lexical: list.includes(RetrievalBranch.Lexical),
     dense: list.includes(RetrievalBranch.Dense),
+    graph: list.includes(RetrievalBranch.Graph),
   };
 }
 
-function timingsOf(lexical: number, dense: number): Record<RetrievalBranch, number> {
+function timingsOf(lexical: number, dense: number, graph: number): Record<RetrievalBranch, number> {
   return {
     [RetrievalBranch.Lexical]: lexical,
     [RetrievalBranch.Dense]: dense,
-    [RetrievalBranch.Graph]: 0,
+    [RetrievalBranch.Graph]: graph,
   };
 }
 
 function emptyRun(): BranchRun {
-  return { lexical: [], dense: [], graph: [], linked: [], timings: timingsOf(0, 0) };
+  return { lexical: [], dense: [], graph: [], linked: [], timings: timingsOf(0, 0, 0) };
 }
 
 async function timed<T>(run: () => Promise<T>): Promise<Timed<T>> {
@@ -118,4 +152,5 @@ function idle<T>(value: T): Promise<Timed<T>> {
 interface BranchChoice {
   lexical: boolean;
   dense: boolean;
+  graph: boolean;
 }

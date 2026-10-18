@@ -21,7 +21,9 @@ describe('readSearchRequest', () => {
     });
     expect(parsed?.limit).toBe(10);
     expect(parsed?.userId).toBe('user-1');
-    expect(parsed?.intent.skills).toEqual([{ surface: 'Python', canonicalId: '4', required: true }]);
+    expect(parsed?.intent.skills).toEqual([
+      { surface: 'Python', canonicalId: '4', required: true },
+    ]);
     expect(parsed?.intent.complexity).toBe(QueryComplexity.Exploratory);
     expect(parsed?.intent.seniority).toBe(SeniorityLevel.Junior);
     expect(parsed?.intent.hardConstraints.salaryMin).toBe(1000);
@@ -33,7 +35,9 @@ describe('readSearchRequest', () => {
   it('rejects a foreign complexity, a bad skill, a non-numeric weight, and a non-boolean rerank', () => {
     const intent = { rewrittenQuery: 'python' };
     expect(readSearchRequest({ intent: { ...intent, complexity: 'NOPE' } })).toBeNull();
-    expect(readSearchRequest({ intent: { ...intent, skills: [{ surface: 'Python' }] } })).toBeNull();
+    expect(
+      readSearchRequest({ intent: { ...intent, skills: [{ surface: 'Python' }] } }),
+    ).toBeNull();
     expect(readSearchRequest({ intent, options: { branchWeights: { GRAPH: 'high' } } })).toBeNull();
     expect(readSearchRequest({ intent, options: { rerank: 'no' } })).toBeNull();
     expect(readSearchRequest({ intent, options: { personalize: 'yes' } })).toBeNull();

@@ -1,5 +1,6 @@
 import type { SkillMention } from '@hira/contracts';
 import { describe, expect, it } from 'vitest';
+import { EMBEDDING_WIDTH } from '../search/search.constants';
 import { resolveQuerySkills, type LinkDeps } from './load-link-hits';
 import type { LinkHit } from './link-query-skill';
 
@@ -19,7 +20,7 @@ describe('resolveQuerySkills', () => {
       },
       embed: async (texts) => {
         embedded.push([...texts]);
-        return texts.map(() => [0.1]);
+        return texts.map(() => Array.from({ length: EMBEDDING_WIDTH }, () => 0.1));
       },
     };
     const linked = await resolveQuerySkills(
@@ -38,7 +39,8 @@ describe('resolveQuerySkills', () => {
 });
 
 function hitsFor(surface: string, vector: string | null): LinkHit[] {
-  if (surface === 'Java') return [{ skillId: 3, exactName: false, exactAlias: false, trigram: 0.8, cosine: 0 }];
+  if (surface === 'Java')
+    return [{ skillId: 3, exactName: false, exactAlias: false, trigram: 0.8, cosine: 0 }];
   if (surface === 'Helm' && vector !== null) {
     return [{ skillId: 8, exactName: false, exactAlias: false, trigram: 0.2, cosine: 0.85 }];
   }

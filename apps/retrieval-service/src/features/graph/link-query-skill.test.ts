@@ -49,8 +49,12 @@ describe('linkMention', () => {
 
   it('falls through when the id is missing or not a decimal, and skips a blank surface', () => {
     const hits = [hit({ exactName: true, skillId: 4 })];
-    expect(linkMention({ surface: 'Python', canonicalId: '99' }, new Set([4]), hits)?.skillId).toBe(4);
-    expect(linkMention({ surface: 'Python', canonicalId: '04' }, new Set([4]), hits)?.step).toBe('exact');
+    expect(linkMention({ surface: 'Python', canonicalId: '99' }, new Set([4]), hits)?.skillId).toBe(
+      4,
+    );
+    expect(linkMention({ surface: 'Python', canonicalId: '04' }, new Set([4]), hits)?.step).toBe(
+      'exact',
+    );
     expect(linkMention({ surface: '  ', canonicalId: '4' }, new Set([4]), hits)).toBeNull();
   });
 });

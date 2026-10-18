@@ -1,4 +1,10 @@
-import { Language, RetrievalBranch, VacancySource, VacancyStatus, type VacancyDto } from '@hira/contracts';
+import {
+  Language,
+  RetrievalBranch,
+  VacancySource,
+  VacancyStatus,
+  type VacancyDto,
+} from '@hira/contracts';
 import pino from 'pino';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
@@ -97,7 +103,9 @@ describe('POST /internal/v1/search', () => {
       .send({ intent: emptyIntent('python'), options: { branches: [RetrievalBranch.Lexical] } });
     expect(response.status).toBe(200);
     expect(response.body.diagnostics.rerankApplied).toBe(false);
-    expect(response.body.results.map((row: { vacancy: { id: string } }) => row.vacancy.id)).toEqual(['b', 'a']);
+    expect(response.body.results.map((row: { vacancy: { id: string } }) => row.vacancy.id)).toEqual(
+      ['b', 'a'],
+    );
     expect(response.body.results[0].score).toBe(response.body.results[0].explanation.totalScore);
   });
 });

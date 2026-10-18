@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import {
+  QueryComplexity,
   ReindexScope,
   RetrievalBranch,
   SkillEdgeType,
@@ -25,6 +26,7 @@ import { createApp } from '../../app';
 import { listen } from '../../common/utils/listen';
 import { searchBm25 } from '../lexical/bm25-search';
 import { searchDense } from '../dense/hnsw-search';
+import { fuseBranches } from '../fusion/rrf-fusion';
 import { coverageFor, searchGraph } from '../graph/graph-search';
 import { resolveQuerySkills } from '../graph/load-link-hits';
 import { explainVacancies } from '../explain/explain-skills';
@@ -60,7 +62,10 @@ describe('lexical and dense search against postgres', () => {
   it('ranks BM25 hits from both languages and applies salary and location inside the query', async () => {
     const store = createPgVacancyStore(client);
     const seen = new Date('2026-10-18T09:00:00Z');
-    const minsk = await store.save(vacancy({ externalId: 'pay-minsk', title: 'зарплатауника', salaryMaxByn: 2000 }), seen);
+    const minsk = await store.save(
+      vacancy({ externalId: 'pay-minsk', title: 'зарплатауника', salaryMaxByn: 2000 }),
+      seen,
+    );
     await store.save(
       vacancy({
         externalId: 'pay-brest',
@@ -72,11 +77,21 @@ describe('lexical and dense search against postgres', () => {
       seen,
     );
     await store.save(
-      vacancy({ externalId: 'pay-dead', title: 'зарплатауника', status: VacancyStatus.Expired, salaryMaxByn: 9000 }),
+      vacancy({
+        externalId: 'pay-dead',
+        title: 'зарплатауника',
+        status: VacancyStatus.Expired,
+        salaryMaxByn: 9000,
+      }),
       seen,
     );
     const english = await store.save(
-      vacancy({ externalId: 'pay-en', language: 'en', title: 'uniqueword', description: 'english only' }),
+      vacancy({
+        externalId: 'pay-en',
+        language: 'en',
+        title: 'uniqueword',
+        description: 'english only',
+      }),
       seen,
     );
     const hits = await searchBm25(client, 'зарплатауника', { salaryMin: 500, location: ['Минск'] });
@@ -90,9 +105,18 @@ describe('lexical and dense search against postgres', () => {
   it('max-pools chunk distances and keeps hard filters inside the HNSW query', async () => {
     const store = createPgVacancyStore(client);
     const seen = new Date('2026-10-18T09:00:00Z');
-    const near = await store.save(vacancy({ externalId: 'dense-near', workFormat: WorkFormat.Remote }), seen);
-    const far = await store.save(vacancy({ externalId: 'dense-far', workFormat: WorkFormat.Remote }), seen);
-    const onsite = await store.save(vacancy({ externalId: 'dense-onsite', workFormat: WorkFormat.Onsite }), seen);
+    const near = await store.save(
+      vacancy({ externalId: 'dense-near', workFormat: WorkFormat.Remote }),
+      seen,
+    );
+    const far = await store.save(
+      vacancy({ externalId: 'dense-far', workFormat: WorkFormat.Remote }),
+      seen,
+    );
+    const onsite = await store.save(
+      vacancy({ externalId: 'dense-onsite', workFormat: WorkFormat.Onsite }),
+      seen,
+    );
     await insertChunk(client, near.id, 0, basis(3));
     await insertChunk(client, near.id, 1, basis(4));
     await insertChunk(client, near.id, 2, null);
@@ -110,9 +134,15 @@ describe('lexical and dense search against postgres', () => {
   it('drops chunks on a source change and on reindex, and leaves them when skills are written', async () => {
     const store = createPgVacancyStore(client);
     const seen = new Date('2026-10-18T09:00:00Z');
-    const saved = await store.save(vacancy({ externalId: 'chunk-life', description: 'старое описание' }), seen);
+    const saved = await store.save(
+      vacancy({ externalId: 'chunk-life', description: 'старое описание' }),
+      seen,
+    );
     await insertChunk(client, saved.id, 0, basis(6));
-    const skipped = await store.save(vacancy({ externalId: 'chunk-life', description: 'старое описание' }), seen);
+    const skipped = await store.save(
+      vacancy({ externalId: 'chunk-life', description: 'старое описание' }),
+      seen,
+    );
     expect(skipped.outcome).toBe('skipped');
     expect(await chunkCount(client, saved.id)).toBe(1);
     const skill = await client.query(
@@ -121,14 +151,28 @@ describe('lexical and dense search against postgres', () => {
     await writeVacancySkills(
       client,
       saved.id,
-      [{ skillId: Number(skill.rows[0]?.id), importance: SkillImportance.Required, weight: 1, evidenceSpan: null }],
+      [
+        {
+          skillId: Number(skill.rows[0]?.id),
+          importance: SkillImportance.Required,
+          weight: 1,
+          evidenceSpan: null,
+        },
+      ],
       seen,
     );
     expect(await chunkCount(client, saved.id)).toBe(1);
-    const vector = await client.query(`SELECT embedding IS NULL AS empty FROM vacancies WHERE id = $1`, [saved.id]);
+    const vector = await client.query(
+      `SELECT embedding IS NULL AS empty FROM vacancies WHERE id = $1`,
+      [saved.id],
+    );
     expect(vector.rows[0]?.empty).toBe(true);
     await store.save(
-      vacancy({ externalId: 'chunk-life', description: 'новое описание', contentHash: 'b'.repeat(64) }),
+      vacancy({
+        externalId: 'chunk-life',
+        description: 'новое описание',
+        contentHash: 'b'.repeat(64),
+      }),
       seen,
     );
     expect(await chunkCount(client, saved.id)).toBe(0);
@@ -149,9 +193,10 @@ describe('lexical and dense search against postgres', () => {
       }),
       seen,
     );
-    await client.query(`UPDATE vacancies SET skills_extracted_at = now(), embedding = NULL WHERE id = $1`, [
-      saved.id,
-    ]);
+    await client.query(
+      `UPDATE vacancies SET skills_extracted_at = now(), embedding = NULL WHERE id = $1`,
+      [saved.id],
+    );
     const embedded = await embedPendingChunks(client, VacancySource.RabotaBy, 'http://tei', {
       post: async (_url, body) => {
         const inputs = (body as { inputs: string[] }).inputs;
@@ -207,7 +252,9 @@ describe('lexical and dense search against postgres', () => {
         .send({ intent: emptyIntent('векторчанка') });
       expect(down.status).toBe(503);
     } finally {
-      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
     }
   });
 
@@ -319,13 +366,22 @@ describe('lexical and dense search against postgres', () => {
         throw new Error('rerank down');
       },
     });
-    const lexical = await searchBm25(client, 'векторчанка', {});
-    const listed = await request(createApp({
-      logger: pino({ level: 'silent' }),
-      internalToken: 'secret',
-      probes: [],
-      search: quiet,
-    }))
+    const lexicalHits = await searchBm25(client, 'векторчанка', {});
+    const denseHits = await searchDense(client, basisValues(1), {});
+    const fused = fuseBranches(
+      { [RetrievalBranch.Lexical]: lexicalHits, [RetrievalBranch.Dense]: denseHits },
+      QueryComplexity.Simple,
+      undefined,
+      [RetrievalBranch.Lexical, RetrievalBranch.Dense],
+    );
+    const listed = await request(
+      createApp({
+        logger: pino({ level: 'silent' }),
+        internalToken: 'secret',
+        probes: [],
+        search: quiet,
+      }),
+    )
       .post('/internal/v1/search')
       .set('X-Internal-Token', 'secret')
       .send({
@@ -336,11 +392,17 @@ describe('lexical and dense search against postgres', () => {
     expect(listed.status).toBe(200);
     expect(listed.body.diagnostics.rerankApplied).toBe(false);
     expect(listed.body.results.map((row: { vacancy: { id: string } }) => row.vacancy.id)).toEqual(
-      lexical.slice(0, 10).map((hit) => hit.vacancyId),
+      fused.slice(0, 10).map((hit) => hit.vacancyId),
     );
     await Promise.all([
-      request(app).post('/internal/v1/search').set('X-Internal-Token', 'secret').send({ intent: emptyIntent('  ') }),
-      request(app).post('/internal/v1/search').set('X-Internal-Token', 'secret').send({ intent: emptyIntent('  ') }),
+      request(app)
+        .post('/internal/v1/search')
+        .set('X-Internal-Token', 'secret')
+        .send({ intent: emptyIntent('  ') }),
+      request(app)
+        .post('/internal/v1/search')
+        .set('X-Internal-Token', 'secret')
+        .send({ intent: emptyIntent('  ') }),
     ]);
     expect(await tableCounts(client)).toEqual(before);
   });
@@ -417,7 +479,12 @@ function basis(index: number): string {
   return `[${basisValues(index).join(',')}]`;
 }
 
-async function insertChunk(client: Client, vacancyId: string, chunkIndex: number, embedding: string | null): Promise<void> {
+async function insertChunk(
+  client: Client,
+  vacancyId: string,
+  chunkIndex: number,
+  embedding: string | null,
+): Promise<void> {
   await client.query(
     `INSERT INTO vacancy_chunks (vacancy_id, chunk_index, content, token_count, embedding)
      VALUES ($1, $2, $3, 1, $4::vector)`,
@@ -473,9 +540,10 @@ async function tableCounts(client: Client): Promise<number[]> {
 }
 
 async function chunkCount(client: Client, vacancyId: string): Promise<number> {
-  const result = await client.query(`SELECT COUNT(*)::int AS count FROM vacancy_chunks WHERE vacancy_id = $1`, [
-    vacancyId,
-  ]);
+  const result = await client.query(
+    `SELECT COUNT(*)::int AS count FROM vacancy_chunks WHERE vacancy_id = $1`,
+    [vacancyId],
+  );
   return Number(result.rows[0]?.count);
 }
 

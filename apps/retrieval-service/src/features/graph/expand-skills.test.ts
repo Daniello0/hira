@@ -21,7 +21,9 @@ describe('expandSkills', () => {
         edge(3, 4, SkillEdgeType.AlternativeOf, 1),
       ],
     );
-    expect(expanded.map((item) => item.skillId).sort((left, right) => left - right)).toEqual([1, 2, 3]);
+    expect(expanded.map((item) => item.skillId).sort((left, right) => left - right)).toEqual([
+      1, 2, 3,
+    ]);
     const hop2 = expanded.find((item) => item.skillId === 3);
     expect(hop2?.hop).toBe(2);
     expect(hop2?.trail).toHaveLength(2);
@@ -33,7 +35,9 @@ describe('expandSkills', () => {
       [1],
       [edge(1, 2, SkillEdgeType.AlternativeOf, 0.25), edge(2, 3, SkillEdgeType.AlternativeOf, 1)],
     );
-    expect(expanded.map((item) => item.skillId).sort((left, right) => left - right)).toEqual([1, 2]);
+    expect(expanded.map((item) => item.skillId).sort((left, right) => left - right)).toEqual([
+      1, 2,
+    ]);
     expect(expanded.find((item) => item.skillId === 2)?.weight).toBeCloseTo(0.25);
   });
 
@@ -54,7 +58,9 @@ describe('expandSkills', () => {
     expect(heavier.find((item) => item.skillId === 2)?.weight).toBeCloseTo(0.8);
     expect(heavier.find((item) => item.skillId === 2)?.edgeType).toBe(SkillEdgeType.Narrower);
     const edges = [
-      ...Array.from({ length: 199 }, (_, index) => edge(1, index + 2, SkillEdgeType.AlternativeOf, 1)),
+      ...Array.from({ length: 199 }, (_, index) =>
+        edge(1, index + 2, SkillEdgeType.AlternativeOf, 1),
+      ),
       edge(1, 201, SkillEdgeType.AlternativeOf, 0.5),
     ];
     const capped = expandSkills([1], edges);
