@@ -29,7 +29,7 @@ import { emptyIntent } from './run-branches';
 const exec = promisify(execFile);
 const IMAGE = 'hira-postgres-test';
 const CONTAINER = 'hira-postgres-retrieval-test';
-const HOST_PORT = 54331;
+const HOST_PORT = 54332;
 const DB_USER = 'hira';
 const DB_PASSWORD = 'hira';
 const DB_NAME = 'hira';
