@@ -6,7 +6,7 @@
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~49%
+**Общий прогресс (среднее по этапам):** ~54%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
@@ -19,7 +19,7 @@
 | 7 | **Ingestion: источники 1–3** | rabota.by (публичные страницы, [ADR-035](10-decision-log.md)), ГСЗ, Хабр Карьера; normalize, курс НБ РБ на календарные сутки Минска, dedupe simhash, BullMQ, cron, `POST/GET /internal/v1/runs`. Навыки и эмбеддинги — этап 8. Живой снимок по 5 вакансий с каждого источника записан | **100** |
 | 8 | **Ingestion: навыки и граф** | extract-skills, ESCO, `vacancy_skills`, PMI/IDF nightly, embed → pgvector (**overnight**) | **75** |
 | 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | **75** |
-| 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | 0 |
+| 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | **90** |
 | 11 | **Оркестрация поиска (core-api)** | Search orchestrator, SSE (intent → results → tokens), чаты, `POST /search` для eval | 0 |
 | 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions | 0 |
 | 13 | **Frontend: чат, стриминг, вызов** | Next.js, dark EN UI, SSE, vacancy cards, match explanation, экран Call, spinner «Searching…» | 0 |
@@ -71,7 +71,9 @@
 
 ## Следующий шаг
 
-**Этап 9.** `retrieval-service` принимает `POST /internal/v1/search` и параллельно считает BM25 по `search_document` и косинус по чанкам описания (max-pooling, top-100). Чанки пишет embed-тик ingestion: окно 2048 символа, без перекрытия, `token_count` — оценка длины. Карточки и скор 0..100 появятся на этапе 10 вместе с RRF. Граф, реранк и explain — этап 10.
+**Этап 10.** `POST /internal/v1/search` сливает лексику, плотность и граф через RRF и отдаёт карточки. Граф — CTE не глубже 2 хопов по `ALTERNATIVE_OF`, `NARROWER`, `RELATED_TO`. Скор карточки — среднее шести факторов, порядок задаёт реранк top-20, а при `rerank: false` или сбое TEI — RRF. Лёгкий реранкер в Compose не добавлялся.
+
+**Дальше — этап 11.** Оркестрация в core-api: `POST /search`, SSE, чаты. Пока core-api этот маршрут не вызывает.
 
 **Этап 8.** Пайплайн закрыт: навыки, иерархия и алиасы ESCO, ночной PMI/IDF, эмбеддинги. Полные CSV с портала кладутся в `ESCO_DIR` (ADR-038); в репозитории их нет.
 

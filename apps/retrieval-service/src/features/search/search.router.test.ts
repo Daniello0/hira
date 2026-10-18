@@ -1,9 +1,16 @@
-import { RetrievalBranch } from '@hira/contracts';
+import {
+  Language,
+  RetrievalBranch,
+  VacancySource,
+  VacancyStatus,
+  type VacancyDto,
+} from '@hira/contracts';
 import pino from 'pino';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../app';
-import { emptyIntent, type BranchSearch } from './run-branches';
+import { emptyIntent } from './run-branches';
+import type { SearchPorts } from './run-search';
 
 const silentLogger = pino({ level: 'silent' });
 
@@ -59,9 +66,51 @@ describe('POST /internal/v1/search', () => {
     expect(response.body.errorCode).toBe('RETRIEVAL_UNAVAILABLE');
     expect(response.body.results).toBeUndefined();
   });
+
+  it('answers 503 when the graph branch fails and does not run it for a lexical ablation', async () => {
+    const failing = recording();
+    failing.graphError = new Error('cte down');
+    const down = await request(app(failing))
+      .post('/internal/v1/search')
+      .set('X-Internal-Token', 'secret')
+      .send({ intent: emptyIntent('python'), options: { branches: [RetrievalBranch.Graph] } });
+    expect(down.status).toBe(503);
+    expect(down.body.results).toBeUndefined();
+
+    const lexical = recording();
+    await request(app(lexical))
+      .post('/internal/v1/search')
+      .set('X-Internal-Token', 'secret')
+      .send({
+        intent: emptyIntent('python'),
+        options: { branches: [RetrievalBranch.Lexical, RetrievalBranch.Dense], rerank: false },
+      });
+    expect(lexical.calls).not.toContain('graph');
+    expect(lexical.calls).not.toContain('resolve');
+  });
+
+  it('keeps RRF order when the reranker fails', async () => {
+    const search = recording();
+    search.lexical = [
+      { vacancyId: 'b', rank: 1, score: -1 },
+      { vacancyId: 'a', rank: 2, score: -0.2 },
+    ];
+    search.rows = [loaded('b'), loaded('a')];
+    search.rerankError = new Error('rerank down');
+    const response = await request(app(search))
+      .post('/internal/v1/search')
+      .set('X-Internal-Token', 'secret')
+      .send({ intent: emptyIntent('python'), options: { branches: [RetrievalBranch.Lexical] } });
+    expect(response.status).toBe(200);
+    expect(response.body.diagnostics.rerankApplied).toBe(false);
+    expect(response.body.results.map((row: { vacancy: { id: string } }) => row.vacancy.id)).toEqual(
+      ['b', 'a'],
+    );
+    expect(response.body.results[0].score).toBe(response.body.results[0].explanation.totalScore);
+  });
 });
 
-function app(search: BranchSearch) {
+function app(search: SearchPorts) {
   return createApp({
     logger: silentLogger,
     internalToken: 'secret',
@@ -70,15 +119,21 @@ function app(search: BranchSearch) {
   });
 }
 
-function recording(): BranchSearch & {
+function recording(): SearchPorts & {
   calls: string[];
   lexical: Array<{ vacancyId: string; rank: number; score: number }>;
+  rows: ReturnType<typeof loaded>[];
   embedError?: Error;
+  graphError?: Error;
+  rerankError?: Error;
 } {
   const state = {
     calls: [] as string[],
     lexical: [] as Array<{ vacancyId: string; rank: number; score: number }>,
+    rows: [] as ReturnType<typeof loaded>[],
     embedError: undefined as Error | undefined,
+    graphError: undefined as Error | undefined,
+    rerankError: undefined as Error | undefined,
   };
   return Object.assign(state, {
     searchBm25: async () => {
@@ -94,5 +149,56 @@ function recording(): BranchSearch & {
       state.calls.push('dense');
       return [];
     },
+    resolveSkills: async () => {
+      state.calls.push('resolve');
+      return [];
+    },
+    searchGraph: async () => {
+      state.calls.push('graph');
+      if (state.graphError !== undefined) throw state.graphError;
+      return [];
+    },
+    loadVacancies: async (ids) => state.rows.filter((row) => ids.includes(row.vacancy.id)),
+    coverageFor: async () => new Map<string, number>(),
+    explainVacancies: async () => new Map(),
+    rerank: async () => {
+      state.calls.push('rerank');
+      if (state.rerankError !== undefined) throw state.rerankError;
+      return [];
+    },
   });
+}
+
+function loaded(id: string) {
+  return { vacancy: vacancyDto(id), searchDocument: id, seniority: null };
+}
+
+function vacancyDto(id: string): VacancyDto {
+  return {
+    id,
+    source: VacancySource.RabotaBy,
+    language: Language.Ru,
+    externalId: id,
+    url: 'https://example.test',
+    title: id,
+    companyId: null,
+    locationId: null,
+    description: '',
+    seniority: null,
+    employment: null,
+    workFormat: null,
+    schedule: null,
+    salaryMin: null,
+    salaryMax: null,
+    salaryCurrency: null,
+    salaryMinByn: null,
+    salaryMaxByn: null,
+    isGross: null,
+    rateAmount: null,
+    rateUnit: null,
+    projectDurationDays: null,
+    isForeignRemote: false,
+    status: VacancyStatus.Active,
+    publishedAt: '',
+  };
 }

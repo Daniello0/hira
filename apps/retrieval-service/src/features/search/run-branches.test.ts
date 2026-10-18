@@ -30,6 +30,8 @@ describe('runBranches', () => {
         return gate;
       },
       searchDense: async () => [{ vacancyId: 'v', rank: 1, score: 0.2 }],
+      resolveSkills: async () => [],
+      searchGraph: async () => [],
     });
     await Promise.resolve();
     expect(overlapped).toBe(true);
@@ -39,13 +41,13 @@ describe('runBranches', () => {
     expect(run.dense).toHaveLength(1);
   });
 
-  it('skips the encoder for a lexical-only ablation and skips both for graph', async () => {
+  it('skips the encoder for a lexical-only ablation and runs graph without it', async () => {
     const lexicalOnly = recordingSearch();
     await runBranches(emptyIntent('python'), { branches: [RetrievalBranch.Lexical] }, lexicalOnly);
     expect(lexicalOnly.calls).toEqual(['bm25']);
     const graphOnly = recordingSearch();
     await runBranches(emptyIntent('python'), { branches: [RetrievalBranch.Graph] }, graphOnly);
-    expect(graphOnly.calls).toEqual([]);
+    expect(graphOnly.calls).toEqual(['resolve', 'graph']);
   });
 });
 
@@ -63,6 +65,14 @@ function recordingSearch(): BranchSearch & { calls: string[] } {
     },
     searchDense: async () => {
       calls.push('dense');
+      return [];
+    },
+    resolveSkills: async () => {
+      calls.push('resolve');
+      return [];
+    },
+    searchGraph: async () => {
+      calls.push('graph');
       return [];
     },
   };

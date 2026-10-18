@@ -6,7 +6,7 @@ import { readInternalToken, readPort } from './common/utils/env';
 import { listen } from './common/utils/listen';
 import { buildRetrievalProbes } from './features/health/build-probes';
 import { openSearch } from './features/search/open-search';
-import type { BranchSearch } from './features/search/run-branches';
+import type { SearchPorts } from './features/search/run-search';
 
 async function main(): Promise<void> {
   const logger = createLogger(readLogLevel(process.env));
@@ -21,7 +21,7 @@ async function main(): Promise<void> {
   logger.info({ port }, `${SERVICE_NAME} listening`);
 }
 
-function bindSearch(env: NodeJS.ProcessEnv): BranchSearch | undefined {
+function bindSearch(env: NodeJS.ProcessEnv): SearchPorts | undefined {
   const databaseUrl = env[ENV.databaseUrl]?.trim() ?? '';
   if (databaseUrl.length === 0) return undefined;
   return openSearch(new Pool({ connectionString: databaseUrl }), env);

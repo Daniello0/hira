@@ -1,6 +1,6 @@
 # 05. API-контракты
 
-Статус: черновик · Последнее обновление: 2026-10-11
+Статус: черновик · Последнее обновление: 2026-10-18
 
 Общие правила: JSON, `camelCase`, версионирование префиксом `/api/v1`, валидация через `class-validator` (NestJS) и Yup/Zod в Express-сервисах, Swagger UI `core-api` на `/docs`.
 
@@ -138,10 +138,10 @@ Demo-чат создаётся автоматически при первом з
 ```ts
 interface RetrievalRequest {
   intent: SearchIntent;
-  userId?: string;            // для персонализации; отсутствует → поиск без неё
+  userId?: string;            // uuid; отсутствует → поиск без персонализации; не-uuid → 400
   limit: number;              // 1..50, по умолчанию 10
   options?: {
-    branches?: RetrievalBranch[];   // подмножество ветвей — для абляций
+    branches?: RetrievalBranch[];   // подмножество ветвей — для абляций; повтор считается один раз
     rerank?: boolean;               // отключение реранкера — для абляций
     branchWeights?: Record<RetrievalBranch, number>;
     personalize?: boolean;
