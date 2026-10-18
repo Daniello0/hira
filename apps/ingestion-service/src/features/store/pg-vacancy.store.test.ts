@@ -41,6 +41,30 @@ describe('createPgVacancyStore', () => {
     expect(db.skillsOf(VacancySource.RabotaBy, 'skilled')).toBe('Python');
   });
 
+  it('drops chunks when the source text changes and keeps them on an unchanged rewrite', async () => {
+    const db = new PairDb();
+    const store = createPgVacancyStore(db);
+    const seen = new Date('2026-10-17T12:00:00Z');
+    await store.save(vacancy({ externalId: 'chunked' }), seen);
+    db.setChunks(VacancySource.RabotaBy, 'chunked', 2);
+    const skipped = await store.save(vacancy({ externalId: 'chunked' }), seen);
+    expect(skipped.outcome).toBe('skipped');
+    expect(db.chunkCount(VacancySource.RabotaBy, 'chunked')).toBe(2);
+    await store.save(
+      vacancy({
+        externalId: 'chunked',
+        description: 'другой текст',
+        contentHash: 'c'.repeat(64),
+      }),
+      seen,
+    );
+    expect(db.chunkCount(VacancySource.RabotaBy, 'chunked')).toBe(0);
+    const lockAt = db.statements.findIndex((sql) => sql.includes('FOR UPDATE'));
+    const deleteAt = db.statements.findIndex((sql) => sql.includes('DELETE FROM vacancy_chunks'));
+    expect(lockAt).toBeGreaterThan(-1);
+    expect(lockAt).toBeLessThan(deleteAt);
+  });
+
   it('clears extracted skills when the description changes', async () => {
     const db = new PairDb();
     const store = createPgVacancyStore(db);
@@ -108,6 +132,7 @@ function vacancy(patch: Partial<CanonicalVacancy> = {}): CanonicalVacancy {
 }
 
 class PairDb implements SqlClient {
+  readonly statements: string[] = [];
   private rows: Stored[] = [];
   private pairs = new Set<string>();
   private snapshot: { rows: Stored[]; pairs: Set<string> } | null = null;
@@ -117,7 +142,9 @@ class PairDb implements SqlClient {
     sql: string,
     params: readonly unknown[] = [],
   ): Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number | null }> {
+    this.statements.push(sql);
     if (sql === 'BEGIN') return this.begin();
+    if (sql.includes('FOR UPDATE')) return { rows: [{ id: params[0] }] };
     if (sql === 'COMMIT') return this.commit();
     if (sql === 'ROLLBACK') return this.rollback();
     if (sql.includes('INSERT INTO companies')) return { rows: [{ id: 'company-1' }] };
@@ -125,6 +152,7 @@ class PairDb implements SqlClient {
     if (sql.includes('AS "contentHash"')) return { rows: this.find(params) };
     if (sql.includes('INSERT INTO vacancies')) return { rows: [this.insert(params)] };
     if (sql.includes('DELETE FROM vacancy_skills')) return this.clearLinks(params);
+    if (sql.includes('DELETE FROM vacancy_chunks')) return this.clearChunks(params);
     if (sql.includes('content_hash = $26')) return this.touch(params);
     if (sql.includes('FROM vacancies v')) return { rows: this.candidates(params) };
     if (sql.includes('INSERT INTO vacancy_duplicates')) return this.addPair(sql, params);
@@ -153,6 +181,14 @@ class PairDb implements SqlClient {
 
   skillLinks(source: string, externalId: string): number {
     return this.row(source, externalId).skillLinks;
+  }
+
+  setChunks(source: string, externalId: string, count: number): void {
+    this.row(source, externalId).chunks = count;
+  }
+
+  chunkCount(source: string, externalId: string): number {
+    return this.row(source, externalId).chunks;
   }
 
   statusOf(source: string, externalId: string): string {
@@ -226,6 +262,12 @@ class PairDb implements SqlClient {
     return { rows: [], rowCount: 1 };
   }
 
+  private clearChunks(params: readonly unknown[]) {
+    const row = this.rows.find((item) => item.id === params[0]);
+    if (row !== undefined) row.chunks = 0;
+    return { rows: [], rowCount: 1 };
+  }
+
   private candidates(params: readonly unknown[]): Array<Record<string, unknown>> {
     return this.rows
       .filter((row) => row.status === VacancyStatus.Active && row.id !== params[0])
@@ -279,6 +321,7 @@ interface Stored {
   schedule: string | null;
   skillsText: string;
   skillLinks: number;
+  chunks: number;
 }
 
 function stored(id: string, params: readonly unknown[]): Stored {
@@ -294,5 +337,6 @@ function stored(id: string, params: readonly unknown[]): Stored {
     schedule: params[12] == null ? null : String(params[12]),
     skillsText: '',
     skillLinks: 0,
+    chunks: 0,
   };
 }
