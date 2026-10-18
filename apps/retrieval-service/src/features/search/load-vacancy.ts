@@ -1,4 +1,5 @@
 import {
+  formatLocationLabel,
   type EmploymentType,
   type Language,
   type RateUnit,
@@ -43,6 +44,7 @@ function readLoaded(row: Record<string, unknown>): LoadedVacancy {
 function readVacancy(row: Record<string, unknown>, seniority: SeniorityLevel | null): VacancyDto {
   return {
     ...identityOf(row),
+    ...placeOf(row),
     ...textOf(row, seniority),
     ...payOf(row),
     isForeignRemote: row.isForeignRemote === true,
@@ -67,6 +69,18 @@ function identityOf(
     companyId: textOrNull(row.companyId),
     locationId: asNumber(row.locationId),
   };
+}
+
+function placeOf(row: Record<string, unknown>): Pick<VacancyDto, 'companyName' | 'locationLabel'> {
+  return {
+    companyName: companyName(row.companyName),
+    locationLabel: formatLocationLabel(textOrNull(row.locationCity), textOrNull(row.locationRegion)),
+  };
+}
+
+function companyName(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.trim();
 }
 
 function textOf(
@@ -126,12 +140,15 @@ function asNumber(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
-const VACANCY_SQL = `SELECT v.id::text AS id, v.source, v.language, v.external_id AS "externalId",
-    v.url, v.title, v.company_id::text AS "companyId", v.location_id AS "locationId",
+export const VACANCY_SQL = `SELECT v.id::text AS id, v.source, v.language, v.external_id AS "externalId",
+    v.url, v.title, v.company_id::text AS "companyId", v.company_name AS "companyName",
+    v.location_id AS "locationId", l.city AS "locationCity", l.region AS "locationRegion",
     v.description, v.seniority, v.employment, v.work_format AS "workFormat", v.schedule,
     v.salary_min AS "salaryMin", v.salary_max AS "salaryMax", v.salary_currency AS "salaryCurrency",
     v.salary_min_byn AS "salaryMinByn", v.salary_max_byn AS "salaryMaxByn", v.is_gross AS "isGross",
     v.rate_amount AS "rateAmount", v.rate_unit AS "rateUnit",
     v.project_duration_days AS "projectDurationDays", v.is_foreign_remote AS "isForeignRemote",
     v.status, v.published_at AS "publishedAt", v.search_document AS "searchDocument"
-  FROM vacancies v WHERE v.id = ANY($1::uuid[])`;
+  FROM vacancies v
+  LEFT JOIN locations l ON l.id = v.location_id
+  WHERE v.id = ANY($1::uuid[])`;

@@ -21,6 +21,13 @@ export class MemoryCounterStore implements CounterStore {
   }
 
   /** @inheritdoc */
+  async read(key: string): Promise<number | null> {
+    const row = this.live(key);
+    if (row === null) return null;
+    return finite(row.value);
+  }
+
+  /** @inheritdoc */
   async ttl(key: string): Promise<number | null> {
     const row = this.live(key);
     if (row === null || row.expiresAtMs === null) return null;
@@ -51,4 +58,9 @@ export class MemoryCounterStore implements CounterStore {
     }
     return row;
   }
+}
+
+function finite(value: string): number | null {
+  const count = Number(value);
+  return Number.isFinite(count) ? count : null;
 }

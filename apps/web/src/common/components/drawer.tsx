@@ -1,0 +1,36 @@
+'use client';
+
+import type { ReactNode } from 'react';
+import { useEffect } from 'react';
+
+interface DrawerProps {
+  open: boolean;
+  label: string;
+  onClose: () => void;
+  children: ReactNode;
+}
+
+/** Mobile sheet. Desktop columns do not use it. Escape closes it. */
+export function Drawer({ open, label, onClose, children }: DrawerProps) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-30 bg-black/60 md:hidden" onClick={onClose}>
+      <div
+        className="h-full w-72 overflow-y-auto bg-hira-panel p-4"
+        role="dialog"
+        aria-label={label}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}

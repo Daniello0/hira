@@ -26,6 +26,8 @@ export type UpdateProfileRequest = Partial<ProfileDto>;
 /** One skill on the profile. */
 export interface ProfileSkillDto {
   skillId: number;
+  /** `skills.canonical_name`. The chat panel shows this, not the numeric id. */
+  canonicalName: string;
   level: SkillLevel;
   years: number | null;
   source: ProfileSkillSource;

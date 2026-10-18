@@ -6,7 +6,7 @@
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~64%
+**Общий прогресс (среднее по этапам):** ~69%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
@@ -22,7 +22,7 @@
 | 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | **90** |
 | 11 | **Оркестрация поиска (core-api)** | Search orchestrator, SSE (intent → results → tokens), чаты, `POST /search` для eval | **90** |
 | 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions. Живой `core-api` после миграции `Stage12Memory1764000000000` (ADR-040) | **90** |
-| 13 | **Frontend: чат, стриминг, вызов** | Next.js, dark EN UI, SSE, vacancy cards, match explanation, экран Call, spinner «Searching…» | 0 |
+| 13 | **Frontend: чат, стриминг, вызов** | Next.js, dark EN UI, SSE, vacancy cards, match explanation, экран Call, spinner «Searching…» | **80** |
 | 14 | **Frontend: профиль, библиотека, избранное, billing** | Profile, library, favorites, memory, mock `/billing` | 0 |
 | 15 | **Ingestion: источники 4–6** | praca.by, LinkedIn, Indeed; `is_foreign_remote` + filter | 0 |
 | 16 | **Экспериментальная оценка** | 30 queries (+16 из 2026), qrels, абляции, latency **фиксируется честно** (не SLA) | 0 |
@@ -71,7 +71,7 @@
 
 ## Следующий шаг
 
-**Этап 13.** Frontend: чат, стриминг, экран вызова.
+**Этап 13.** Экраны чата, стрима и вызова есть в `apps/web`. Демо ведёт чат, аккаунт открывает Call. Живой поиск в этой сессии ответил `Search is temporarily unavailable`, поэтому раскрытие карточки на стенде не смотрели. Поля `companyName`, `locationLabel`, `canonicalName`, `searchQuota` и `intent` в истории есть в коде и тестах; запущенный образ `core-api` их ещё не отдаёт.
 
 **Этап 12** отвечает из живого `core-api`. Миграция `Stage12Memory1764000000000` применена. Демо на библиотеке, памяти и вызове получает `403`. Чужой документ, факт, навык и вызов — `404`. Реплика в завершённый вызов — `400`, повторный `end` — `200` с тем же временем. PDF резюме разобран локально: предложение `EDUCATION` было в `GET /profile/suggestions` и попало в профиль только после accept. В этой базе `skills` пустая, поэтому имя навыка из резюме предложением не становится, пока не загружен ESCO (этап 8).
 

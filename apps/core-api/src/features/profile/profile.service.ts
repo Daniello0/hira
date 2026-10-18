@@ -11,7 +11,7 @@ import {
   type ProfileSuggestionDto,
 } from '@hira/contracts';
 import { SKILL_NOT_FOUND_MESSAGE } from '../memory/memory.constants';
-import { planAcceptance } from './accept-suggestion';
+import { planAcceptance, type AcceptanceSkill } from './accept-suggestion';
 import { chooseSkill } from './choose-skill';
 import { PROFILE_STORE, manualSkill, type ProfileStore, type SuggestionRecord } from './profile.store';
 import { suggestionPayload } from './suggestion-payload';
@@ -61,7 +61,10 @@ export class ProfileService {
   /** Adds a self-reported skill. A duplicate id is rejected. */
   async addSkill(userId: string, skillId: number, level: ProfileSkillDto['level'], years: number | null): Promise<ProfileSkillDto> {
     if ((await this.store.findSkill(userId, skillId)) !== null) throw new SkillExistsError();
-    return this.store.insertSkill(userId, manualSkill(skillId, level, years));
+    await this.store.insertSkill(userId, manualSkill(skillId, level, years, ''));
+    const saved = await this.store.findSkill(userId, skillId);
+    if (saved === null) throw new SkillMissingError();
+    return saved;
   }
 
   /** Removes a skill. */
@@ -82,7 +85,7 @@ export class ProfileService {
     const existing = suggestion.payload.skillId === null ? null : await this.store.findSkill(userId, suggestion.payload.skillId);
     const plan = planAcceptance(suggestion, profile, existing);
     if (plan.profile !== null) await this.store.save(userId, plan.profile);
-    if (plan.skill !== null && existing === null) await this.store.insertSkill(userId, plan.skill);
+    if (plan.skill !== null && existing === null) await this.store.insertSkill(userId, acceptedSkill(plan.skill, suggestion));
     const saved = await this.store.setSuggestionStatus(userId, id, ProfileSuggestionStatus.Accepted);
     return toDto(saved ?? suggestion);
   }
@@ -149,6 +152,10 @@ function empty(): ProfileDto {
     currency: null,
     education: null,
   };
+}
+
+function acceptedSkill(skill: AcceptanceSkill, suggestion: SuggestionRecord): ProfileSkillDto {
+  return { ...skill, canonicalName: suggestion.payload.surface ?? '' };
 }
 
 function toDto(row: SuggestionRecord): ProfileSuggestionDto {

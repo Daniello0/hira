@@ -7,6 +7,7 @@ import type {
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../common/utils/clock';
 import { LoginRateLimitService } from '../rate-limit/login-rate-limit.service';
+import { SearchQuotaService } from '../rate-limit/search-quota.service';
 import { AccessTokenService } from './access-token.service';
 import { displayNameFrom, normalizeEmail } from './auth-input';
 import { ACCESS_TOKEN_TTL_SECONDS } from './auth.constants';
@@ -40,6 +41,7 @@ export class AuthService {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(AccessTokenService) private readonly accessTokens: AccessTokenService,
     @Inject(LoginRateLimitService) private readonly loginLimits: LoginRateLimitService,
+    @Inject(SearchQuotaService) private readonly quotas: SearchQuotaService,
   ) {}
 
   /** Creates the account and a session. The caller maps `EmailTakenError` and `WeakPasswordError`. */
@@ -78,7 +80,7 @@ export class AuthService {
   async me(userId: string): Promise<CurrentUserDto> {
     const account = await this.users.findById(userId);
     if (account === null) throw new UnauthorizedError();
-    return toCurrentUser(account);
+    return toCurrentUser(account, await this.quotas.readRegistered(userId));
   }
 
   private async createAccount(input: RegisterRequest): Promise<Account> {

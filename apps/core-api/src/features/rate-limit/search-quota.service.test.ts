@@ -26,6 +26,14 @@ describe('search quota', () => {
     });
   });
 
+  it('reads a missing registered quota as zero without a second increment', async () => {
+    const quota = new SearchQuotaService(new MemoryCounterStore(), fixedClock());
+    const userId = randomUUID();
+    expect(await quota.readRegistered(userId)).toEqual({ used: 0, limit: 20 });
+    await quota.consumeRegistered(userId);
+    expect(await quota.readRegistered(userId)).toEqual({ used: 1, limit: 20 });
+  });
+
   it('allows twenty registered searches per UTC day', async () => {
     const quota = new SearchQuotaService(new MemoryCounterStore(), fixedClock());
     const userId = randomUUID();

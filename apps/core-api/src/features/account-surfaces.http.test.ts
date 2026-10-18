@@ -98,6 +98,7 @@ describe('stage 12 account surfaces', () => {
     state.profiles.skillHits.set('python', [{ skillId: 4, exactName: true, exactAlias: false, trigram: 1 }]);
     await state.profiles.insertSkill(userId, {
       skillId: 4,
+      canonicalName: 'Python',
       level: 'CONFIDENT' as never,
       years: 1,
       source: 'SELF_REPORTED' as never,

@@ -24,14 +24,26 @@ export function toMessageView(
   message: MessageRecord,
   vacancies: ShownVacancyRecord[],
 ): ChatMessageView {
-  const view: ChatMessageView = {
+  const view = baseView(message);
+  if (message.role === MessageRole.Assistant) return { ...view, results: resultsOf(message.id, vacancies) };
+  return withUserContext(view, message);
+}
+
+function baseView(message: MessageRecord): ChatMessageView {
+  return {
     id: message.id,
     role: message.role,
     content: message.content,
     createdAt: message.createdAt.toISOString(),
   };
-  if (message.role !== MessageRole.Assistant) return view;
-  return { ...view, results: resultsOf(message.id, vacancies) };
+}
+
+/** The context panel reloads intent from the user row. Assistant rows keep cards only. */
+function withUserContext(view: ChatMessageView, message: MessageRecord): ChatMessageView {
+  const extra: Pick<ChatMessageView, 'intent' | 'diagnostics'> = {};
+  if (message.intent !== null) extra.intent = message.intent;
+  if (message.diagnostics !== null) extra.diagnostics = message.diagnostics;
+  return { ...view, ...extra };
 }
 
 /** Drops the lookahead row. `nextCursor` freezes the oldest kept position. */

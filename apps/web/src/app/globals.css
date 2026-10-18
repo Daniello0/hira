@@ -1,1 +1,14 @@
 @import 'tailwindcss';
+
+@theme {
+  --color-hira-bg: #0a0e17;
+  --color-hira-panel: #1e3a5f;
+  --color-hira-accent: #2563eb;
+  --color-hira-text: #f8fafc;
+  --color-hira-muted: #cbd5e1;
+}
+
+body {
+  background: var(--color-hira-bg);
+  color: var(--color-hira-text);
+}

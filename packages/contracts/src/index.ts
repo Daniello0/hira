@@ -107,7 +107,8 @@ export {
   type UnderstandResponse,
 } from './common/dto/llm/understand.dto';
 export { type AuthSessionDto } from './common/dto/auth/auth-session.dto';
-export { type CurrentUserDto } from './common/dto/auth/current-user.dto';
+export { type CurrentUserDto, type SearchQuota } from './common/dto/auth/current-user.dto';
 export { type LoginRequest } from './common/dto/auth/login-request.dto';
 export { type RegisterRequest } from './common/dto/auth/register-request.dto';
 export { type VacancyDto } from './common/dto/vacancy/vacancy.dto';
+export { formatLocationLabel } from './common/dto/vacancy/location-label';

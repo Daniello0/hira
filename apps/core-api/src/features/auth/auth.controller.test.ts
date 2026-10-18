@@ -68,6 +68,7 @@ describe('auth http', () => {
       displayName: 'Ada',
       role: 'USER',
       crossChatMemoryEnabled: true,
+      searchQuota: { used: 0, limit: 20 },
     });
   });
 

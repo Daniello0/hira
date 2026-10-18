@@ -56,6 +56,15 @@ export class AuthSessionResponseDto {
   expiresIn!: number;
 }
 
+/** Searches already counted for the account. */
+export class SearchQuotaResponseDto {
+  @ApiProperty({ type: Number, example: 0 })
+  used!: number;
+
+  @ApiProperty({ type: Number, example: 20 })
+  limit!: number;
+}
+
 /** Swagger shape of `GET /api/v1/auth/me`. */
 export class CurrentUserResponseDto {
   @ApiProperty({ type: String })
@@ -72,4 +81,7 @@ export class CurrentUserResponseDto {
 
   @ApiProperty({ type: Boolean })
   crossChatMemoryEnabled!: boolean;
+
+  @ApiProperty({ type: SearchQuotaResponseDto })
+  searchQuota!: SearchQuotaResponseDto;
 }

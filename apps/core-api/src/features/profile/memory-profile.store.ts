@@ -97,7 +97,14 @@ export class MemoryProfileStore implements ProfileStore {
 }
 
 function stripUser(skill: ProfileSkillDto & { userId: string }): ProfileSkillDto {
-  return { skillId: skill.skillId, level: skill.level, years: skill.years, source: skill.source, confidence: skill.confidence };
+  return {
+    skillId: skill.skillId,
+    canonicalName: skill.canonicalName,
+    level: skill.level,
+    years: skill.years,
+    source: skill.source,
+    confidence: skill.confidence,
+  };
 }
 
 function samePending(item: SuggestionRecord, input: NewSuggestion): boolean {

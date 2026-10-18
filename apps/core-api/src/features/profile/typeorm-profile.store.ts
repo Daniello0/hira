@@ -64,12 +64,8 @@ export class TypeOrmProfileStore implements ProfileStore {
 
   /** @inheritdoc */
   async listSkills(userId: string): Promise<ProfileSkillDto[]> {
-    const rows = await this.query(
-      `SELECT skill_id AS "skillId", level::text AS level, years, source::text AS source, confidence
-       FROM user_profile_skills WHERE user_id = $1`,
-      [userId],
-    );
-    return rows.map(skillOf);
+    const rows = await this.query(PROFILE_SKILL_SQL, [userId]);
+    return rows.map(toProfileSkill);
   }
 
   /** @inheritdoc */
@@ -201,9 +197,18 @@ export function profileOf(row: Record<string, unknown>): ProfileDto {
   };
 }
 
-function skillOf(row: Record<string, unknown>): ProfileSkillDto {
+/** Profile skills with the canonical name the chat panel shows. */
+export const PROFILE_SKILL_SQL = `SELECT p.skill_id AS "skillId", s.canonical_name AS "canonicalName",
+    p.level::text AS level, p.years, p.source::text AS source, p.confidence
+  FROM user_profile_skills p
+  JOIN skills s ON s.id = p.skill_id
+  WHERE p.user_id = $1`;
+
+/** Maps a joined profile-skill row. */
+export function toProfileSkill(row: Record<string, unknown>): ProfileSkillDto {
   return {
     skillId: Number(row.skillId),
+    canonicalName: String(row.canonicalName ?? ''),
     level: String(row.level) as SkillLevel,
     years: row.years === null || row.years === undefined ? null : Number(row.years),
     source: String(row.source) as ProfileSkillSource,

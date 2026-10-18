@@ -1,4 +1,4 @@
-import type { CurrentUserDto } from '@hira/contracts';
+import type { CurrentUserDto, SearchQuota } from '@hira/contracts';
 import { UserRole } from '@hira/contracts';
 
 export const USER_STORE = Symbol('USER_STORE');
@@ -34,12 +34,13 @@ export class EmailTakenError extends Error {
 }
 
 /** Drops the password hash before the account leaves the service. */
-export function toCurrentUser(account: Account): CurrentUserDto {
+export function toCurrentUser(account: Account, searchQuota: SearchQuota): CurrentUserDto {
   return {
     id: account.id,
     email: account.email,
     displayName: account.displayName,
     role: account.role,
     crossChatMemoryEnabled: account.crossChatMemoryEnabled,
+    searchQuota,
   };
 }
