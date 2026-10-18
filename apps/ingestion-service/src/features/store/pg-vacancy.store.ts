@@ -73,10 +73,15 @@ async function upsertVacancy(
   if (sameSource(existing, vacancy)) {
     return touchUnchanged(client, existing.id, vacancy.status, seenAt);
   }
-  await client.query(`DELETE FROM vacancy_skills WHERE vacancy_id = $1`, [existing.id]);
-  await client.query(`DELETE FROM vacancy_chunks WHERE vacancy_id = $1`, [existing.id]);
+  await replaceStoredText(client, existing.id);
   await updateVacancy(client, existing.id, vacancy, companyId, locationId, seenAt);
   return { outcome: 'updated', id: existing.id };
+}
+
+async function replaceStoredText(client: SqlClient, id: string): Promise<void> {
+  await client.query(`SELECT id FROM vacancies WHERE id = $1 FOR UPDATE`, [id]);
+  await client.query(`DELETE FROM vacancy_skills WHERE vacancy_id = $1`, [id]);
+  await client.query(`DELETE FROM vacancy_chunks WHERE vacancy_id = $1`, [id]);
 }
 
 function sameSource(existing: ExistingVacancy, vacancy: CanonicalVacancy): boolean {

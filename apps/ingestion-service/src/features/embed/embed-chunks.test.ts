@@ -36,6 +36,28 @@ describe('embedPendingChunks', () => {
     expect(db.chunks.get('v1')).toEqual([{ content: 'old', embedding: '[1]' }]);
     expect(db.statements.some((sql) => sql.startsWith('DELETE'))).toBe(false);
   });
+
+  it('does not write chunks prepared from a description that has since changed', async () => {
+    const inserts: string[] = [];
+    const client: SqlClient = {
+      query: async (sql, params = []) => {
+        if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return { rows: [] };
+        if (sql.includes('btrim')) return { rows: [{ id: 'v1', description: 'Alpha' }] };
+        if (sql.includes('FOR UPDATE')) return { rows: [{ description: 'Beta' }] };
+        if (sql.includes('DELETE FROM vacancy_chunks')) return { rows: [], rowCount: 1 };
+        if (sql.includes('INSERT INTO vacancy_chunks')) {
+          inserts.push(String(params[2]));
+          return { rows: [], rowCount: 1 };
+        }
+        throw new Error(`unexpected sql: ${sql}`);
+      },
+    };
+    const result = await embedPendingChunks(client, VacancySource.RabotaBy, 'http://tei:80', {
+      post: async () => [vector(0.2)],
+    });
+    expect(result.failed).toBe(0);
+    expect(inserts).toEqual([]);
+  });
 });
 
 function vector(seed: number): number[] {

@@ -59,6 +59,10 @@ describe('createPgVacancyStore', () => {
       seen,
     );
     expect(db.chunkCount(VacancySource.RabotaBy, 'chunked')).toBe(0);
+    const lockAt = db.statements.findIndex((sql) => sql.includes('FOR UPDATE'));
+    const deleteAt = db.statements.findIndex((sql) => sql.includes('DELETE FROM vacancy_chunks'));
+    expect(lockAt).toBeGreaterThan(-1);
+    expect(lockAt).toBeLessThan(deleteAt);
   });
 
   it('clears extracted skills when the description changes', async () => {
@@ -128,6 +132,7 @@ function vacancy(patch: Partial<CanonicalVacancy> = {}): CanonicalVacancy {
 }
 
 class PairDb implements SqlClient {
+  readonly statements: string[] = [];
   private rows: Stored[] = [];
   private pairs = new Set<string>();
   private snapshot: { rows: Stored[]; pairs: Set<string> } | null = null;
@@ -137,7 +142,9 @@ class PairDb implements SqlClient {
     sql: string,
     params: readonly unknown[] = [],
   ): Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number | null }> {
+    this.statements.push(sql);
     if (sql === 'BEGIN') return this.begin();
+    if (sql.includes('FOR UPDATE')) return { rows: [{ id: params[0] }] };
     if (sql === 'COMMIT') return this.commit();
     if (sql === 'ROLLBACK') return this.rollback();
     if (sql.includes('INSERT INTO companies')) return { rows: [{ id: 'company-1' }] };

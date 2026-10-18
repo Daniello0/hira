@@ -15,7 +15,7 @@ interface PreparedChunks {
   chunks: DescriptionChunk[];
 }
 
-/** Embeds description chunks that are missing or still have an empty vector. */
+/** Embeds missing chunk vectors. A description that changed during encoding is left for the next tick. */
 export async function embedPendingChunks(
   client: SqlClient,
   source: VacancySource,
@@ -25,8 +25,8 @@ export async function embedPendingChunks(
   try {
     const prepared = await prepare(client, source);
     const vectors = await embedAll(baseUrl, post, textsOf(prepared));
-    await writeAll(client, prepared, vectors);
-    return { updated: prepared.length, failed: 0, errors: [] };
+    const updated = await writeAll(client, prepared, vectors);
+    return { updated, failed: 0, errors: [] };
   } catch (error) {
     return { updated: 0, failed: 1, errors: [{ message: errorText(error) }] };
   }
@@ -49,14 +49,20 @@ async function embedAll(baseUrl: string, post: EmbedPost, texts: string[]): Prom
   return vectors;
 }
 
-async function writeAll(client: SqlClient, prepared: PreparedChunks[], vectors: number[][]): Promise<void> {
+async function writeAll(
+  client: SqlClient,
+  prepared: PreparedChunks[],
+  vectors: number[][],
+): Promise<number> {
   let offset = 0;
+  let written = 0;
   for (const item of prepared) {
     const slice = vectors.slice(offset, offset + item.chunks.length);
     offset += item.chunks.length;
     if (item.chunks.length === 0) continue;
-    await replaceChunks(client, item.id, item.chunks, slice);
+    if (await replaceChunks(client, item.id, item.chunks, slice)) written += 1;
   }
+  return written;
 }
 
 async function replaceChunks(
@@ -64,19 +70,60 @@ async function replaceChunks(
   vacancyId: string,
   chunks: DescriptionChunk[],
   vectors: number[][],
-): Promise<void> {
+): Promise<boolean> {
   if (vectors.length !== chunks.length) throw new Error('embed batch length mismatch');
   await client.query('BEGIN');
   try {
-    await client.query(`DELETE FROM vacancy_chunks WHERE vacancy_id = $1`, [vacancyId]);
-    for (let index = 0; index < chunks.length; index += 1) {
-      await insertChunk(client, vacancyId, chunks[index] as DescriptionChunk, vectors[index] as number[]);
-    }
+    const written = await writeIfCurrent(client, vacancyId, chunks, vectors);
     await client.query('COMMIT');
+    return written;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
   }
+}
+
+async function writeIfCurrent(
+  client: SqlClient,
+  vacancyId: string,
+  chunks: DescriptionChunk[],
+  vectors: number[][],
+): Promise<boolean> {
+  const current = await lockedChunks(client, vacancyId);
+  if (current === null || !sameChunks(current, chunks)) return false;
+  await client.query(`DELETE FROM vacancy_chunks WHERE vacancy_id = $1`, [vacancyId]);
+  for (let index = 0; index < chunks.length; index += 1) {
+    await insertChunk(
+      client,
+      vacancyId,
+      chunks[index] as DescriptionChunk,
+      vectors[index] as number[],
+    );
+  }
+  return true;
+}
+
+async function lockedChunks(
+  client: SqlClient,
+  vacancyId: string,
+): Promise<DescriptionChunk[] | null> {
+  const result = await client.query(`SELECT description FROM vacancies WHERE id = $1 FOR UPDATE`, [
+    vacancyId,
+  ]);
+  const row = result.rows[0];
+  if (row === undefined) return null;
+  const description = row.description == null ? null : String(row.description);
+  return splitDescription(description);
+}
+
+function sameChunks(
+  left: readonly DescriptionChunk[],
+  right: readonly DescriptionChunk[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((chunk, index) => chunk.content === right[index]?.content)
+  );
 }
 
 async function insertChunk(
