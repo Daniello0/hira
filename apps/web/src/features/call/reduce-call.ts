@@ -28,30 +28,41 @@ export function beginListening(state: CallViewState): CallViewState {
   return { ...state, phase: CallPhase.Listening, searching: false };
 }
 
-/** A finished utterance is on its way to core-api. */
+/** A finished utterance is on its way to core-api. Searching waits for a search intent. */
 export function onFinalTranscript(state: CallViewState, id: string, text: string): CallViewState {
   return {
     ...state,
     phase: CallPhase.Thinking,
-    searching: true,
+    searching: false,
     cards: [],
     captions: pushCaption(state.captions, { id, role: MessageRole.User, content: text }),
   };
 }
 
 /** Same SSE names as a chat turn. Empty results do not draw cards. */
-export function reduceCallEvent(state: CallViewState, raw: { event: string; data: unknown }): CallViewState {
+export function reduceCallEvent(
+  state: CallViewState,
+  raw: { event: string; data: unknown },
+): CallViewState {
   if (raw.event === 'intent') return onIntent(state, raw.data);
   if (raw.event === 'results') return { ...state, searching: false, cards: asResults(raw.data) };
   if (raw.event === 'token') return appendAssistant(state, delta(raw.data));
   if (raw.event === 'done') return { ...state, phase: CallPhase.Speaking, searching: false };
-  if (raw.event === 'error') return { ...state, phase: CallPhase.Listening, searching: false, cards: [] };
+  if (raw.event === 'error')
+    return { ...state, phase: CallPhase.Listening, searching: false, cards: [] };
   return state;
 }
 
 /** End returns the screen to idle. */
 export function finishCall(): CallViewState {
   return emptyCall();
+}
+
+/** A turn that never reached speaking goes back to the microphone. */
+export function resumeCallAfterTurn(state: CallViewState, opened: boolean): CallViewState {
+  if (state.phase === CallPhase.Idle) return state;
+  if (state.phase === CallPhase.Speaking && opened) return state;
+  return beginListening(state);
 }
 
 /** Demo stays in the text chat. */
@@ -71,11 +82,16 @@ function onIntent(state: CallViewState, data: unknown): CallViewState {
 
 function appendAssistant(state: CallViewState, text: string): CallViewState {
   const last = state.captions.at(-1);
-  if (last?.role !== MessageRole.Assistant) {
-    return { ...state, captions: pushCaption(state.captions, { id: 'live', role: MessageRole.Assistant, content: text }) };
+  if (last?.role === MessageRole.Assistant) {
+    const captions = state.captions.slice(0, -1);
+    return { ...state, captions: [...captions, { ...last, content: last.content + text }] };
   }
-  const captions = state.captions.slice(0, -1);
-  return { ...state, captions: [...captions, { ...last, content: last.content + text }] };
+  const caption = {
+    id: `assistant-${state.captions.length}`,
+    role: MessageRole.Assistant,
+    content: text,
+  };
+  return { ...state, captions: pushCaption(state.captions, caption) };
 }
 
 function pushCaption(captions: readonly Caption[], caption: Caption): Caption[] {

@@ -8,7 +8,9 @@ import { useForm } from 'react-hook-form';
 import { coreFetch } from '../../common/api/core-api';
 import { Button } from '../../common/components/button';
 import { TextField } from '../../common/components/text-field';
+import { COULD_NOT_REACH } from './auth.constants';
 import { loginSchema } from './auth.schema';
+import { readApiMessage } from './read-api-message';
 import { loadMe } from './session';
 import { useSession } from './session.store';
 
@@ -22,16 +24,31 @@ export function LoginForm() {
   const router = useRouter();
   const setAccount = useSession((state) => state.setAccount);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
   const form = useForm<LoginValues>({ resolver: yupResolver(loginSchema) });
   return (
-    <form className="mx-auto flex w-full max-w-sm flex-col gap-4 p-8" onSubmit={form.handleSubmit((values) => void submitLogin(values, setAccount, setError, router))}>
+    <form
+      className="mx-auto flex w-full max-w-sm flex-col gap-4 p-8"
+      onSubmit={form.handleSubmit(
+        (values) => void submitLogin(values, setAccount, setError, setPending, router),
+      )}
+    >
       <h1 className="text-2xl font-semibold">Sign in</h1>
       <TextField label="Email" type="email" autoComplete="email" {...form.register('email')} />
-      <TextField label="Password" type="password" autoComplete="current-password" {...form.register('password')} />
+      <TextField
+        label="Password"
+        type="password"
+        autoComplete="current-password"
+        {...form.register('password')}
+      />
       {form.formState.errors.password ? <p>{form.formState.errors.password.message}</p> : null}
       {error !== null ? <p>{error}</p> : null}
-      <Button type="submit">Sign in</Button>
-      <Link className="text-sm text-hira-accent" href="/register">Create an account</Link>
+      <Button type="submit" disabled={pending}>
+        Sign in
+      </Button>
+      <Link className="text-sm text-hira-accent" href="/register">
+        Create an account
+      </Link>
     </form>
   );
 }
@@ -40,14 +57,22 @@ async function submitLogin(
   values: LoginValues,
   setAccount: ReturnType<typeof useSession.getState>['setAccount'],
   setError: (value: string | null) => void,
+  setPending: (value: boolean) => void,
   router: ReturnType<typeof useRouter>,
 ): Promise<void> {
-  const response = await coreFetch('/api/v1/auth/login', jsonBody(values), null);
-  if (!response.ok) {
-    setError(await errorMessage(response));
-    return;
+  setPending(true);
+  try {
+    const response = await coreFetch('/api/v1/auth/login', jsonBody(values), null);
+    if (!response.ok) {
+      setError(await readApiMessage(response, 'Sign-in failed'));
+      return;
+    }
+    await enter(await response.json(), setAccount, setError, router);
+  } catch {
+    setError(COULD_NOT_REACH);
+  } finally {
+    setPending(false);
   }
-  await enter(await response.json(), setAccount, setError, router);
 }
 
 async function enter(
@@ -65,7 +90,10 @@ async function enter(
     setError('Could not load the account');
     return;
   }
-  setAccount({ accessToken: body.accessToken, expiresAt: Date.now() + body.expiresIn * 1000 }, user);
+  setAccount(
+    { accessToken: body.accessToken, expiresAt: Date.now() + body.expiresIn * 1000 },
+    user,
+  );
   router.push('/chat');
 }
 
@@ -73,11 +101,10 @@ function isGrant(body: unknown): body is { accessToken: string; expiresIn: numbe
   return typeof body === 'object' && body !== null && 'accessToken' in body && 'expiresIn' in body;
 }
 
-async function errorMessage(response: Response): Promise<string> {
-  const body = (await response.json()) as { message?: string };
-  return body.message ?? 'Sign-in failed';
-}
-
 function jsonBody(values: LoginValues): RequestInit {
-  return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) };
+  return {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(values),
+  };
 }

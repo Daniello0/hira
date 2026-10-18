@@ -38,28 +38,43 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-async function bootstrap(setAccount: ReturnType<typeof useSession.getState>['setAccount'], setAnonymous: () => void): Promise<void> {
-  const grant = await refreshAccess(fetch, Date.now());
-  if (grant === null) {
+async function bootstrap(
+  setAccount: ReturnType<typeof useSession.getState>['setAccount'],
+  setAnonymous: () => void,
+): Promise<void> {
+  try {
+    const grant = await refreshAccess(fetch, Date.now());
+    if (grant === null) {
+      setAnonymous();
+      return;
+    }
+    const user = await loadMe(grant.accessToken);
+    if (user === null) setAnonymous();
+    else setAccount(grant, user);
+  } catch {
     setAnonymous();
-    return;
   }
-  const user = await loadMe(grant.accessToken);
-  if (user === null) setAnonymous();
-  else setAccount(grant, user);
 }
 
 function MobileBar() {
   const setSidebar = useShell((state) => state.setSidebar);
   return (
     <header className="flex items-center justify-between border-b border-white/10 px-4 py-3 md:hidden">
-      <button type="button" onClick={() => setSidebar(true)}>Menu</button>
+      <button type="button" onClick={() => setSidebar(true)}>
+        Menu
+      </button>
       <span className="font-medium">Hira</span>
     </header>
   );
 }
 
-function SidebarDrawer({ token, user }: { token: string | null; user: ReturnType<typeof useSession.getState>['user'] }) {
+function SidebarDrawer({
+  token,
+  user,
+}: {
+  token: string | null;
+  user: ReturnType<typeof useSession.getState>['user'];
+}) {
   const open = useShell((state) => state.sidebarOpen);
   const setSidebar = useShell((state) => state.setSidebar);
   return (
