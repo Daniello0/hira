@@ -5,18 +5,24 @@ import {
   type HardConstraints,
   type RetrievalOptions,
   type SearchIntent,
+  type SkillMention,
 } from '@hira/contracts';
+import type { LinkedSkill } from '../graph/link-query-skill';
 import type { BranchHit } from './branch-hit';
 
 export interface BranchSearch {
   searchBm25(query: string, filters: HardConstraints): Promise<BranchHit[]>;
   embedQuery(text: string): Promise<number[]>;
   searchDense(vector: readonly number[], filters: HardConstraints): Promise<BranchHit[]>;
+  resolveSkills(mentions: readonly SkillMention[]): Promise<LinkedSkill[]>;
+  searchGraph(skillIds: readonly number[], filters: HardConstraints): Promise<BranchHit[]>;
 }
 
 export interface BranchRun {
   lexical: BranchHit[];
   dense: BranchHit[];
+  graph: BranchHit[];
+  linked: LinkedSkill[];
   timings: Record<RetrievalBranch, number>;
 }
 
@@ -39,6 +45,8 @@ export async function runBranches(
   return {
     lexical: lexical.value,
     dense: dense.value,
+    graph: [],
+    linked: [],
     timings: timingsOf(lexical.ms, embedded.ms + dense.ms),
   };
 }
@@ -94,7 +102,7 @@ function timingsOf(lexical: number, dense: number): Record<RetrievalBranch, numb
 }
 
 function emptyRun(): BranchRun {
-  return { lexical: [], dense: [], timings: timingsOf(0, 0) };
+  return { lexical: [], dense: [], graph: [], linked: [], timings: timingsOf(0, 0) };
 }
 
 async function timed<T>(run: () => Promise<T>): Promise<Timed<T>> {

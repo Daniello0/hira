@@ -1,8 +1,8 @@
-import { createApiErrorResponse, RetrievalBranch, type RetrievalResponse } from '@hira/contracts';
+import { createApiErrorResponse } from '@hira/contracts';
 import { Router, type Request, type Response } from 'express';
 import { readRequestId } from '../../common/middleware/request-id.middleware';
 import { readSearchRequest } from './read-search-request';
-import { runBranches, type BranchRun, type BranchSearch } from './run-branches';
+import { runSearch, type SearchPorts } from './run-search';
 import {
   RETRIEVAL_UNAVAILABLE_CODE,
   RETRIEVAL_UNAVAILABLE_MESSAGE,
@@ -10,8 +10,8 @@ import {
   VALIDATION_FAILED_MESSAGE,
 } from './search.constants';
 
-/** `POST /internal/v1/search`. Ranked cards wait for fusion; this stage returns branch diagnostics. */
-export function createSearchRouter(search: BranchSearch): Router {
+/** `POST /internal/v1/search`. Branch failure is 503; a dead reranker is not. */
+export function createSearchRouter(search: SearchPorts): Router {
   const router = Router();
   router.post('/search', (req, res) => {
     answer(search, req, res).catch(() => sendUnavailable(req, res));
@@ -19,37 +19,13 @@ export function createSearchRouter(search: BranchSearch): Router {
   return router;
 }
 
-async function answer(search: BranchSearch, req: Request, res: Response): Promise<void> {
+async function answer(search: SearchPorts, req: Request, res: Response): Promise<void> {
   const parsed = readSearchRequest(req.body);
   if (parsed === null) {
     res.status(400).json(invalid(req));
     return;
   }
-  const started = Date.now();
-  const run = await runBranches(parsed.intent, parsed.options, search);
-  res.status(200).json(responseOf(run, Date.now() - started));
-}
-
-function responseOf(run: BranchRun, totalLatencyMs: number): RetrievalResponse {
-  return {
-    results: [],
-    diagnostics: {
-      branchTimings: run.timings,
-      candidateCounts: countsOf(run),
-      fusedCount: 0,
-      relaxationSteps: [],
-      rerankApplied: false,
-      totalLatencyMs,
-    },
-  };
-}
-
-function countsOf(run: BranchRun): Record<RetrievalBranch, number> {
-  return {
-    [RetrievalBranch.Lexical]: run.lexical.length,
-    [RetrievalBranch.Dense]: run.dense.length,
-    [RetrievalBranch.Graph]: 0,
-  };
+  res.status(200).json(await runSearch(parsed, search));
 }
 
 function invalid(req: Request) {
