@@ -426,13 +426,18 @@ function userProfileSkillsTable(): string {
 function chatsTable(): string {
   return `CREATE TABLE chats (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    user_id uuid REFERENCES users (id) ON DELETE CASCADE,
+    demo_session_id uuid,
     title varchar(256),
     summary text,
     summary_updated_at timestamptz,
     message_count int NOT NULL DEFAULT 0,
     is_archived boolean NOT NULL DEFAULT false,
-    ${TIMESTAMPS}
+    ${TIMESTAMPS},
+    CONSTRAINT chats_owner_exactly_one CHECK (
+      (user_id IS NOT NULL AND demo_session_id IS NULL)
+      OR (user_id IS NULL AND demo_session_id IS NOT NULL)
+    )
   )`;
 }
 
@@ -627,6 +632,7 @@ function lookupIndexes(): string[] {
     'CREATE INDEX idx_vacancy_skills_skill ON vacancy_skills (skill_id)',
     'CREATE INDEX idx_refresh_tokens_user ON refresh_tokens (user_id)',
     'CREATE INDEX idx_chats_user ON chats (user_id)',
+    'CREATE UNIQUE INDEX uq_chats_demo_session ON chats (demo_session_id)',
     'CREATE INDEX idx_messages_chat ON messages (chat_id)',
   ];
 }

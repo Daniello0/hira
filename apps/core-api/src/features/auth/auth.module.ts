@@ -2,6 +2,7 @@ import cookieParser from 'cookie-parser';
 import { MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { AccessTokenGuard } from './access-token.guard';
+import { OptionalAccessGuard } from './optional-access.guard';
 import { AccessTokenService } from './access-token.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -20,6 +21,7 @@ import { USER_STORE } from './user.store';
     AuthService,
     AccessTokenService,
     AccessTokenGuard,
+    OptionalAccessGuard,
     DemoSessionMiddleware,
     Argon2PasswordHasher,
     { provide: PASSWORD_HASHER, useExisting: Argon2PasswordHasher },
@@ -28,7 +30,7 @@ import { USER_STORE } from './user.store';
     TypeOrmRefreshTokenStore,
     { provide: REFRESH_TOKEN_STORE, useExisting: TypeOrmRefreshTokenStore },
   ],
-  exports: [RateLimitModule],
+  exports: [RateLimitModule, AccessTokenService, OptionalAccessGuard, USER_STORE, DemoSessionMiddleware],
 })
 export class AuthModule implements NestModule {
   /** Parses cookies before the demo session middleware reads them. */

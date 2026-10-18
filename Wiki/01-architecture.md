@@ -1,6 +1,6 @@
 # 01. Архитектура системы
 
-Статус: черновик · Последнее обновление: 2026-10-17
+Статус: черновик · Последнее обновление: 2026-10-18
 
 ---
 
@@ -103,7 +103,7 @@ cd Wiki/diagrams && dot -Tpng -Gdpi=150 architecture.dot -o architecture.png
 
 - Три параллельные ветви поиска: лексическая (BM25), плотная (pgvector), графовая (обход графа навыков).
 - Слияние Reciprocal Rank Fusion, затем cross-encoder реранкинг.
-- Читает PostgreSQL напрямую (read-only пул), пишет только в `search_logs`.
+- Читает PostgreSQL напрямую (read-only пул) и ничего не пишет. Строку `search_logs` пишет `core-api`: во внутреннем теле нет сырого текста и `message_id`.
 - Держит HTTP-клиент к `embedding-runtime`.
 - Полное описание — [02-retrieval-layer.md](02-retrieval-layer.md).
 

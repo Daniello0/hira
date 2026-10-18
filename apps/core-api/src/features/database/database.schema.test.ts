@@ -115,6 +115,7 @@ describe('data source', () => {
     expect(source.migrations.map((migration) => migration.name)).toEqual([
       'InitialSchema1760000000000',
       'RefreshTokenHashIndex1762000000000',
+      'DemoChat1763000000000',
     ]);
   });
 

@@ -1,6 +1,6 @@
 # 04. Модель данных
 
-Статус: черновик · Последнее обновление: 2026-10-17 · лексическая колонка — ADR-030, PMI/IDF/typicality — ADR-036
+Статус: черновик · Последнее обновление: 2026-10-18 · лексическая колонка — ADR-030, PMI/IDF/typicality — ADR-036, демо-чат — ADR-039
 
 СУБД: PostgreSQL 17, локально. Расширения: `vector` (pgvector), `pg_trgm`, `pg_textsearch` (BM25, ADR-017), `uuid-ossp`. ORM: TypeORM, миграции живут в `core-api`.
 
@@ -95,7 +95,9 @@
 
 ### `chats`
 
-`id`, `user_id` FK, `title` (генерируется LLM по первому сообщению), `summary` (mid-term память, обновляется каждые N сообщений), `summary_updated_at`, `message_count`, `is_archived`, `created_at`, `updated_at`.
+`id`, `user_id` FK NULL, `demo_session_id` uuid NULL, `title` (до `title-chat` — обрезка первого сообщения, дальше правка пользователя), `summary` (mid-term память, обновляется каждые N сообщений), `summary_updated_at`, `message_count`, `is_archived`, `created_at`, `updated_at`.
+
+Заполнено ровно одно из `user_id` и `demo_session_id`. `demo_session_id` уникален: один cookie — один чат (ADR-039). Удаление аккаунта удаляет только чаты с его `user_id`.
 
 ### `messages`
 

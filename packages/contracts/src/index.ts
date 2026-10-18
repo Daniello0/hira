@@ -33,6 +33,13 @@ export {
 } from './common/dto/error/api-error-response.dto';
 export { type CreateMessageRequest } from './common/dto/chat/create-message-request.dto';
 export {
+  type ChatDetail,
+  type ChatMessageView,
+  type ChatPage,
+  type ChatSummary,
+  type UpdateChatRequest,
+} from './common/dto/chat/chat.dto';
+export {
   type FactorScore,
   type MatchExplanation,
   type SkillMatch,
