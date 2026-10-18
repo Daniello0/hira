@@ -17,5 +17,13 @@ export async function clearReindex(
     `UPDATE vacancies SET ${assignments} WHERE ($1::uuid[] IS NULL OR id = ANY($1::uuid[]))`,
     [ids],
   );
+  if (clears.embedding) await deleteChunks(client, ids);
   return result.rowCount ?? 0;
+}
+
+async function deleteChunks(client: SqlClient, ids: string[] | null): Promise<void> {
+  await client.query(
+    `DELETE FROM vacancy_chunks WHERE ($1::uuid[] IS NULL OR vacancy_id = ANY($1::uuid[]))`,
+    [ids],
+  );
 }

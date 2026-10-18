@@ -16,6 +16,7 @@ import {
   QUEUE_PREFIX,
 } from '../ingestion.constants';
 import { requestEmbeddings, type EmbedPost } from '../embed/embed-client';
+import { embedPendingChunks } from '../embed/embed-chunks';
 import { surfaceVector } from '../embed/surface-vector';
 import { importEscoClassification } from '../esco/import-classification';
 import { loadEscoDirectory } from '../esco/load-esco-directory';
@@ -141,9 +142,15 @@ export async function runEmbedding(
   const baseUrl = env[ENV.teiEmbedUrl]?.trim() ?? '';
   if (baseUrl.length === 0) return failed('TEI_EMBED_URL is not set', now);
   const vacancies = await embedVacancies(client, source, baseUrl);
+  const chunks = await embedPendingChunks(client, source, baseUrl, liveEmbed());
   const skills = await embedSkillNames(client, baseUrl);
-  const failedCount = vacancies.failed + skills.failed;
-  return finish(vacancies.updated + skills.updated, failedCount, vacancies.errors, now);
+  const failedCount = vacancies.failed + chunks.failed + skills.failed;
+  return finish(
+    vacancies.updated + chunks.updated + skills.updated,
+    failedCount,
+    [...vacancies.errors, ...chunks.errors],
+    now,
+  );
 }
 
 /** Imports `ESCO_DIR` when it is set, then recounts skills and replaces RELATED_TO edges. */

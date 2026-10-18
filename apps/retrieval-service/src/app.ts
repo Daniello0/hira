@@ -8,11 +8,14 @@ import { requestIdMiddleware } from './common/middleware/request-id.middleware';
 import { requestLogMiddleware } from './common/middleware/request-log.middleware';
 import { healthRouter } from './features/health/health.router';
 import type { DependencyProbe } from './features/health/health.types';
+import type { BranchSearch } from './features/search/run-branches';
+import { createSearchRouter } from './features/search/search.router';
 
 export interface AppOptions {
   logger: Logger;
   internalToken: string;
   probes: readonly DependencyProbe[];
+  search?: BranchSearch;
 }
 
 /** Express application: request id, internal token, health, and the shared error body. */
@@ -24,7 +27,13 @@ export function createApp(options: AppOptions): Express {
   app.use(requestLogMiddleware(options.logger));
   app.use(internalTokenMiddleware(options.internalToken));
   app.use('/health', healthRouter(options.probes));
+  mountSearch(app, options.search);
   app.use(notFoundMiddleware);
   app.use(errorMiddleware(options.logger));
   return app;
+}
+
+function mountSearch(app: Express, search: BranchSearch | undefined): void {
+  if (search === undefined) return;
+  app.use('/internal/v1', createSearchRouter(search));
 }

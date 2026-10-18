@@ -1,12 +1,12 @@
 # Progress Log
 
-Статус: активен · Последнее обновление: 2026-10-17
+Статус: активен · Последнее обновление: 2026-10-18
 
 Журнал этапов разработки продукта. Обновляется по мере выполнения — меняй **%** в последней колонке и дату в шапке.
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~44%
+**Общий прогресс (среднее по этапам):** ~49%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
@@ -18,7 +18,7 @@
 | 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3** в обычном Compose, без профиля ([ADR-033](10-decision-log.md)); арена 8192. Реранкер становится healthy раньше энкодера. 2026-10-17 оба живы вместе: `/embed` 1024 FP32, `/rerank` с оценкой ([ADR-034](10-decision-log.md)), `retrieval-service` `GET /health/ready` — 200 | **100** |
 | 7 | **Ingestion: источники 1–3** | rabota.by (публичные страницы, [ADR-035](10-decision-log.md)), ГСЗ, Хабр Карьера; normalize, курс НБ РБ на календарные сутки Минска, dedupe simhash, BullMQ, cron, `POST/GET /internal/v1/runs`. Навыки и эмбеддинги — этап 8. Живой снимок по 5 вакансий с каждого источника записан | **100** |
 | 8 | **Ingestion: навыки и граф** | extract-skills, ESCO, `vacancy_skills`, PMI/IDF nightly, embed → pgvector (**overnight**) | **75** |
-| 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | 0 |
+| 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | **75** |
 | 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | 0 |
 | 11 | **Оркестрация поиска (core-api)** | Search orchestrator, SSE (intent → results → tokens), чаты, `POST /search` для eval | 0 |
 | 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions | 0 |
@@ -70,6 +70,8 @@
 Подробно: [`cpu-tei-benchmark/report.md`](../cpu-tei-benchmark/report.md), [`llm-lexical-graph-summary.md`](llm-lexical-graph-summary.md) §8.
 
 ## Следующий шаг
+
+**Этап 9.** `retrieval-service` принимает `POST /internal/v1/search` и параллельно считает BM25 по `search_document` и косинус по чанкам описания (max-pooling, top-100). Чанки пишет embed-тик ingestion: окно 2048 символа, без перекрытия, `token_count` — оценка длины. Карточки и скор 0..100 появятся на этапе 10 вместе с RRF. Граф, реранк и explain — этап 10.
 
 **Этап 8.** Пайплайн закрыт: навыки, иерархия и алиасы ESCO, ночной PMI/IDF, эмбеддинги. Полные CSV с портала кладутся в `ESCO_DIR` (ADR-038); в репозитории их нет.
 
