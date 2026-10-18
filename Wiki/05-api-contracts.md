@@ -43,6 +43,8 @@ interface ApiErrorResponse {
 | `GET` | `/api/v1/chats/{chatId}/messages` | История, пагинация курсором |
 | `POST` | `/api/v1/chats/{chatId}/messages` | **Главный эндпоинт.** Отправить сообщение, получить SSE-поток ответа |
 
+Курсор списка чатов и истории — непрозрачная позиция `(время, id)` на момент выдачи страницы. Следующая страница строго старше этой позиции, даже если граничный чат потом обновился.
+
 #### `POST /api/v1/chats/{chatId}/messages`
 
 Запрос: `{ content: string, useMemory?: boolean }`

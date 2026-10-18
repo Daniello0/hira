@@ -4,12 +4,18 @@ const tails = new Map<string, Promise<void>>();
 export function exclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
   const previous = tails.get(key) ?? Promise.resolve();
   const run = previous.then(task, task);
-  tails.set(
-    key,
-    run.then(
-      () => undefined,
-      () => undefined,
-    ),
+  const tail = run.then(
+    () => undefined,
+    () => undefined,
   );
+  tails.set(key, tail);
+  void tail.then(() => {
+    if (tails.get(key) === tail) tails.delete(key);
+  });
   return run;
+}
+
+/** Session keys that still have a queued turn. Idle keys are dropped. */
+export function exclusiveQueueSize(): number {
+  return tails.size;
 }

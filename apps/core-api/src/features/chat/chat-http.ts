@@ -27,7 +27,7 @@ import {
   SearchUpstreamError,
 } from './chat.errors';
 
-/** Opens an SSE response. Call this only after retrieval has succeeded. */
+/** Opens the SSE response. Call this after the user message is stored, before understand. */
 export function openSse(response: Response): void {
   response.status(HttpStatus.OK);
   response.setHeader('Content-Type', 'text/event-stream; charset=utf-8');

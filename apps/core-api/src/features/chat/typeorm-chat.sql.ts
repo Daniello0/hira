@@ -159,7 +159,7 @@ export async function vacanciesFor(sql: Sql, messageIds: string[]): Promise<Show
   return rows.map(toVacancy);
 }
 
-/** Writes the assistant turn, the snapshots, and the search log in one transaction. */
+/** Writes the assistant turn and the vacancy snapshots in one transaction. */
 export async function completeTurn(manager: EntityManager, input: CompletedTurn): Promise<MessageRecord> {
   const sql = asSql(manager);
   await patchTurn(sql, input);

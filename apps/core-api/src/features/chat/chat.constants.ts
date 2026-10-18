@@ -7,9 +7,9 @@ export const MAX_MESSAGE_LENGTH = 4_000;
 export const MAX_CHAT_TITLE_LENGTH = 256;
 export const DEMO_CHAT_LIMIT = 1;
 
-/** First message becomes the title until the user renames the chat. */
+/** First message becomes the title until the user renames the chat. An emoji is not split. */
 export function titleFromFirstMessage(content: string): string {
-  return content.slice(0, MAX_CHAT_TITLE_LENGTH);
+  return Array.from(content).slice(0, MAX_CHAT_TITLE_LENGTH).join('');
 }
 
 export const CHAT_NOT_FOUND = 'CHAT_NOT_FOUND';

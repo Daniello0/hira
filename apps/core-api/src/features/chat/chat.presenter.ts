@@ -1,4 +1,10 @@
-import { MessageRole, type ChatMessageView, type ChatSummary, type VacancyResult } from '@hira/contracts';
+import {
+  MessageRole,
+  type ChatMessageView,
+  type ChatSummary,
+  type VacancyResult,
+} from '@hira/contracts';
+import { encodeCursor } from './chat-cursor';
 import type { ChatRecord, MessageRecord, ShownVacancyRecord } from './chat.store';
 
 /** JSON chat. Timestamps are ISO-8601. */
@@ -14,7 +20,10 @@ export function toChatSummary(chat: ChatRecord): ChatSummary {
 }
 
 /** JSON message. Assistant rows carry the frozen ranking in `results`. */
-export function toMessageView(message: MessageRecord, vacancies: ShownVacancyRecord[]): ChatMessageView {
+export function toMessageView(
+  message: MessageRecord,
+  vacancies: ShownVacancyRecord[],
+): ChatMessageView {
   const view: ChatMessageView = {
     id: message.id,
     role: message.role,
@@ -25,8 +34,8 @@ export function toMessageView(message: MessageRecord, vacancies: ShownVacancyRec
   return { ...view, results: resultsOf(message.id, vacancies) };
 }
 
-/** Drops the lookahead row. `nextCursor` is the id of the oldest kept row. */
-export function cutIdPage<T extends { id: string }>(
+/** Drops the lookahead row. `nextCursor` freezes the oldest kept position. */
+export function cutIdPage<T extends { id: string; at: Date }>(
   newestFirst: T[],
   limit: number,
   chronological: boolean,
@@ -36,12 +45,14 @@ export function cutIdPage<T extends { id: string }>(
   const oldest = kept[kept.length - 1];
   return {
     items: chronological ? [...kept].reverse() : kept,
-    nextCursor: hasMore && oldest !== undefined ? oldest.id : null,
+    nextCursor: hasMore && oldest !== undefined ? encodeCursor(oldest.at, oldest.id) : null,
   };
 }
 
 function resultsOf(messageId: string, vacancies: ShownVacancyRecord[]): VacancyResult[] {
-  return vacancies.filter((row) => row.messageId === messageId && row.vacancy !== undefined).map(toResult);
+  return vacancies
+    .filter((row) => row.messageId === messageId && row.vacancy !== undefined)
+    .map(toResult);
 }
 
 function toResult(row: ShownVacancyRecord): VacancyResult {

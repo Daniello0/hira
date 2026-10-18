@@ -1,9 +1,20 @@
 import { Injectable, Inject } from '@nestjs/common';
 import type { ChatDetail, ChatPage, ChatSummary } from '@hira/contracts';
-import { isUuid, type PageCursor } from './chat-cursor';
-import { ChatNotFoundError, DemoChatLimitError, EmptyChatPatchError, InvalidCursorError } from './chat.errors';
+import { decodeCursor, type PageCursor } from './chat-cursor';
+import {
+  ChatNotFoundError,
+  DemoChatLimitError,
+  EmptyChatPatchError,
+  InvalidCursorError,
+} from './chat.errors';
 import { cutIdPage, toChatSummary, toMessageView } from './chat.presenter';
-import { CHAT_STORE, type ChatOwner, type ChatPatch, type ChatRecord, type ChatStore } from './chat.store';
+import {
+  CHAT_STORE,
+  type ChatOwner,
+  type ChatPatch,
+  type ChatRecord,
+  type ChatStore,
+} from './chat.store';
 import { exclusive } from './exclusive';
 import { resolveCaller, type Caller, type CallerHint } from './resolve-actor';
 
@@ -20,22 +31,38 @@ export class ChatService {
   }
 
   /** Lists chats. A demo cookie receives its chat, created on the first call. */
-  async list(caller: Caller, rawCursor: string | undefined, limit: number): Promise<ChatPage<ChatSummary>> {
+  async list(
+    caller: Caller,
+    rawCursor: string | undefined,
+    limit: number,
+  ): Promise<ChatPage<ChatSummary>> {
     if (caller.kind === 'demo') await this.ensureDemo(caller.demoSessionId);
     const owner = ownerOf(caller);
-    const rows = await this.chats.listChats(owner, await this.chatCursor(owner, rawCursor), limit);
-    const page = cutIdPage(rows, limit, false);
+    const rows = await this.chats.listChats(owner, this.pageCursor(rawCursor), limit);
+    const page = cutIdPage(
+      rows.map((chat) => ({ ...chat, at: chat.updatedAt })),
+      limit,
+      false,
+    );
     return { items: page.items.map(toChatSummary), nextCursor: page.nextCursor };
   }
 
   /** Creates an empty chat. A second demo chat is rejected. */
   async create(caller: Caller): Promise<ChatSummary> {
-    const chat = caller.kind === 'demo' ? await this.createDemo(caller.demoSessionId) : await this.chats.insertChat(ownerOf(caller));
+    const chat =
+      caller.kind === 'demo'
+        ? await this.createDemo(caller.demoSessionId)
+        : await this.chats.insertChat(ownerOf(caller));
     return toChatSummary(chat);
   }
 
   /** Chat plus the latest messages, oldest first. */
-  async detail(caller: Caller, chatId: string, rawCursor: string | undefined, limit: number): Promise<ChatDetail> {
+  async detail(
+    caller: Caller,
+    chatId: string,
+    rawCursor: string | undefined,
+    limit: number,
+  ): Promise<ChatDetail> {
     const chat = await this.owned(caller, chatId);
     const messages = await this.messages(caller, chatId, rawCursor, limit);
     return { chat: toChatSummary(chat), messages: messages.items, nextCursor: messages.nextCursor };
@@ -43,7 +70,8 @@ export class ChatService {
 
   /** Renames or archives a chat the caller owns. */
   async update(caller: Caller, chatId: string, patch: ChatPatch): Promise<ChatSummary> {
-    if (patch.title === undefined && patch.isArchived === undefined) throw new EmptyChatPatchError();
+    if (patch.title === undefined && patch.isArchived === undefined)
+      throw new EmptyChatPatchError();
     await this.owned(caller, chatId);
     const updated = await this.chats.updateChat(chatId, ownerOf(caller), patch);
     if (updated === null) throw new ChatNotFoundError();
@@ -58,10 +86,17 @@ export class ChatService {
   /** Older messages, oldest first inside the page. */
   async messages(caller: Caller, chatId: string, rawCursor: string | undefined, limit: number) {
     await this.owned(caller, chatId);
-    const cursor = await this.messageCursor(chatId, rawCursor);
-    const page = cutIdPage(await this.chats.listMessages(chatId, cursor, limit), limit, true);
+    const listed = await this.chats.listMessages(chatId, this.pageCursor(rawCursor), limit);
+    const page = cutIdPage(
+      listed.map((message) => ({ ...message, at: message.createdAt })),
+      limit,
+      true,
+    );
     const vacancies = await this.chats.vacanciesFor(page.items.map((message) => message.id));
-    return { items: page.items.map((message) => toMessageView(message, vacancies)), nextCursor: page.nextCursor };
+    return {
+      items: page.items.map((message) => toMessageView(message, vacancies)),
+      nextCursor: page.nextCursor,
+    };
   }
 
   /** Loads a chat or throws when it belongs to someone else. */
@@ -94,20 +129,11 @@ export class ChatService {
     return this.chats.insertChat({ demoSessionId: sessionId });
   }
 
-  private async chatCursor(owner: ChatOwner, raw: string | undefined): Promise<PageCursor | null> {
-    const id = readCursorId(raw);
-    if (id === null) return null;
-    const chat = await this.chats.findChat(id);
-    if (chat === null || !sameOwner(chat, owner)) throw new InvalidCursorError();
-    return { at: chat.updatedAt, id: chat.id };
-  }
-
-  private async messageCursor(chatId: string, raw: string | undefined): Promise<PageCursor | null> {
-    const id = readCursorId(raw);
-    if (id === null) return null;
-    const message = await this.chats.findMessage(chatId, id);
-    if (message === null) throw new InvalidCursorError();
-    return { at: message.createdAt, id: message.id };
+  private pageCursor(raw: string | undefined): PageCursor | null {
+    if (raw === undefined || raw.length === 0) return null;
+    const cursor = decodeCursor(raw);
+    if (cursor === null) throw new InvalidCursorError();
+    return cursor;
   }
 }
 
@@ -119,10 +145,4 @@ function ownerOf(caller: Caller): ChatOwner {
 function sameOwner(chat: ChatRecord, owner: ChatOwner): boolean {
   if ('userId' in owner) return chat.userId === owner.userId;
   return chat.demoSessionId === owner.demoSessionId;
-}
-
-function readCursorId(raw: string | undefined): string | null {
-  if (raw === undefined || raw.length === 0) return null;
-  if (!isUuid(raw)) throw new InvalidCursorError();
-  return raw;
 }

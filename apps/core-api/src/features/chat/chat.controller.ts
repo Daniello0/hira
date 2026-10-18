@@ -53,7 +53,7 @@ export class ChatController {
     });
   }
 
-  /** Older messages, newest first. */
+  /** Older messages, oldest first inside the page. */
   @Get(':chatId/messages')
   @ApiOperation({ summary: 'List messages' })
   messages(
