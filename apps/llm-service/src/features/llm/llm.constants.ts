@@ -19,6 +19,9 @@ export const UNDERSTAND_CACHE_PREFIX = 'llm:understand:';
 export const EXTRACT_SKILLS_CACHE_PREFIX = 'llm:extract-skills:';
 export const EXTRACT_SKILLS_SCHEMA_VERSION = '1';
 export const EXTRACT_SKILLS_SCHEMA_NAME = 'extracted_skills';
+export const PARSE_RESUME_CACHE_PREFIX = 'llm:parse-resume:';
+export const PARSE_RESUME_SCHEMA_VERSION = '1';
+export const PARSE_RESUME_SCHEMA_NAME = 'parsed_resume';
 export const EXTRACT_SYSTEM_PROMPT =
   'Extract skills mentioned in the vacancy. Use only the provided enums. evidenceSpan must be a substring of the description or null.';
 export const MAX_GENERATE_RESULTS = 10;

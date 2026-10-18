@@ -1,7 +1,13 @@
 import type {
+  ExtractMemoryRequest,
+  ExtractMemoryResponse,
   GenerateRequest,
+  ParseResumeRequest,
+  ParseResumeResponse,
   RetrievalRequest,
   RetrievalResponse,
+  SummarizeChatRequest,
+  SummarizeChatResponse,
   TokenUsage,
   UnderstandRequest,
   UnderstandResponse,
@@ -18,6 +24,9 @@ export interface LlmGenerateEvent {
 export interface LlmGateway {
   understand(request: UnderstandRequest, requestId: string): Promise<UnderstandResponse>;
   generate(request: GenerateRequest, requestId: string): AsyncIterable<LlmGenerateEvent>;
+  summarize(request: SummarizeChatRequest, requestId: string): Promise<SummarizeChatResponse>;
+  extractMemory(request: ExtractMemoryRequest, requestId: string): Promise<ExtractMemoryResponse>;
+  parseResume(request: ParseResumeRequest, requestId: string): Promise<ParseResumeResponse>;
 }
 
 export interface RetrievalGateway {
@@ -41,6 +50,9 @@ export function createLlmGateway(options: GatewayOptions): LlmGateway {
   return {
     understand: (request, requestId) => readUnderstand(options, fetchImpl, request, requestId),
     generate: (request, requestId) => readGenerate(options, fetchImpl, request, requestId),
+    summarize: (request, requestId) => postJson<SummarizeChatResponse>(options, fetchImpl, '/internal/v1/summarize-chat', request, requestId),
+    extractMemory: (request, requestId) => postJson<ExtractMemoryResponse>(options, fetchImpl, '/internal/v1/extract-memory', request, requestId),
+    parseResume: (request, requestId) => postJson<ParseResumeResponse>(options, fetchImpl, '/internal/v1/parse-resume', request, requestId),
   };
 }
 

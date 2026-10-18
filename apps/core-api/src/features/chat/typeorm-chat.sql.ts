@@ -19,7 +19,7 @@ export interface Sql {
 const CHAT_COLUMNS = `id, user_id AS "userId", demo_session_id AS "demoSessionId", title, summary,
   message_count AS "messageCount", is_archived AS "isArchived", created_at AS "createdAt", updated_at AS "updatedAt"`;
 
-const MESSAGE_COLUMNS = `id, chat_id AS "chatId", role, content, intent, diagnostics,
+const MESSAGE_COLUMNS = `id, chat_id AS "chatId", role, content, use_memory AS "useMemory", intent, diagnostics,
   token_usage AS "tokenUsage", created_at AS "createdAt"`;
 
 /** Inserts an empty chat and returns the row. */
@@ -94,6 +94,7 @@ export async function insertMessage(sql: Sql, input: NewMessage): Promise<Messag
     input.chatId,
     input.role,
     input.content,
+    input.useMemory !== false,
   ]);
   await bumpChat(sql, input.chatId);
   return toMessage(rows[0]);
@@ -134,6 +135,21 @@ export async function findMessage(sql: Sql, chatId: string, id: string): Promise
 export async function recentMessages(sql: Sql, chatId: string, limit: number): Promise<MessageRecord[]> {
   const rows = await rowsOf(sql, recentSql(), [chatId, limit]);
   return rows.map(toMessage).reverse();
+}
+
+/** Every message in a chat, oldest first. */
+export async function chronologicalMessages(sql: Sql, chatId: string): Promise<MessageRecord[]> {
+  const rows = await rowsOf(
+    sql,
+    `SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_id = $1 ORDER BY created_at ASC, id ASC`,
+    [chatId],
+  );
+  return rows.map(toMessage);
+}
+
+/** Stores the rolling summary. A failed model call must not call this. */
+export async function setSummary(sql: Sql, chatId: string, summary: string): Promise<void> {
+  await sql.query('UPDATE chats SET summary = $2, summary_updated_at = now() WHERE id = $1', [chatId, summary]);
 }
 
 /** Newest first, one row past `limit`. */
@@ -231,7 +247,7 @@ function recentSql(): string {
 }
 
 function insertMessageSql(): string {
-  return `INSERT INTO messages (chat_id, role, content) VALUES ($1, $2, $3) RETURNING ${MESSAGE_COLUMNS}`;
+  return `INSERT INTO messages (chat_id, role, content, use_memory) VALUES ($1, $2, $3, $4) RETURNING ${MESSAGE_COLUMNS}`;
 }
 
 function vacancySql(): string {
@@ -359,6 +375,7 @@ function toMessage(row: Record<string, unknown> | undefined): MessageRecord {
     diagnostics: (row.diagnostics as RetrievalDiagnostics | null) ?? null,
     tokenUsage: (row.tokenUsage as TokenUsage | null) ?? null,
     createdAt: asDate(row.createdAt),
+    useMemory: row.useMemory !== false,
   };
 }
 

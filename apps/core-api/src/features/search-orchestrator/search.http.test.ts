@@ -19,6 +19,15 @@ import { SearchUpstreamError } from '../chat/chat.errors';
 import { COUNTER_STORE } from '../redis/counter.store';
 import { MemoryCounterStore } from '../redis/memory-counter.store';
 import { heuristicIntent } from './heuristic-intent';
+import { CALL_STORE } from '../call/call.store';
+import { MemoryCallStore } from '../call/memory-call.store';
+import { TEXT_EMBEDDER } from '../library/library.store';
+import { LIBRARY_STORE } from '../library/library.store';
+import { MemoryLibraryStore } from '../library/memory-library.store';
+import { MEMORY_STORE } from '../memory/memory.store';
+import { MemoryMemoryStore } from '../memory/memory-memory.store';
+import { PROFILE_STORE } from '../profile/profile.store';
+import { MemoryProfileStore } from '../profile/memory-profile.store';
 import { LLM_GATEWAY, RETRIEVAL_GATEWAY } from './search.constants';
 import { TOKEN_USAGE, retrievalResponse } from './search-fixture';
 import type { LlmGateway, LlmGenerateEvent, RetrievalGateway } from './upstream-gateway';
@@ -175,6 +184,16 @@ async function createApp(rig: ReturnType<typeof buildRig>): Promise<INestApplica
     .useValue(rig.llm)
     .overrideProvider(RETRIEVAL_GATEWAY)
     .useValue(rig.retrieval)
+    .overrideProvider(MEMORY_STORE)
+    .useValue(new MemoryMemoryStore())
+    .overrideProvider(LIBRARY_STORE)
+    .useValue(new MemoryLibraryStore())
+    .overrideProvider(PROFILE_STORE)
+    .useValue(new MemoryProfileStore())
+    .overrideProvider(CALL_STORE)
+    .useValue(new MemoryCallStore())
+    .overrideProvider(TEXT_EMBEDDER)
+    .useValue(async () => null)
     .compile();
   const application = moduleRef.createNestApplication({ logger: false });
   configureHttpApp(application);
@@ -218,6 +237,21 @@ class FakeLlm implements LlmGateway {
   async *generate(_request: GenerateRequest): AsyncGenerator<LlmGenerateEvent> {
     yield { kind: 'token', delta: 'Hi' };
     yield { kind: 'done', tokenUsage: TOKEN_USAGE };
+  }
+
+  /** @inheritdoc */
+  summarize(): Promise<{ summary: string }> {
+    return Promise.resolve({ summary: 'Цель поиска: work' });
+  }
+
+  /** @inheritdoc */
+  extractMemory(): Promise<{ candidates: []; suggestions: [] }> {
+    return Promise.resolve({ candidates: [], suggestions: [] });
+  }
+
+  /** @inheritdoc */
+  parseResume(): Promise<{ skills: []; experience: [] }> {
+    return Promise.resolve({ skills: [], experience: [] });
   }
 }
 
@@ -276,6 +310,14 @@ class MemoryUserStore implements UserStore {
     };
     this.accounts.push(account);
     return account;
+  }
+
+  /** @inheritdoc */
+  async setCrossChatMemory(userId: string, enabled: boolean): Promise<boolean> {
+    const account = await this.findById(userId);
+    if (account === null) return false;
+    account.crossChatMemoryEnabled = enabled;
+    return true;
   }
 }
 

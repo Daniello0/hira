@@ -6,7 +6,7 @@
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~59%
+**Общий прогресс (среднее по этапам):** ~64%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
@@ -21,7 +21,7 @@
 | 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | **75** |
 | 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | **90** |
 | 11 | **Оркестрация поиска (core-api)** | Search orchestrator, SSE (intent → results → tokens), чаты, `POST /search` для eval | **90** |
-| 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions | 0 |
+| 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions. Реализовано в `core-api` и `llm-service` (ADR-040) | **75** |
 | 13 | **Frontend: чат, стриминг, вызов** | Next.js, dark EN UI, SSE, vacancy cards, match explanation, экран Call, spinner «Searching…» | 0 |
 | 14 | **Frontend: профиль, библиотека, избранное, billing** | Profile, library, favorites, memory, mock `/billing` | 0 |
 | 15 | **Ingestion: источники 4–6** | praca.by, LinkedIn, Indeed; `is_foreign_remote` + filter | 0 |
@@ -71,9 +71,9 @@
 
 ## Следующий шаг
 
-**Этап 11.** core-api ведёт чаты и поисковый ход. `POST /api/v1/chats/{id}/messages` после записи реплики стримит `user-message → intent → results → token… → assistant-message → done`. Ищут и списывают квоту `SEARCH`, `REFINE`, `COMPARE`. `POST /api/v1/search` принимает готовый `RetrievalRequest` и не зовёт LLM. Сбой understand заменяется эвристикой, сбой generate отдаёт карточки без текста, сбой retrieval — событие `error`. В understand уходят только последние 10 реплик. Сводка и факты памяти — этап 12. Демо-чат висит на `demo_session_id`, не на строке `users` (ADR-039). Заголовок до появления `title-chat` — обрезка первого сообщения.
+**Этап 12.** Бэкенд памяти, библиотеки и вызова отвечает из `core-api`. Окно 10 реплик, сводка каждые 8 сообщений после заполнения окна, факты с порогом 0.7. Выключатель не стирает факты и не прячет файлы. PDF разбирается локально. Вызов не создаёт чат и списывает квоту только на поиск. Предложение в профиль пишется после accept. Живой `docker compose` с этой миграцией в этой сессии не перезапускался.
 
-**Дальше — этап 12.** Память, библиотека, вызов: трёхуровневая память, выключатель межчатовой памяти, PDF/md/txt, call sessions, предложения в профиль.
+**Дальше — этап 13.** Frontend: чат, стриминг, экран вызова.
 
 **Этап 8.** Пайплайн закрыт: навыки, иерархия и алиасы ESCO, ночной PMI/IDF, эмбеддинги. Полные CSV с портала кладутся в `ESCO_DIR` (ADR-038); в репозитории их нет.
 

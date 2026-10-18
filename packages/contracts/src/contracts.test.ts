@@ -11,9 +11,12 @@ import {
   Language,
   MatchFactor,
   MemoryKind,
+  MemoryOperation,
   MessageRole,
   ParseStatus,
   ProfileSkillSource,
+  ProfileSuggestionKind,
+  ProfileSuggestionStatus,
   QueryComplexity,
   RateUnit,
   RetrievalBranch,
@@ -91,6 +94,17 @@ describe('domain enums', () => {
     ]);
     expect(Object.values(SkillImportance)).toEqual(['REQUIRED', 'PREFERRED', 'MENTIONED']);
     expect(Object.values(MemoryKind)).toEqual(['PREFERENCE', 'CONSTRAINT', 'FACT', 'GOAL']);
+    expect(Object.values(MemoryOperation)).toEqual(['ADD', 'UPDATE', 'CONTRADICTS']);
+    expect(Object.values(ProfileSuggestionKind)).toEqual([
+      'SKILL',
+      'WORK_FORMAT',
+      'EMPLOYMENT',
+      'SALARY',
+      'LOCATION',
+      'ROLE',
+      'EDUCATION',
+    ]);
+    expect(Object.values(ProfileSuggestionStatus)).toEqual(['PENDING', 'ACCEPTED', 'DISMISSED']);
     expect(Object.values(MessageRole)).toEqual(['USER', 'ASSISTANT', 'SYSTEM']);
   });
 

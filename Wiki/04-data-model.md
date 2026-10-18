@@ -82,7 +82,8 @@
 | `content` | `text` | формулировка факта |
 | `embedding` | `vector(1024)` | для семантического извлечения |
 | `confidence` | `real` | 0..1 |
-| `source_message_id` | `uuid` FK NULL | провенанс: откуда взято |
+| `source_message_id` | `uuid` FK NULL | провенанс: сообщение чата |
+| `source_call_turn_id` | `uuid` FK NULL | провенанс: реплика вызова; вместе с `source_message_id` не заполняется (ADR-040) |
 | `is_pinned` | `boolean` | закреплено пользователем вручную |
 | `expires_at` | `timestamptz` NULL | для временных фактов |
 | `revoked_at` | `timestamptz` NULL | пользователь удалил |
@@ -107,6 +108,7 @@
 | `chat_id` | `uuid` FK | |
 | `role` | `message_role` enum | `USER` / `ASSISTANT` / `SYSTEM` |
 | `content` | `text` | |
+| `use_memory` | `boolean` NOT NULL DEFAULT true | флаг реплики `useMemory`; отсутствие в запросе значит true (ADR-040) |
 | `intent` | `jsonb` NULL | сохранённый `SearchIntent` для user-сообщений |
 | `diagnostics` | `jsonb` NULL | шаги релаксации, веса ветвей, тайминги |
 | `token_usage` | `jsonb` NULL | учёт стоимости |
@@ -168,9 +170,28 @@
 
 `call_sessions`: `id`, `user_id` FK, `started_at`, `ended_at` NULL, `created_at`.
 
-`call_turns`: `id`, `session_id` FK, `role` (`USER` / `ASSISTANT`), `content` (транскрипт), `results` `jsonb` NULL (снимок карточек, если был поиск), `created_at`.
+`call_turns`: `id`, `session_id` FK, `role` (`USER` / `ASSISTANT`), `content` (транскрипт), `use_memory` boolean NOT NULL DEFAULT true, `results` `jsonb` NULL (снимок карточек, если был поиск), `created_at`.
 
 В `chats` эти строки не пишутся. Извлечение памяти идёт из `content`, только если `users.cross_chat_memory_enabled`.
+
+### `profile_suggestions`
+
+Предложение перенести навык или предпочтение в профиль. Само по себе профиль не меняет (ADR-008, ADR-021, ADR-040).
+
+| Колонка | Тип | Комментарий |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `user_id` | `uuid` FK | |
+| `kind` | `profile_suggestion_kind` | `SKILL` / `WORK_FORMAT` / `EMPLOYMENT` / `SALARY` / `LOCATION` / `ROLE` / `EDUCATION` |
+| `status` | `profile_suggestion_status` | `PENDING` / `ACCEPTED` / `DISMISSED` |
+| `payload` | `jsonb` | поля, которые accept запишет |
+| `source` | `profile_skill_source` | `EXTRACTED_FROM_CHAT` или `EXTRACTED_FROM_RESUME` |
+| `source_message_id` | `uuid` FK NULL | |
+| `source_document_id` | `uuid` FK NULL | резюме, из которого разобрали навык |
+| `source_call_turn_id` | `uuid` FK NULL | |
+| `created_at`, `updated_at` | `timestamptz` | |
+
+Живой дубль один: уникальный индекс по `(user_id, kind, payload)` где `status = PENDING`. `GET` отдаёт только `PENDING`. `accept` пишет профиль и не затирает навык с `source = SELF_REPORTED`. Опыт резюме — предложение `EDUCATION`, оно дописывает `user_profiles.education`.
 
 ---
 

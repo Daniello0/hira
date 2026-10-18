@@ -93,8 +93,12 @@ services:
       RETRIEVAL_SERVICE_URL: http://retrieval-service:4001
       LLM_SERVICE_URL: http://llm-service:4002
       INGESTION_SERVICE_URL: http://ingestion-service:4003
+      TEI_EMBED_URL: http://tei:80
+      LIBRARY_ROOT: /app/storage
     ports:
       - '4000:4000'
+    volumes:
+      - library-data:/app/storage
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -216,3 +220,4 @@ volumes:
   postgres-data:
   tei-embed:
   tei-rerank:
+  library-data:

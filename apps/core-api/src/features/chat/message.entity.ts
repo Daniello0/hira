@@ -20,6 +20,9 @@ export class Message {
   @Column({ type: 'text' })
   content!: string;
 
+  @Column({ type: 'boolean', default: true })
+  useMemory!: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   intent!: Record<string, unknown> | null;
 

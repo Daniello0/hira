@@ -35,6 +35,7 @@ export interface MessageRecord {
   diagnostics: RetrievalDiagnostics | null;
   tokenUsage: TokenUsage | null;
   createdAt: Date;
+  useMemory?: boolean;
 }
 
 export interface ShownVacancyRecord {
@@ -52,6 +53,7 @@ export interface NewMessage {
   chatId: string;
   role: MessageRole;
   content: string;
+  useMemory?: boolean;
 }
 
 export interface ChatPatch {
@@ -101,5 +103,7 @@ export interface ChatStore {
   vacanciesFor(messageIds: string[]): Promise<ShownVacancyRecord[]>;
   completeTurn(input: CompletedTurn): Promise<MessageRecord>;
   setTitleIfEmpty(chatId: string, title: string): Promise<void>;
+  setSummary(chatId: string, summary: string): Promise<void>;
+  chronologicalMessages(chatId: string): Promise<MessageRecord[]>;
   insertSearchLog(input: DirectSearchLog): Promise<void>;
 }

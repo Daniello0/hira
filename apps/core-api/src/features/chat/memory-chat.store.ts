@@ -136,6 +136,18 @@ export class MemoryChatStore implements ChatStore {
   }
 
   /** @inheritdoc */
+  async setSummary(chatId: string, summary: string): Promise<void> {
+    const chat = this.chats.find((item) => item.id === chatId);
+    if (chat === undefined) return;
+    chat.summary = summary;
+  }
+
+  /** @inheritdoc */
+  async chronologicalMessages(chatId: string): Promise<MessageRecord[]> {
+    return this.messages.filter((message) => message.chatId === chatId).sort(byOldest);
+  }
+
+  /** @inheritdoc */
   async setTitleIfEmpty(chatId: string, title: string): Promise<void> {
     const chat = this.chats.find((item) => item.id === chatId);
     if (chat === undefined || chat.title !== null) return;
@@ -162,6 +174,7 @@ export class MemoryChatStore implements ChatStore {
       diagnostics,
       tokenUsage,
       createdAt: this.stamp(),
+      useMemory: input.useMemory !== false,
     };
     this.messages.push(message);
     return message;

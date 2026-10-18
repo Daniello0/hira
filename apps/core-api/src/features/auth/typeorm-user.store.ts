@@ -33,6 +33,12 @@ export class TypeOrmUserStore implements UserStore {
     }
   }
 
+  /** @inheritdoc */
+  async setCrossChatMemory(userId: string, enabled: boolean): Promise<boolean> {
+    const result = await this.dataSource.getRepository(User).update({ id: userId }, { crossChatMemoryEnabled: enabled });
+    return (result.affected ?? 0) > 0;
+  }
+
   private row(input: NewAccount): User {
     return this.dataSource.getRepository(User).create({
       email: input.email,

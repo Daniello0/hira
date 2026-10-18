@@ -43,6 +43,7 @@ export const DATABASE_TABLES = [
   'message_vacancies',
   'call_sessions',
   'call_turns',
+  'profile_suggestions',
   'collections',
   'favorites',
   'search_logs',

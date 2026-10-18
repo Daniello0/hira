@@ -19,6 +19,8 @@ export const ENV = {
   internalToken: 'INTERNAL_API_TOKEN',
   retrievalServiceUrl: 'RETRIEVAL_SERVICE_URL',
   llmServiceUrl: 'LLM_SERVICE_URL',
+  teiEmbedUrl: 'TEI_EMBED_URL',
+  libraryRoot: 'LIBRARY_ROOT',
 } as const;
 
 export const LOGGER = Symbol('LOGGER');

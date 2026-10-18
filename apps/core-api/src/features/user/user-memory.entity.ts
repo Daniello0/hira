@@ -30,6 +30,9 @@ export class UserMemory {
   @Column({ type: 'uuid', nullable: true })
   sourceMessageId!: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  sourceCallTurnId!: string | null;
+
   @Column({ type: 'boolean', default: false })
   isPinned!: boolean;
 

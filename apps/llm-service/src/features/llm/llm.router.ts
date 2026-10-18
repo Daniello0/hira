@@ -2,9 +2,15 @@ import { createApiErrorResponse, type ApiErrorResponse } from '@hira/contracts';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { readRequestId } from '../../common/middleware/request-id.middleware';
 import type {
+  ExtractMemoryRequest,
+  ExtractMemoryResponse,
   ExtractSkillsRequest,
   ExtractSkillsResponse,
   GenerateRequest,
+  ParseResumeRequest,
+  ParseResumeResponse,
+  SummarizeChatRequest,
+  SummarizeChatResponse,
   UnderstandRequest,
   UnderstandResponse,
 } from '@hira/contracts';
@@ -20,6 +26,9 @@ import {
 import { LlmRouteError, StreamInterruptedError } from './llm.errors';
 import { parseExtractSkillsRequest } from '../extract-skills/extract-skills.schema';
 import { parseGenerateRequest, parseUnderstandRequest } from './llm-request.schema';
+import { parseExtractMemoryRequest } from '../extract-memory/extract-memory.schema';
+import { parseParseResumeRequest } from '../parse-resume/parse-resume.schema';
+import { parseSummarizeRequest } from '../summarize-chat/summarize-chat.schema';
 import { toRouteError } from './route-error';
 
 export interface LlmRouterDeps {
@@ -28,6 +37,9 @@ export interface LlmRouterDeps {
   understand: (request: UnderstandRequest) => Promise<UnderstandResponse>;
   generate: (request: GenerateRequest, emit: (event: LlmStreamEvent) => void) => Promise<void>;
   extractSkills: (request: ExtractSkillsRequest) => Promise<ExtractSkillsResponse>;
+  summarize: (request: SummarizeChatRequest) => Promise<SummarizeChatResponse>;
+  extractMemory: (request: ExtractMemoryRequest) => Promise<ExtractMemoryResponse>;
+  parseResume: (request: ParseResumeRequest) => Promise<ParseResumeResponse>;
 }
 
 /** Internal understand and generate routes. Health stays on the parent app. */
@@ -45,6 +57,18 @@ export function createLlmRouter(deps: LlmRouterDeps): Router {
     '/extract-skills',
     asyncHandler((req, res) => postExtractSkills(deps, req, res)),
   );
+  router.post(
+    '/summarize-chat',
+    asyncHandler((req, res) => postJson(deps, req, res, () => deps.summarize(readSummary(req.body)))),
+  );
+  router.post(
+    '/extract-memory',
+    asyncHandler((req, res) => postJson(deps, req, res, () => deps.extractMemory(readExtract(req.body)))),
+  );
+  router.post(
+    '/parse-resume',
+    asyncHandler((req, res) => postJson(deps, req, res, () => deps.parseResume(readResume(req.body)))),
+  );
   return router;
 }
 
@@ -57,6 +81,33 @@ async function postUnderstand(deps: LlmRouterDeps, req: Request, res: Response):
   } catch (error) {
     sendFailure(res, req, error);
   }
+}
+
+async function postJson(
+  deps: LlmRouterDeps,
+  req: Request,
+  res: Response,
+  run: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    assertConfigured(deps);
+    res.setHeader(LLM_PROVIDER_HEADER, LLM_PROVIDER_ID);
+    res.status(200).json(await run());
+  } catch (error) {
+    sendFailure(res, req, error);
+  }
+}
+
+function readSummary(body: unknown) {
+  return parseSummarizeRequest(body);
+}
+
+function readExtract(body: unknown) {
+  return parseExtractMemoryRequest(body);
+}
+
+function readResume(body: unknown) {
+  return parseParseResumeRequest(body);
 }
 
 async function postExtractSkills(deps: LlmRouterDeps, req: Request, res: Response): Promise<void> {

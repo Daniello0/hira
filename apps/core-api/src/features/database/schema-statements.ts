@@ -9,6 +9,8 @@ import {
   MemoryKind,
   MessageRole,
   ParseStatus,
+  ProfileSuggestionKind,
+  ProfileSuggestionStatus,
   ProfileSkillSource,
   RateUnit,
   SeniorityLevel,
@@ -51,6 +53,8 @@ const ENUM_TYPES: ReadonlyArray<readonly [string, Record<string, string>]> = [
   ['document_format', DocumentFormat],
   ['author_kind', AuthorKind],
   ['parse_status', ParseStatus],
+  ['profile_suggestion_kind', ProfileSuggestionKind],
+  ['profile_suggestion_status', ProfileSuggestionStatus],
   ['skill_edge_type', SkillEdgeType],
   ['skill_importance', SkillImportance],
   ['skill_alias_source', SkillAliasSource],
@@ -156,6 +160,7 @@ function activityTables(): string[] {
     messageVacanciesTable(),
     callSessionsTable(),
     callTurnsTable(),
+    profileSuggestionsTable(),
     collectionsTable(),
     favoritesTable(),
     searchLogsTable(),
@@ -447,6 +452,7 @@ function messagesTable(): string {
     chat_id uuid NOT NULL REFERENCES chats (id) ON DELETE CASCADE,
     role message_role NOT NULL,
     content text NOT NULL,
+    use_memory boolean NOT NULL DEFAULT true,
     intent jsonb,
     diagnostics jsonb,
     token_usage jsonb,
@@ -463,6 +469,7 @@ function userMemoriesTable(): string {
     embedding ${VECTOR},
     confidence real NOT NULL,
     source_message_id uuid REFERENCES messages (id) ON DELETE SET NULL,
+    source_call_turn_id uuid,
     is_pinned boolean NOT NULL DEFAULT false,
     expires_at timestamptz,
     revoked_at timestamptz,
@@ -521,7 +528,23 @@ function callTurnsTable(): string {
     session_id uuid NOT NULL REFERENCES call_sessions (id) ON DELETE CASCADE,
     role author_kind NOT NULL,
     content text NOT NULL,
+    use_memory boolean NOT NULL DEFAULT true,
     results jsonb,
+    ${TIMESTAMPS}
+  )`;
+}
+
+function profileSuggestionsTable(): string {
+  return `CREATE TABLE profile_suggestions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    kind profile_suggestion_kind NOT NULL,
+    status profile_suggestion_status NOT NULL DEFAULT 'PENDING',
+    payload jsonb NOT NULL,
+    source profile_skill_source NOT NULL,
+    source_message_id uuid REFERENCES messages (id) ON DELETE SET NULL,
+    source_document_id uuid REFERENCES user_documents (id) ON DELETE SET NULL,
+    source_call_turn_id uuid REFERENCES call_turns (id) ON DELETE SET NULL,
     ${TIMESTAMPS}
   )`;
 }
@@ -602,6 +625,13 @@ function feedbackTable(): string {
   )`;
 }
 
+function memorySourceStatements(): string[] {
+  return [
+    `ALTER TABLE user_memories ADD CONSTRAINT user_memories_call_turn_fk FOREIGN KEY (source_call_turn_id) REFERENCES call_turns (id) ON DELETE SET NULL`,
+    `ALTER TABLE user_memories ADD CONSTRAINT user_memories_one_source CHECK (source_message_id IS NULL OR source_call_turn_id IS NULL)`,
+  ];
+}
+
 function indexStatements(): string[] {
   return [...searchIndexes(), ...lookupIndexes()];
 }
@@ -634,6 +664,7 @@ function lookupIndexes(): string[] {
     'CREATE INDEX idx_chats_user ON chats (user_id)',
     'CREATE UNIQUE INDEX uq_chats_demo_session ON chats (demo_session_id)',
     'CREATE INDEX idx_messages_chat ON messages (chat_id)',
+    `CREATE UNIQUE INDEX uq_profile_suggestions_pending ON profile_suggestions (user_id, kind, payload) WHERE status = 'PENDING'`,
   ];
 }
 
@@ -644,6 +675,7 @@ export const INITIAL_SCHEMA_UP: readonly string[] = [
   setUpdatedAtFunction(),
   ...coreTables(),
   ...activityTables(),
+  ...memorySourceStatements(),
   ...indexStatements(),
   ...DATABASE_TABLES.map(updatedAtTrigger),
   LOCATION_SEED,

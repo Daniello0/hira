@@ -9,12 +9,16 @@ import { DatabaseModule } from './features/database/database.module';
 import { HealthModule } from './features/health/health.module';
 import { AuthModule } from './features/auth/auth.module';
 import { ChatModule } from './features/chat/chat.module';
+import { CallModule } from './features/call/call.module';
+import { LibraryModule } from './features/library/library.module';
+import { MemoryModule } from './features/memory/memory.module';
+import { ProfileModule } from './features/profile/profile.module';
 import { RedisModule } from './features/redis/redis.module';
 import { SearchOrchestratorModule } from './features/search-orchestrator/search-orchestrator.module';
 
 /** Root module: health, auth, and the cross-cutting request id and error shape. */
 @Module({
-  imports: [DatabaseModule, RedisModule, HealthModule, AuthModule, ChatModule, SearchOrchestratorModule],
+  imports: [DatabaseModule, RedisModule, HealthModule, AuthModule, ChatModule, CallModule, MemoryModule, LibraryModule, ProfileModule, SearchOrchestratorModule],
   providers: [
     {
       provide: LOGGER,

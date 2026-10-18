@@ -1,6 +1,7 @@
 import type { MessageRole } from '../../enums/message-role.enum';
 import type { SearchIntent } from '../search/search-intent.dto';
 import type { LlmMeta } from './token-usage.dto';
+import type { PromptDocument } from './prompt-document.dto';
 
 /** One prior turn sent into query understanding. */
 export interface PromptTurn {
@@ -18,6 +19,8 @@ export interface UnderstandRequest {
   query: string;
   history: PromptTurn[];
   memory: PromptMemory[];
+  summary?: string | null;
+  documents?: PromptDocument[];
 }
 
 /** Intent plus provider token counts. */

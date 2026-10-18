@@ -6,10 +6,23 @@ import { UNDERSTAND_SYSTEM_PROMPT } from '../llm/llm.constants';
 export function buildUnderstandMessages(request: UnderstandRequest): ChatMessage[] {
   return [
     { role: 'system', content: UNDERSTAND_SYSTEM_PROMPT },
+    ...note('Chat summary', request.summary),
+    ...documentMessage(request.documents),
     ...memoryMessage(request),
     ...request.history.map(toMessage),
     { role: 'user', content: request.query },
   ];
+}
+
+function note(label: string, text: string | null | undefined): ChatMessage[] {
+  if (text === undefined || text === null || text.length === 0) return [];
+  return [{ role: 'user', content: `${label}:\n${text}` }];
+}
+
+function documentMessage(documents: UnderstandRequest['documents']): ChatMessage[] {
+  if (documents === undefined || documents.length === 0) return [];
+  const body = documents.map((document) => `${document.title} (${document.kind})\n${document.content}`).join('\n\n');
+  return [{ role: 'user', content: `Library:\n${body}` }];
 }
 
 function memoryMessage(request: UnderstandRequest): ChatMessage[] {

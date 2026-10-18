@@ -20,6 +20,9 @@ export class CallTurn {
   @Column({ type: 'text' })
   content!: string;
 
+  @Column({ type: 'boolean', default: true })
+  useMemory!: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   results!: Record<string, unknown> | null;
 }
