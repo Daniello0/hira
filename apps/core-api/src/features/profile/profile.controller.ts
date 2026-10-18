@@ -9,7 +9,7 @@ import { mapAccountError } from '../auth/account-http';
 import { requireUserId } from '../auth/require-user-id';
 import { actorHint } from '../chat/actor-hint';
 import { ChatService } from '../chat/chat.service';
-import { ProfileService } from './profile.service';
+import { ProfileService, SkillMissingError } from './profile.service';
 
 class ProfileBody {
   @IsOptional() @IsString() @MaxLength(256) headline?: string | null;
@@ -74,7 +74,9 @@ export class ProfileController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Remove profile skill' })
   removeSkill(@Param('skillId', ParseIntPipe) skillId: number, @Req() request: Request) {
-    return this.call(request, (userId) => this.profiles.removeSkill(userId, skillId));
+    return this.call(request, async (userId) => {
+      if (!(await this.profiles.removeSkill(userId, skillId))) throw new SkillMissingError();
+    });
   }
 
   /** Pending suggestions from chats and resumes. */

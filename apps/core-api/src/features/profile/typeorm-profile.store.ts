@@ -14,6 +14,7 @@ import {
   type ProfileSuggestionPayload,
 } from '@hira/contracts';
 import { DataSource } from 'typeorm';
+import { typeormRows } from '../database/typeorm-rows';
 import { TRIGRAM_MATCH_THRESHOLD } from '../memory/memory.constants';
 import type { SkillHit } from './choose-skill';
 import { EMPTY_PROFILE, type NewSuggestion, type ProfileStore, type SuggestionRecord } from './profile.store';
@@ -178,8 +179,7 @@ export class TypeOrmProfileStore implements ProfileStore {
   }
 
   private async query(statement: string, params: unknown[]): Promise<Record<string, unknown>[]> {
-    const rows = await this.dataSource.query(statement, params);
-    return Array.isArray(rows) ? (rows as Record<string, unknown>[]) : [];
+    return typeormRows(await this.dataSource.query(statement, params));
   }
 }
 

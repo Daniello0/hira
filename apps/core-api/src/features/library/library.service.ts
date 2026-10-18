@@ -12,6 +12,7 @@ import { asSql } from '../chat/typeorm-chat.sql';
 import { formatVector, parseVector } from '../embed/vector-text';
 import type { Sql } from '../chat/typeorm-chat.sql';
 import {
+  DOCUMENT_NOT_FOUND_MESSAGE,
   PDF_CONTENT_LOCKED_MESSAGE,
   PDF_MAX_BYTES,
   PDF_TEXT_EMPTY_MESSAGE,
@@ -25,6 +26,14 @@ export class LibraryInputError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'LibraryInputError';
+  }
+}
+
+/** The document is missing or belongs to another account. */
+export class DocumentNotFoundError extends Error {
+  constructor() {
+    super(DOCUMENT_NOT_FOUND_MESSAGE);
+    this.name = 'DocumentNotFoundError';
   }
 }
 

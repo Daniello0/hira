@@ -33,13 +33,20 @@ export const ACCOUNT_REQUIRED_MESSAGE = 'This action needs a registered account'
 
 export const DOCUMENT_NOT_FOUND = 'DOCUMENT_NOT_FOUND';
 export const DOCUMENT_NOT_FOUND_MESSAGE = 'Document was not found';
+export const RESUME_FILE_MESSAGE = 'An uploaded file must be a resume PDF';
 
 export const CALL_NOT_FOUND = 'CALL_NOT_FOUND';
 export const CALL_NOT_FOUND_MESSAGE = 'Call was not found';
+export const CALL_ENDED = 'CALL_ENDED';
 export const CALL_ENDED_MESSAGE = 'Call has already ended';
+
+export const MEMORY_NOT_FOUND = 'MEMORY_NOT_FOUND';
+export const MEMORY_NOT_FOUND_MESSAGE = 'Memory fact was not found';
 
 export const SKILL_EXISTS = 'SKILL_EXISTS';
 export const SKILL_EXISTS_MESSAGE = 'That skill is already on the profile';
+export const SKILL_NOT_FOUND = 'SKILL_NOT_FOUND';
+export const SKILL_NOT_FOUND_MESSAGE = 'Skill was not found';
 
 export const SUGGESTION_NOT_FOUND = 'SUGGESTION_NOT_FOUND';
 export const SUGGESTION_NOT_FOUND_MESSAGE = 'Suggestion was not found';

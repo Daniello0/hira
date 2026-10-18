@@ -10,6 +10,7 @@ import {
   type ProfileSkillDto,
   type ProfileSuggestionDto,
 } from '@hira/contracts';
+import { SKILL_NOT_FOUND_MESSAGE } from '../memory/memory.constants';
 import { planAcceptance } from './accept-suggestion';
 import { chooseSkill } from './choose-skill';
 import { PROFILE_STORE, manualSkill, type ProfileStore, type SuggestionRecord } from './profile.store';
@@ -19,6 +20,14 @@ export class SkillExistsError extends Error {
   constructor() {
     super('That skill is already on the profile');
     this.name = 'SkillExistsError';
+  }
+}
+
+/** The skill is not on this account's profile. */
+export class SkillMissingError extends Error {
+  constructor() {
+    super(SKILL_NOT_FOUND_MESSAGE);
+    this.name = 'SkillMissingError';
   }
 }
 

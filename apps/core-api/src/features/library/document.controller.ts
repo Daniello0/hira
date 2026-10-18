@@ -13,8 +13,8 @@ import { requireUserId } from '../auth/require-user-id';
 import { actorHint } from '../chat/actor-hint';
 import { ChatService } from '../chat/chat.service';
 import { ProfileService } from '../profile/profile.service';
-import { LibraryInputError, LibraryService } from './library.service';
-import { PDF_MAX_BYTES, PDF_TOO_LARGE_MESSAGE } from '../memory/memory.constants';
+import { DocumentNotFoundError, LibraryInputError, LibraryService } from './library.service';
+import { PDF_MAX_BYTES, PDF_TOO_LARGE_MESSAGE, RESUME_FILE_MESSAGE } from '../memory/memory.constants';
 
 class TextDocumentBody {
   @IsEnum(DocumentKind)
@@ -81,7 +81,7 @@ export class DocumentController {
   read(@Param('id', ParseUUIDPipe) id: string, @Req() request: Request) {
     return this.call(request, async (userId) => {
       const document = await this.library.find(userId, id);
-      if (document === null) throw missing();
+      if (document === null) throw new DocumentNotFoundError();
       return { ...summaryOf(document), extractedText: document.extractedText };
     });
   }
@@ -92,7 +92,10 @@ export class DocumentController {
   @ApiOperation({ summary: 'Create a document' })
   create(@UploadedFile() file: UploadFile | undefined, @Body() body: Partial<TextDocumentBody>, @Req() request: Request) {
     return this.call(request, async (userId) => {
-      if (file !== undefined) return this.createPdf(userId, file, request);
+      if (file !== undefined) {
+        assertResumeFile(body);
+        return this.createPdf(userId, file, request);
+      }
       const text = readTextBody(body);
       const document = await this.library.createText({ userId, ...text });
       return summaryOf(document);
@@ -109,7 +112,7 @@ export class DocumentController {
   ) {
     return this.call(request, async (userId) => {
       const document = await this.library.update(userId, id, body);
-      if (document === null) throw missing();
+      if (document === null) throw new DocumentNotFoundError();
       return summaryOf(document);
     });
   }
@@ -120,7 +123,7 @@ export class DocumentController {
   @ApiOperation({ summary: 'Delete a document' })
   remove(@Param('id', ParseUUIDPipe) id: string, @Req() request: Request) {
     return this.call(request, async (userId) => {
-      if (!(await this.library.remove(userId, id))) throw missing();
+      if (!(await this.library.remove(userId, id))) throw new DocumentNotFoundError();
     });
   }
 
@@ -145,7 +148,6 @@ export class DocumentController {
     } catch (error) {
       const http = mapAccountError(error, request);
       if (http !== null) throw http;
-      if (isMissing(error)) throw mapAccountError(new LibraryInputError('Document was not found'), request) ?? error;
       throw error;
     }
   }
@@ -163,14 +165,9 @@ function summaryOf(document: { id: string; kind: DocumentKind; title: string; fo
   };
 }
 
-function missing(): Error {
-  const error = new Error('missing');
-  error.name = 'DocumentMissingError';
-  return error;
-}
-
-function isMissing(error: unknown): boolean {
-  return error instanceof Error && error.name === 'DocumentMissingError';
+function assertResumeFile(body: Partial<TextDocumentBody>): void {
+  if (body.kind !== undefined && body.kind !== DocumentKind.Resume) throw new LibraryInputError(RESUME_FILE_MESSAGE);
+  if (body.format !== undefined && body.format !== DocumentFormat.Pdf) throw new LibraryInputError(RESUME_FILE_MESSAGE);
 }
 
 function readTextBody(body: Partial<TextDocumentBody>): TextDocumentBody {

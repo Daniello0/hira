@@ -9,6 +9,7 @@ import { requireUserId } from '../auth/require-user-id';
 import { actorHint } from '../chat/actor-hint';
 import { failStream, openSse, writeSse } from '../chat/chat-http';
 import { ChatService } from '../chat/chat.service';
+import { CallMissingError } from './call.errors';
 import { CALL_STORE, type CallStore } from './call.store';
 import { SearchOrchestratorService } from '../search-orchestrator/search-orchestrator.service';
 
@@ -59,10 +60,7 @@ export class CallController {
     try {
       const userId = requireUserId(this.chats.caller(actorHint(request)));
       const session = await this.calls.findSession(id);
-      if (session === null || session.userId !== userId) {
-        response.status(HttpStatus.NOT_FOUND).json({ errorCode: 'CALL_NOT_FOUND', message: 'Call was not found', requestId: request.header('x-request-id') ?? '' });
-        return;
-      }
+      if (session === null || session.userId !== userId) throw new CallMissingError();
       await this.search.postCall(
         { caller: { kind: 'user', userId }, session, content: body.content, requestId: request.header('x-request-id') ?? 'call', useMemory: body.useMemory },
         { open: () => openSse(response), write: (event, data) => writeSse(response, event, data) },
@@ -75,15 +73,12 @@ export class CallController {
 
   /** Ends a call. A second end keeps the original time. */
   @Post(':id/end')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'End a call' })
   end(@Param('id', ParseUUIDPipe) id: string, @Req() request: Request) {
     return this.call(request, async (userId) => {
       const session = await this.calls.endSession(id, userId, new Date());
-      if (session === null) {
-        const error = new Error('Call was not found');
-        error.name = 'CallMissingError';
-        throw error;
-      }
+      if (session === null) throw new CallMissingError();
       return { id: session.id, startedAt: session.startedAt.toISOString(), endedAt: session.endedAt?.toISOString() ?? null };
     });
   }

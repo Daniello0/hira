@@ -11,7 +11,7 @@ import { ChatService } from '../chat/chat.service';
 import { mapAccountError } from '../auth/account-http';
 import { requireUserId } from '../auth/require-user-id';
 import { USER_STORE, type UserStore } from '../auth/user.store';
-import { MemoryService } from './memory.service';
+import { MemoryNotFoundError, MemoryService } from './memory.service';
 
 class MemoryPatchBody {
   @IsOptional()
@@ -62,7 +62,7 @@ export class MemoryController {
     return this.call(request, async (userId) => {
       const embedding = body.content === undefined ? undefined : await this.embed(body.content);
       const updated = await this.memory.patch(userId, id, body, embedding);
-      if (updated === null) throw notFound();
+      if (updated === null) throw new MemoryNotFoundError();
       return updated;
     });
   }
@@ -72,7 +72,9 @@ export class MemoryController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Forget one fact' })
   forget(@Param('id', ParseUUIDPipe) id: string, @Req() request: Request) {
-    return this.call(request, (userId) => this.memory.forget(userId, id, this.clock.now()));
+    return this.call(request, async (userId) => {
+      if (!(await this.memory.forget(userId, id, this.clock.now()))) throw new MemoryNotFoundError();
+    });
   }
 
   /** Forgets every live fact. */
@@ -102,10 +104,4 @@ export class MemoryController {
       throw error;
     }
   }
-}
-
-function notFound(): Error {
-  const error = new Error('Memory fact was not found');
-  error.name = 'MemoryNotFoundError';
-  return error;
 }

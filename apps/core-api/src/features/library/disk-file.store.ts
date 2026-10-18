@@ -7,7 +7,7 @@ import type { FileStore } from './library.store';
 /** Writes library bytes under LIBRARY_ROOT/{userId}/{documentId}. */
 @Injectable()
 export class DiskFileStore implements FileStore {
-  constructor(private readonly root = process.env[ENV.libraryRoot]?.trim() || 'storage') {}
+  private readonly root = libraryRoot();
 
   /** @inheritdoc */
   async write(userId: string, documentId: string, bytes: Buffer): Promise<void> {
@@ -20,4 +20,10 @@ export class DiskFileStore implements FileStore {
   async remove(userId: string, documentId: string): Promise<void> {
     await rm(join(this.root, userId, documentId), { force: true });
   }
+}
+
+function libraryRoot(): string {
+  const configured = process.env[ENV.libraryRoot]?.trim();
+  if (configured === undefined || configured.length === 0) return 'storage';
+  return configured;
 }

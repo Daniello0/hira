@@ -165,6 +165,133 @@ describe('stage 12 account surfaces', () => {
     const listed = await request(app.getHttpServer()).get('/api/v1/memory').set('Authorization', `Bearer ${token}`);
     expect(listed.body[0].content).toBe('lives in Minsk');
   });
+
+  it('hides another account document and call', async () => {
+    const state = stores();
+    app = await createApp(state);
+    const ada = await register(app, 'ada@example.com');
+    const note = await request(app.getHttpServer())
+      .post('/api/v1/documents')
+      .set('Authorization', `Bearer ${ada}`)
+      .send({ kind: DocumentKind.Note, title: 'Note', format: DocumentFormat.Txt, content: 'secret' });
+    const started = await request(app.getHttpServer()).post('/api/v1/calls').set('Authorization', `Bearer ${ada}`);
+    const grace = await register(app, 'grace@example.com');
+    const read = await request(app.getHttpServer())
+      .get(`/api/v1/documents/${note.body.id}`)
+      .set('Authorization', `Bearer ${grace}`);
+    const ended = await request(app.getHttpServer())
+      .post(`/api/v1/calls/${started.body.id}/end`)
+      .set('Authorization', `Bearer ${grace}`);
+    const turn = await request(app.getHttpServer())
+      .post(`/api/v1/calls/${started.body.id}/turns`)
+      .set('Authorization', `Bearer ${grace}`)
+      .send({ content: 'hello' });
+    expect(read.status).toBe(404);
+    expect(read.body.errorCode).toBe('DOCUMENT_NOT_FOUND');
+    expect(ended.status).toBe(404);
+    expect(ended.body.errorCode).toBe('CALL_NOT_FOUND');
+    expect(turn.status).toBe(404);
+    expect(turn.body.errorCode).toBe('CALL_NOT_FOUND');
+  });
+
+  it('rejects a demo call turn and a turn after the call has ended', async () => {
+    app = await createApp(stores());
+    const demo = await request(app.getHttpServer())
+      .post(`/api/v1/calls/${randomUUID()}/turns`)
+      .send({ content: 'hello' });
+    expect(demo.status).toBe(403);
+    expect(demo.body.errorCode).toBe('ACCOUNT_REQUIRED');
+    const token = await register(app);
+    const started = await request(app.getHttpServer()).post('/api/v1/calls').set('Authorization', `Bearer ${token}`);
+    const first = await request(app.getHttpServer())
+      .post(`/api/v1/calls/${started.body.id}/end`)
+      .set('Authorization', `Bearer ${token}`);
+    const second = await request(app.getHttpServer())
+      .post(`/api/v1/calls/${started.body.id}/end`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(second.status).toBe(200);
+    expect(second.body.endedAt).toBe(first.body.endedAt);
+    const again = await request(app.getHttpServer())
+      .post(`/api/v1/calls/${started.body.id}/turns`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ content: 'again' });
+    expect(again.status).toBe(400);
+    expect(again.body.errorCode).toBe('CALL_ENDED');
+  });
+
+  it('forgets one fact and reports a missing fact', async () => {
+    const state = stores();
+    app = await createApp(state);
+    const token = await register(app);
+    const userId = state.users.accounts[0]?.id ?? '';
+    const id = randomUUID();
+    await state.memory.insert({
+      id,
+      userId,
+      kind: MemoryKind.Fact,
+      content: 'likes tea',
+      embedding: null,
+      confidence: 0.9,
+      sourceMessageId: null,
+      sourceCallTurnId: null,
+      isPinned: false,
+      expiresAt: null,
+      revokedAt: null,
+      createdAt: new Date('2026-10-18T12:00:00.000Z'),
+    });
+    const forgotten = await request(app.getHttpServer())
+      .delete(`/api/v1/memory/${id}`)
+      .set('Authorization', `Bearer ${token}`);
+    const listed = await request(app.getHttpServer()).get('/api/v1/memory').set('Authorization', `Bearer ${token}`);
+    const missing = randomUUID();
+    const patched = await request(app.getHttpServer())
+      .patch(`/api/v1/memory/${missing}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ content: 'nope' });
+    const removed = await request(app.getHttpServer())
+      .delete(`/api/v1/memory/${missing}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(forgotten.status).toBe(204);
+    expect(listed.body).toEqual([]);
+    expect(state.memory.facts[0]?.revokedAt).toBeInstanceOf(Date);
+    expect(patched.status).toBe(404);
+    expect(patched.body.errorCode).toBe('MEMORY_NOT_FOUND');
+    expect(removed.status).toBe(404);
+    expect(removed.body.errorCode).toBe('MEMORY_NOT_FOUND');
+  });
+
+  it('rejects an uploaded file that is not a resume', async () => {
+    const state = stores();
+    app = await createApp(state);
+    const token = await register(app);
+    const note = await request(app.getHttpServer())
+      .post('/api/v1/documents')
+      .set('Authorization', `Bearer ${token}`)
+      .field('kind', DocumentKind.Note)
+      .attach('file', Buffer.from('%PDF'), 'notes.pdf');
+    expect(note.status).toBe(400);
+    expect(note.body.errorCode).toBe('VALIDATION_FAILED');
+    expect(state.files.files.size).toBe(0);
+    expect(state.library.documents).toHaveLength(0);
+  });
+
+  it('rejects an empty PDF and a missing profile skill', async () => {
+    const state = stores();
+    app = await createApp(state, '');
+    const token = await register(app);
+    const empty = await request(app.getHttpServer())
+      .post('/api/v1/documents')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from('%PDF'), 'empty.pdf');
+    expect(empty.status).toBe(400);
+    expect(empty.body.errorCode).toBe('VALIDATION_FAILED');
+    expect(state.files.files.size).toBe(0);
+    const skill = await request(app.getHttpServer())
+      .delete('/api/v1/profile/skills/99')
+      .set('Authorization', `Bearer ${token}`);
+    expect(skill.status).toBe(404);
+    expect(skill.body.errorCode).toBe('SKILL_NOT_FOUND');
+  });
 });
 
 function stores() {
@@ -178,7 +305,7 @@ function stores() {
   };
 }
 
-async function createApp(state: ReturnType<typeof stores>): Promise<INestApplication> {
+async function createApp(state: ReturnType<typeof stores>, pdfText = 'Python developer'): Promise<INestApplication> {
   process.env.JWT_SECRET = JWT_SECRET;
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(USER_STORE)
@@ -204,7 +331,7 @@ async function createApp(state: ReturnType<typeof stores>): Promise<INestApplica
     .overrideProvider(CALL_STORE)
     .useValue(state.calls)
     .overrideProvider(PDF_READER)
-    .useValue({ read: async () => 'Python developer' })
+    .useValue({ read: async () => pdfText })
     .overrideProvider(TEXT_EMBEDDER)
     .useValue(async () => null)
     .overrideProvider(LLM_GATEWAY)
@@ -218,9 +345,9 @@ async function createApp(state: ReturnType<typeof stores>): Promise<INestApplica
   return application;
 }
 
-async function register(app: INestApplication): Promise<string> {
+async function register(app: INestApplication, email = 'ada@example.com'): Promise<string> {
   const response = await request(app.getHttpServer()).post('/api/v1/auth/register').send({
-    email: 'ada@example.com',
+    email,
     password: PASSWORD,
     displayName: 'Ada',
   });

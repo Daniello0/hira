@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { AuthorKind } from '@hira/contracts';
 import { DataSource } from 'typeorm';
+import { typeormRows } from '../database/typeorm-rows';
 import type { CallSessionRecord, CallStore, CallTurnRecord } from './call.store';
 
 /** PostgreSQL calls. Rows are not written into `chats`. */
@@ -64,8 +65,7 @@ export class TypeOrmCallStore implements CallStore {
   }
 
   private async query(statement: string, params: unknown[]): Promise<Record<string, unknown>[]> {
-    const rows = await this.dataSource.query(statement, params);
-    return Array.isArray(rows) ? (rows as Record<string, unknown>[]) : [];
+    return typeormRows(await this.dataSource.query(statement, params));
   }
 }
 

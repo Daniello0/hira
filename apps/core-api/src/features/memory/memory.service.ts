@@ -1,8 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { MemoryFactDto, UpdateMemoryRequest } from '@hira/contracts';
+import { MEMORY_NOT_FOUND_MESSAGE } from './memory.constants';
 import { isListedFact } from './select-memory';
 import { MEMORY_STORE, type MemoryStore } from './memory.store';
 import type { MemoryFact } from './memory.types';
+
+/** The fact is missing or belongs to another account. */
+export class MemoryNotFoundError extends Error {
+  constructor() {
+    super(MEMORY_NOT_FOUND_MESSAGE);
+    this.name = 'MemoryNotFoundError';
+  }
+}
 
 /** Account-facing memory. Revoke keeps the row so a contradiction stays explainable. */
 @Injectable()

@@ -21,7 +21,7 @@
 | 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | **75** |
 | 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | **90** |
 | 11 | **Оркестрация поиска (core-api)** | Search orchestrator, SSE (intent → results → tokens), чаты, `POST /search` для eval | **90** |
-| 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions. Реализовано в `core-api` и `llm-service` (ADR-040) | **75** |
+| 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions. Живой `core-api` после миграции `Stage12Memory1764000000000` (ADR-040) | **90** |
 | 13 | **Frontend: чат, стриминг, вызов** | Next.js, dark EN UI, SSE, vacancy cards, match explanation, экран Call, spinner «Searching…» | 0 |
 | 14 | **Frontend: профиль, библиотека, избранное, billing** | Profile, library, favorites, memory, mock `/billing` | 0 |
 | 15 | **Ingestion: источники 4–6** | praca.by, LinkedIn, Indeed; `is_foreign_remote` + filter | 0 |
@@ -71,9 +71,9 @@
 
 ## Следующий шаг
 
-**Этап 12.** Бэкенд памяти, библиотеки и вызова отвечает из `core-api`. Окно 10 реплик, сводка каждые 8 сообщений после заполнения окна, факты с порогом 0.7. Выключатель не стирает факты и не прячет файлы. PDF разбирается локально. Вызов не создаёт чат и списывает квоту только на поиск. Предложение в профиль пишется после accept. Живой `docker compose` с этой миграцией в этой сессии не перезапускался.
+**Этап 13.** Frontend: чат, стриминг, экран вызова.
 
-**Дальше — этап 13.** Frontend: чат, стриминг, экран вызова.
+**Этап 12** отвечает из живого `core-api`. Миграция `Stage12Memory1764000000000` применена. Демо на библиотеке, памяти и вызове получает `403`. Чужой документ, факт, навык и вызов — `404`. Реплика в завершённый вызов — `400`, повторный `end` — `200` с тем же временем. PDF резюме разобран локально: предложение `EDUCATION` было в `GET /profile/suggestions` и попало в профиль только после accept. В этой базе `skills` пустая, поэтому имя навыка из резюме предложением не становится, пока не загружен ESCO (этап 8).
 
 **Этап 8.** Пайплайн закрыт: навыки, иерархия и алиасы ESCO, ночной PMI/IDF, эмбеддинги. Полные CSV с портала кладутся в `ESCO_DIR` (ADR-038); в репозитории их нет.
 
