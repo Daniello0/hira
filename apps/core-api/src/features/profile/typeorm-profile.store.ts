@@ -15,6 +15,7 @@ import {
 } from '@hira/contracts';
 import { DataSource } from 'typeorm';
 import { typeormRows } from '../database/typeorm-rows';
+import { readPgTextArray } from './read-pg-text-array';
 import { TRIGRAM_MATCH_THRESHOLD } from '../memory/memory.constants';
 import type { SkillHit } from './choose-skill';
 import { EMPTY_PROFILE, type NewSuggestion, type ProfileStore, type SuggestionRecord } from './profile.store';
@@ -183,15 +184,16 @@ export class TypeOrmProfileStore implements ProfileStore {
   }
 }
 
-function profileOf(row: Record<string, unknown>): ProfileDto {
+/** Maps a `user_profiles` row. Enum arrays arrive from node-pg as `{A,B}` text. */
+export function profileOf(row: Record<string, unknown>): ProfileDto {
   return {
     headline: textOrNull(row.headline),
     about: textOrNull(row.about),
     seniority: row.seniority === null || row.seniority === undefined ? null : (String(row.seniority) as SeniorityLevel),
-    desiredRoles: arrayOf(row.desired_roles),
-    preferredWorkFormat: arrayOf(row.preferred_work_format) as WorkFormat[],
-    preferredEmployment: arrayOf(row.preferred_employment) as EmploymentType[],
-    preferredLocations: arrayOf(row.preferred_locations).map(Number),
+    desiredRoles: readPgTextArray(row.desired_roles),
+    preferredWorkFormat: readPgTextArray(row.preferred_work_format) as WorkFormat[],
+    preferredEmployment: readPgTextArray(row.preferred_employment) as EmploymentType[],
+    preferredLocations: readPgTextArray(row.preferred_locations).map(Number),
     salaryExpectationMin: row.salary_expectation_min === null || row.salary_expectation_min === undefined ? null : Number(row.salary_expectation_min),
     currency: textOrNull(row.currency),
     education: textOrNull(row.education),
@@ -226,10 +228,6 @@ function suggestionOf(row: Record<string, unknown> | undefined): SuggestionRecor
 
 function textOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
-}
-
-function arrayOf(value: unknown): string[] {
-  return Array.isArray(value) ? value.map(String) : [];
 }
 
 function isUnique(error: unknown): boolean {
