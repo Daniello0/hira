@@ -32,4 +32,16 @@ describe('splitDescription', () => {
     expect(chunks[1]?.chunkIndex).toBe(1);
     expect(chunks[0]?.tokenCount).toBe(CHUNK_WINDOW_CHARS / 4);
   });
+
+  it('keeps a surrogate pair together when it sits on the window boundary', () => {
+    const text = `${'a'.repeat(CHUNK_WINDOW_CHARS - 1)}🙂b`;
+    const chunks = splitDescription(text);
+    expect(chunks[0]?.content.endsWith('🙂')).toBe(true);
+    expect(chunks[1]?.content).toBe('b');
+    expect(chunks.every((chunk) => !hasLoneSurrogate(chunk.content))).toBe(true);
+  });
 });
+
+function hasLoneSurrogate(value: string): boolean {
+  return /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(value);
+}

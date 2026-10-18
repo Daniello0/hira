@@ -26,10 +26,11 @@ function paragraphsOf(description: string | null | undefined): string[] {
 }
 
 function cutParagraph(paragraph: string): string[] {
-  if (paragraph.length <= CHUNK_WINDOW_CHARS) return [paragraph];
+  const chars = Array.from(paragraph);
+  if (chars.length <= CHUNK_WINDOW_CHARS) return [paragraph];
   const parts: string[] = [];
-  for (let start = 0; start < paragraph.length; start += CHUNK_WINDOW_CHARS) {
-    parts.push(paragraph.slice(start, start + CHUNK_WINDOW_CHARS));
+  for (let start = 0; start < chars.length; start += CHUNK_WINDOW_CHARS) {
+    parts.push(chars.slice(start, start + CHUNK_WINDOW_CHARS).join(''));
   }
   return parts;
 }
