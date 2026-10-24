@@ -5,17 +5,14 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { ChatSummary, CurrentUserDto } from '@hira/contracts';
-import { coreFetch } from '../../common/api/core-api';
+import { authedFetch } from '../../common/api/authed-fetch';
 import { Button } from '../../common/components/button';
 import { useSession } from '../auth/session.store';
 import { SignUpLinks } from './sign-up-links';
-import { createChat, deleteChat, fetchChats, patchChat } from './chat-api';
+import { fetchChats } from './chat-api';
 import { useChatList } from './chat-list.store';
-
-interface ChatSidebarProps {
-  token: string | null;
-  user: CurrentUserDto | null;
-}
+import { ChatRow } from './chat-row';
+import { useNewChat } from './new-chat';
 
 const ACCOUNT_LINKS = [
   { href: '/profile', label: 'Profile' },
@@ -26,118 +23,81 @@ const ACCOUNT_LINKS = [
 ] as const;
 
 /** Chat list, account pages, and Call. */
-export function ChatSidebar({ token, user }: ChatSidebarProps) {
+export function ChatSidebar({ user }: { user: CurrentUserDto | null }) {
   const chats = useChatList((state) => state.chats);
   const active = chats.filter((chat) => !chat.isArchived);
   const archived = chats.filter((chat) => chat.isArchived);
   return (
     <div className="flex h-full flex-col gap-4">
-      <NewChat token={token} user={user} />
-      <ChatRows chats={active} token={token} />
-      <ArchivedRows chats={archived} token={token} />
+      <NewChat user={user} />
+      <ChatRows chats={active} />
+      <LoadMore />
+      <ArchivedRows chats={archived} />
       <AccountLinks />
       <CallLink />
-      <AccountLink token={token} user={user} />
+      <AccountLink user={user} />
       <QuotaLine user={user} />
     </div>
   );
 }
 
-function NewChat({ token, user }: ChatSidebarProps) {
-  const router = useRouter();
-  const upsert = useChatList((state) => state.upsert);
-  const [banner, setBanner] = useState(false);
+function NewChat({ user }: { user: CurrentUserDto | null }) {
+  const action = useNewChat();
   return (
     <div>
-      <Button type="button" className="flex w-full items-center justify-center gap-2" onClick={() => void add(token, router, upsert, setBanner)}>
+      <Button type="button" disabled={action.busy} className="flex w-full items-center justify-center gap-2" onClick={() => void action.create()}>
         <Plus size={16} /> New chat
       </Button>
-      {banner && user === null ? <SignUpLinks className="mt-2 text-sm" /> : null}
+      {action.limited && user === null ? <SignUpLinks className="mt-2 text-sm" /> : null}
+      {action.error !== null ? <p role="alert" className="mt-2 text-sm">{action.error}</p> : null}
     </div>
   );
 }
 
-async function add(token: string | null, router: ReturnType<typeof useRouter>, upsert: (chat: ChatSummary) => void, setBanner: (value: boolean) => void): Promise<void> {
-  const created = await createChat(token);
-  if (created.chat === null) {
-    setBanner(created.limited);
-    return;
-  }
-  upsert(created.chat);
-  router.push(`/chat/${created.chat.id}`);
-}
-
-function ChatRows({ chats, token }: { chats: readonly ChatSummary[]; token: string | null }) {
+function ChatRows({ chats }: { chats: readonly ChatSummary[] }) {
   return (
     <ul className="space-y-1">
-      {chats.map((chat) => <ChatRow key={chat.id} chat={chat} token={token} />)}
+      {chats.map((chat) => <ChatRow key={chat.id} chat={chat} />)}
     </ul>
   );
 }
 
-function ArchivedRows({ chats, token }: { chats: readonly ChatSummary[]; token: string | null }) {
+function LoadMore() {
+  const cursor = useChatList((state) => state.nextCursor);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (cursor === null) return null;
+  return (
+    <div className="text-sm">
+      <button type="button" className="text-hira-muted underline disabled:opacity-50" disabled={busy} onClick={() => void loadMore(cursor, setBusy, setFailed)}>
+        {busy ? 'Loading…' : 'Load more'}
+      </button>
+      {failed ? <p role="alert">Could not load more chats</p> : null}
+    </div>
+  );
+}
+
+async function loadMore(cursor: string, setBusy: (value: boolean) => void, setFailed: (value: boolean) => void): Promise<void> {
+  setBusy(true);
+  try {
+    const page = await fetchChats(cursor);
+    setFailed(page === null);
+    if (page !== null) useChatList.getState().appendPage(page.items, page.nextCursor);
+  } catch {
+    setFailed(true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function ArchivedRows({ chats }: { chats: readonly ChatSummary[] }) {
   if (chats.length === 0) return null;
   return (
     <div>
       <p className="text-xs text-hira-muted">Archived</p>
-      <ChatRows chats={chats} token={token} />
+      <ChatRows chats={chats} />
     </div>
   );
-}
-
-function ChatRow({ chat, token }: { chat: ChatSummary; token: string | null }) {
-  const pathname = usePathname();
-  const selected = pathname === `/chat/${chat.id}`;
-  return (
-    <li className={selected ? 'rounded-md bg-white/10' : ''}>
-      <Link className="block truncate px-2 py-1" href={`/chat/${chat.id}`}>{chat.title ?? 'New chat'}</Link>
-      <RowActions chat={chat} token={token} />
-    </li>
-  );
-}
-
-function RowActions({ chat, token }: { chat: ChatSummary; token: string | null }) {
-  const router = useRouter();
-  const upsert = useChatList((state) => state.upsert);
-  const remove = useChatList((state) => state.remove);
-  const [confirming, setConfirming] = useState(false);
-  return (
-    <div className="flex gap-2 px-2 pb-1 text-xs text-hira-muted">
-      <button type="button" onClick={() => void rename(chat, token, upsert)}>Rename</button>
-      <button type="button" onClick={() => void archive(chat, token, upsert)}>Archive</button>
-      <button type="button" onClick={() => void removeChat(chat.id, token, confirming, setConfirming, remove, router)}>{confirming ? 'Confirm delete' : 'Delete'}</button>
-    </div>
-  );
-}
-
-async function rename(chat: ChatSummary, token: string | null, upsert: (chat: ChatSummary) => void): Promise<void> {
-  const title = window.prompt('Chat name', chat.title ?? '');
-  if (title === null || title.trim().length === 0) return;
-  const updated = await patchChat(token, chat.id, { title: title.trim() });
-  if (updated !== null) upsert(updated);
-}
-
-async function archive(chat: ChatSummary, token: string | null, upsert: (chat: ChatSummary) => void): Promise<void> {
-  const updated = await patchChat(token, chat.id, { isArchived: true });
-  if (updated !== null) upsert(updated);
-}
-
-async function removeChat(
-  chatId: string,
-  token: string | null,
-  confirming: boolean,
-  setConfirming: (value: boolean) => void,
-  remove: (chatId: string) => void,
-  router: ReturnType<typeof useRouter>,
-): Promise<void> {
-  if (!confirming) {
-    setConfirming(true);
-    return;
-  }
-  if (await deleteChat(token, chatId)) {
-    remove(chatId);
-    router.push('/chat');
-  }
 }
 
 function AccountLinks() {
@@ -153,17 +113,20 @@ function AccountLinks() {
   );
 }
 
-function AccountLink({ token, user }: ChatSidebarProps) {
+function AccountLink({ user }: { user: CurrentUserDto | null }) {
   const setAnonymous = useSession((state) => state.setAnonymous);
   const router = useRouter();
   if (user === null) return <Link href="/login">Sign in</Link>;
-  return <button type="button" className="text-sm text-hira-muted" onClick={() => void signOut(token, setAnonymous, router)}>Sign out</button>;
+  return <button type="button" className="text-left text-sm text-hira-muted" onClick={() => void signOut(setAnonymous, router)}>Sign out</button>;
 }
 
-async function signOut(token: string | null, setAnonymous: () => void, router: ReturnType<typeof useRouter>): Promise<void> {
-  await coreFetch('/api/v1/auth/logout', { method: 'POST' }, token);
-  setAnonymous();
-  router.push('/login');
+async function signOut(setAnonymous: () => void, router: ReturnType<typeof useRouter>): Promise<void> {
+  try {
+    await authedFetch('/api/v1/auth/logout', { method: 'POST' });
+  } finally {
+    setAnonymous();
+    router.push('/login');
+  }
 }
 
 function QuotaLine({ user }: { user: CurrentUserDto | null }) {
@@ -179,9 +142,14 @@ function CallLink() {
   );
 }
 
-/** Loads the sidebar once the session is known. */
-export async function refreshChatList(token: string | null): Promise<void> {
-  const page = await fetchChats(token);
-  if (page === null) return;
-  useChatList.getState().setChats(page.items, page.nextCursor);
+/** Loads the first page of the sidebar once the session is known. */
+export async function refreshChatList(): Promise<void> {
+  try {
+    const page = await fetchChats();
+    if (page !== null) useChatList.getState().setChats(page.items, page.nextCursor);
+    else useChatList.setState({ loaded: true });
+  } catch {
+    // The sidebar keeps its rows; the next turn or session change retries.
+    useChatList.setState({ loaded: true });
+  }
 }

@@ -20,7 +20,8 @@ export interface RetrievalOptions {
 export interface RetrievalRequest {
   intent: SearchIntent;
   userId?: string;
-  limit: number;
+  /** Defaults to the retrieval page size when absent. */
+  limit?: number;
   options?: RetrievalOptions;
 }
 

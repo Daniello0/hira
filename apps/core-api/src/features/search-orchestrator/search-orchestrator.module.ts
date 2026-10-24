@@ -19,6 +19,8 @@ import {
   DEFAULT_LLM_URL,
   DEFAULT_RETRIEVAL_URL,
   LLM_GATEWAY,
+  LLM_BACKGROUND_TIMEOUT_MS,
+  LLM_STREAM_TIMEOUT_MS,
   LLM_TIMEOUT_MS,
   RETRIEVAL_GATEWAY,
   RETRIEVAL_TIMEOUT_MS,
@@ -37,6 +39,7 @@ import { createLlmGateway, createRetrievalGateway } from './upstream-gateway';
     { provide: LLM_GATEWAY, useFactory: () => createLlmGateway(llmOptions(process.env)) },
     { provide: RETRIEVAL_GATEWAY, useFactory: () => createRetrievalGateway(retrievalOptions(process.env)) },
   ],
+  exports: [RETRIEVAL_GATEWAY],
 })
 export class SearchOrchestratorModule implements NestModule {
   /** Same demo cookie as chats. The stamp keeps a second middleware from issuing another id. */
@@ -50,6 +53,8 @@ function llmOptions(env: NodeJS.ProcessEnv) {
     baseUrl: readUrl(env, ENV.llmServiceUrl, DEFAULT_LLM_URL),
     token: env[ENV.internalToken]?.trim() ?? '',
     timeoutMs: LLM_TIMEOUT_MS,
+    streamTimeoutMs: LLM_STREAM_TIMEOUT_MS,
+    backgroundTimeoutMs: LLM_BACKGROUND_TIMEOUT_MS,
   };
 }
 

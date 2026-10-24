@@ -185,7 +185,21 @@ services:
       INGEST_LIMIT: ${INGEST_LIMIT:-2000}
       TEI_EMBED_URL: http://tei:80
       LLM_SERVICE_URL: http://llm-service:4002
-      ESCO_DIR: ${ESCO_DIR:-}
+      # ESCO CSVs from ESCO_HOST_DIR are mounted at /app/esco; with no CSVs the import is skipped.
+      ESCO_DIR: ${ESCO_DIR:-/app/esco}
+      SKILL_EXTRACTION_ENABLED: ${SKILL_EXTRACTION_ENABLED:-true}
+      LLM_DAILY_BUDGET: ${LLM_DAILY_BUDGET:-200}
+      SOURCE_RABOTA_BY_ENABLED: ${SOURCE_RABOTA_BY_ENABLED:-true}
+      SOURCE_GSZ_ENABLED: ${SOURCE_GSZ_ENABLED:-true}
+      SOURCE_HABR_CAREER_ENABLED: ${SOURCE_HABR_CAREER_ENABLED:-true}
+      SOURCE_PRACA_BY_ENABLED: ${SOURCE_PRACA_BY_ENABLED:-true}
+      SOURCE_LINKEDIN_ENABLED: ${SOURCE_LINKEDIN_ENABLED:-false}
+      SOURCE_INDEED_ENABLED: ${SOURCE_INDEED_ENABLED:-false}
+      SOURCE_LINKEDIN_DAILY_CAP: ${SOURCE_LINKEDIN_DAILY_CAP:-150}
+      SOURCE_INDEED_DAILY_CAP: ${SOURCE_INDEED_DAILY_CAP:-100}
+    volumes:
+      # A missing host folder is created empty by Docker; ESCO import then finds no CSVs and skips.
+      - ${ESCO_HOST_DIR:-./data/esco}:/app/esco:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -193,6 +207,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      # Started, not healthy: skill extraction retries on its 15-minute tick. TEI is not awaited
+      # (its first start takes ~10 minutes); embedding runs fail until it is up and then catch up.
+      llm-service:
+        condition: service_started
     healthcheck:
       <<: *node-health
     restart: unless-stopped

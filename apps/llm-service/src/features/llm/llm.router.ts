@@ -184,6 +184,7 @@ function assertConfigured(deps: LlmRouterDeps): void {
 function sendFailure(res: Response, req: Request, error: unknown): void {
   const route = toRouteError(error);
   if (route === null) throw error;
+  if (route.retryAfterSeconds !== null) res.setHeader('Retry-After', String(route.retryAfterSeconds));
   res.status(route.status).json(errorData(req, route));
 }
 

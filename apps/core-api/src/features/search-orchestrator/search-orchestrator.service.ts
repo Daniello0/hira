@@ -4,6 +4,7 @@ import { LOGGER } from '../../common/constants/app.constants';
 import { CLOCK, type Clock } from '../../common/utils/clock';
 import { CHAT_STORE, type ChatStore } from '../chat/chat.store';
 import { CALL_STORE, type CallStore } from '../call/call.store';
+import { LibraryService } from '../library/library.service';
 import { TurnContextService } from '../memory/turn-context.service';
 import { SearchQuotaService } from '../rate-limit/search-quota.service';
 import {
@@ -34,9 +35,10 @@ export class SearchOrchestratorService {
     @Inject(LOGGER) private readonly logger: Logger,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(TurnContextService) private readonly context: TurnContextService,
+    @Inject(LibraryService) private readonly library: LibraryService,
   ) {}
 
-  /** SSE turn: intent, vacancy cards, then answer tokens. */
+  /** SSE turn: intent, vacancy cards, answer tokens, and a file draft when one was asked for. */
   postMessage(input: PostMessageInput, sink: SseSink): Promise<void> {
     return postChatMessage(this.deps(), input, sink);
   }
@@ -67,6 +69,7 @@ export class SearchOrchestratorService {
       context: this.context,
       followUp: this.context,
       schedule: (task) => this.schedule(task),
+      drafts: this.library,
     };
   }
 

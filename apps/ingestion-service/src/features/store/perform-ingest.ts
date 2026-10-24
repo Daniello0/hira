@@ -2,13 +2,20 @@ import { IngestionStatus } from '@hira/contracts';
 import { assertDetailsAllowed, checkAlive } from '../connectors/check-alive';
 import {
   collectSource,
-  paceRequests,
+  pacedFor,
+  RequestCapReached,
   type CollectFailure,
   type CollectInput,
   type HttpGet,
 } from '../connectors/collect-source';
 import type { RawVacancy } from '../connectors/raw-vacancy';
-import { JOB_LIVENESS, LIVENESS_BATCH_SIZE } from '../ingestion.constants';
+import { connectorFor, disabledMessage, isSourceEnabled } from '../connectors/registry';
+import {
+  JOB_LIVENESS,
+  JOB_RECONCILE,
+  LIVENESS_BATCH_SIZE,
+  RECONCILE_LIMIT_FACTOR,
+} from '../ingestion.constants';
 import { normalizeVacancy } from '../normalize/normalize-vacancy';
 import type { IngestJob } from '../scheduler/schedules';
 import { applyLiveness, listActiveVacancies, type ActiveVacancy } from './pg-liveness';
@@ -30,6 +37,9 @@ export interface PerformInput {
   limit: number;
   now: Date;
   pause?: () => Promise<void>;
+  /** Daily request cap of LinkedIn/Indeed; absent for uncapped sources. */
+  requestBudget?: () => Promise<boolean>;
+  env?: NodeJS.ProcessEnv;
 }
 
 interface Counts {
@@ -41,19 +51,53 @@ interface Counts {
   errors: RunItemError[];
 }
 
-/** Runs one queued job on a single SQL connection and returns the run counters. */
+/**
+ * Runs one queued job on a single SQL connection and returns the run counters.
+ * `RECONCILE` is the weekly deeper crawl: the same collection with a larger limit.
+ */
 export async function performIngest(input: PerformInput): Promise<RunFinish> {
   if (input.job.jobType === JOB_LIVENESS) return checkLiveness(input);
+  if (input.job.jobType === JOB_RECONCILE) {
+    return collectJob({ ...input, limit: input.limit * RECONCILE_LIMIT_FACTOR });
+  }
   return collectJob(input);
 }
 
+function collectInput(input: PerformInput): CollectInput {
+  return {
+    http: input.http,
+    limit: input.limit,
+    pause: input.pause,
+    requestBudget: input.requestBudget,
+    env: input.env,
+  };
+}
+
 async function checkLiveness(input: PerformInput): Promise<RunFinish> {
-  const paced = paceRequests({ http: input.http, limit: input.limit, pause: input.pause });
+  const source = input.job.source;
+  if (!isSourceEnabled(source, input.env ?? process.env)) throw new Error(disabledMessage(source));
+  const paced = pacedFor(connectorFor(source), collectInput(input));
   await assertDetailsAllowed(input.job.source, paced);
   const counts = emptyCounts(0);
-  await checkBatches(input, paced, counts);
-  const status = counts.failed > 0 ? IngestionStatus.Partial : IngestionStatus.Success;
+  const capped = await checkUntilCap(input, paced, counts);
+  const status = capped || counts.failed > 0 ? IngestionStatus.Partial : IngestionStatus.Success;
   return done(status, counts, input.rateError, input.now);
+}
+
+/** Checks every active row; a spent daily request cap ends the pass. Returns true then. */
+async function checkUntilCap(
+  input: PerformInput,
+  paced: CollectInput,
+  counts: Counts,
+): Promise<boolean> {
+  try {
+    await checkBatches(input, paced, counts);
+    return false;
+  } catch (error) {
+    if (!(error instanceof RequestCapReached)) throw error;
+    counts.errors.push({ message: error.message });
+    return true;
+  }
 }
 
 async function checkBatches(
@@ -83,23 +127,21 @@ async function checkRow(
   row: ActiveVacancy,
   counts: Counts,
 ): Promise<void> {
-  counts.fetched += 1;
   try {
     const verdict = await checkAlive(input.job.source, row.externalId, paced);
+    counts.fetched += 1;
     await applyLiveness(input.client, row.id, verdict, input.now);
     counts.updated += 1;
   } catch (error) {
+    if (error instanceof RequestCapReached) throw error;
+    counts.fetched += 1;
     counts.failed += 1;
     counts.errors.push({ externalId: row.externalId, message: errorMessage(error) });
   }
 }
 
 async function collectJob(input: PerformInput): Promise<RunFinish> {
-  const collected = await collectSource(input.job.source, {
-    http: input.http,
-    limit: input.limit,
-    pause: input.pause,
-  });
+  const collected = await collectSource(input.job.source, collectInput(input));
   const counts = await writeCollected(input, collected.raws);
   rememberFailures(counts, collected.failures);
   const status =

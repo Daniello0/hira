@@ -9,18 +9,17 @@ const vacancy = { id: 'v1', title: 'Backend', description: 'нужен Python' }
 const usage = { promptTokens: 2, completionTokens: 3, totalTokens: 5 };
 const logger = pino({ level: 'silent' });
 
-function modelSkill(): string {
-  return JSON.stringify({
-    skills: [
-      {
-        surface: 'Python',
-        skillType: SkillType.Hard,
-        importance: SkillImportance.Required,
-        evidenceSpan: 'Python',
-        weight: 0.7,
-      },
-    ],
-  });
+function modelSkill(...ids: string[]): string {
+  const skills = [
+    {
+      surface: 'Python',
+      skillType: SkillType.Hard,
+      importance: SkillImportance.Required,
+      evidenceSpan: 'Python',
+      weight: 0.7,
+    },
+  ];
+  return JSON.stringify({ results: (ids.length === 0 ? ['v1'] : ids).map((id) => ({ id, skills })) });
 }
 
 describe('extractSkills', () => {
@@ -46,7 +45,8 @@ describe('extractSkills', () => {
     expect(cache.store.has(extractSkillsCacheKey('test-model', '1', vacancy))).toBe(true);
     const schema = provider.calls[0]?.schema as { additionalProperties?: boolean };
     expect(schema.additionalProperties).toBe(false);
-    expect(provider.calls[0]?.timeoutMs).toBeLessThanOrEqual(20_000);
+    expect(provider.calls[0]?.timeoutMs).toBe(25_000);
+    expect(provider.calls[0]?.maxTokens).toBe(1_500);
 
     const second = await extractSkills(deps(provider, cache), {
       vacancies: [{ ...vacancy, id: 'v2' }],
@@ -55,12 +55,22 @@ describe('extractSkills', () => {
     expect(second.results[0]?.id).toBe('v2');
   });
 
-  it('calls the provider once per distinct description', async () => {
-    const provider = scripted(modelSkill(), modelSkill());
-    await extractSkills(deps(provider, memoryCache()), {
-      vacancies: [vacancy, { ...vacancy, id: 'v2', description: 'нужен Go' }],
+  it('sends uncached vacancies to the model in batches of five', async () => {
+    const ids = ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'];
+    const provider = scripted(modelSkill('v1', 'v2', 'v3', 'v4', 'v5'), modelSkill('v6'));
+    const result = await extractSkills(deps(provider, memoryCache()), {
+      vacancies: ids.map((id) => ({ ...vacancy, id, description: `нужен Python ${id}` })),
     });
     expect(provider.calls).toHaveLength(2);
+    expect(result.results.map((item) => item.id)).toEqual(ids);
+    expect(result.results.every((item) => item.skills.length === 1)).toBe(true);
+  });
+
+  it('retries when the model leaves out a vacancy id', async () => {
+    const provider = scripted(modelSkill('other'), modelSkill());
+    const result = await extractSkills(deps(provider, memoryCache()), { vacancies: [vacancy] });
+    expect(provider.calls).toHaveLength(2);
+    expect(result.results[0]?.skills).toHaveLength(1);
   });
 
   it('retries an invalid payload and stops after three failures without caching', async () => {
@@ -119,9 +129,9 @@ function deps(
 function scripted(...steps: Array<string | Error>) {
   const queue = [...steps];
   return {
-    calls: [] as Array<{ messages: unknown; schema: unknown; timeoutMs: number }>,
-    async completeStructured(messages: unknown, schema: unknown, timeoutMs: number) {
-      this.calls.push({ messages, schema, timeoutMs });
+    calls: [] as Array<{ messages: unknown; schema: unknown; timeoutMs: number; maxTokens?: number }>,
+    async completeStructured(messages: unknown, schema: unknown, timeoutMs: number, maxTokens?: number) {
+      this.calls.push({ messages, schema, timeoutMs, maxTokens });
       const next = queue.shift();
       if (next instanceof Error) throw next;
       if (next === undefined) throw new LlmOutputError('empty script');

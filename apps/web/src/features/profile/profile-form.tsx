@@ -7,15 +7,8 @@ import { useEffect } from 'react';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { Button } from '../../common/components/button';
 import { TextField } from '../../common/components/text-field';
+import { employmentLabel, seniorityLabel, workFormatLabel } from '../../common/utils/enum-labels';
 import { emptyProfileForm, profileSchema, toProfileRequest, type ProfileFormValues } from './profile.schema';
-
-const SENIORITY_LABELS: Record<SeniorityLevel, string> = {
-  [SeniorityLevel.NoExperience]: 'No experience',
-  [SeniorityLevel.Junior]: 'Junior',
-  [SeniorityLevel.Middle]: 'Middle',
-  [SeniorityLevel.Senior]: 'Senior',
-  [SeniorityLevel.Lead]: 'Lead',
-};
 
 interface ProfileFormProps {
   values: ProfileFormValues | null;
@@ -23,7 +16,7 @@ interface ProfileFormProps {
   onSave: (body: UpdateProfileRequest) => Promise<void>;
 }
 
-/** Profile fields except city ids. Those stay as stored. */
+/** Profile fields except cities, which the location picker saves on its own. */
 export function ProfileForm({ values, notice, onSave }: ProfileFormProps) {
   const form = useForm<ProfileFormValues>({ resolver: yupResolver(profileSchema), defaultValues: emptyProfileForm() });
   useEffect(() => {
@@ -37,8 +30,8 @@ export function ProfileForm({ values, notice, onSave }: ProfileFormProps) {
       <TextArea label="About" {...form.register('about')} />
       <SeniorityField field={form.register('seniority')} />
       <TextField label="Desired roles" placeholder="QA, Python" {...form.register('desiredRoles')} />
-      <Checks legend="Work format" options={Object.values(WorkFormat)} selected={formats} onChange={(next) => form.setValue('preferredWorkFormat', next)} />
-      <Checks legend="Employment" options={Object.values(EmploymentType)} selected={employment} onChange={(next) => form.setValue('preferredEmployment', next)} />
+      <Checks legend="Work format" options={Object.values(WorkFormat)} labelOf={workFormatLabel} selected={formats} onChange={(next) => form.setValue('preferredWorkFormat', next)} />
+      <Checks legend="Employment" options={Object.values(EmploymentType)} labelOf={employmentLabel} selected={employment} onChange={(next) => form.setValue('preferredEmployment', next)} />
       <TextField label="Minimum salary" inputMode="decimal" {...form.register('salaryExpectationMin')} />
       <TextField label="Currency" maxLength={3} {...form.register('currency')} />
       <TextArea label="Education" {...form.register('education')} />
@@ -56,13 +49,13 @@ function SeniorityField({ field }: { field: UseFormRegisterReturn }) {
       Seniority
       <select className="mt-1 w-full rounded-md border border-white/15 bg-hira-bg px-3 py-2 text-hira-text" {...field}>
         <option value="">Not set</option>
-        {Object.values(SeniorityLevel).map((level) => <option key={level} value={level}>{SENIORITY_LABELS[level]}</option>)}
+        {Object.values(SeniorityLevel).map((level) => <option key={level} value={level}>{seniorityLabel(level)}</option>)}
       </select>
     </label>
   );
 }
 
-function Checks<T extends string>({ legend, options, selected, onChange }: { legend: string; options: readonly T[]; selected: readonly T[]; onChange: (next: T[]) => void }) {
+function Checks<T extends string>({ legend, options, labelOf, selected, onChange }: { legend: string; options: readonly T[]; labelOf: (option: T) => string; selected: readonly T[]; onChange: (next: T[]) => void }) {
   return (
     <fieldset>
       <legend className="text-sm text-hira-muted">{legend}</legend>
@@ -70,7 +63,7 @@ function Checks<T extends string>({ legend, options, selected, onChange }: { leg
         {options.map((option) => (
           <label key={option} className="flex items-center gap-2">
             <input type="checkbox" checked={selected.includes(option)} onChange={() => onChange(toggle(selected, option))} />
-            {option}
+            {labelOf(option)}
           </label>
         ))}
       </div>

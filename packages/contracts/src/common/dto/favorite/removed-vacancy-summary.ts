@@ -17,6 +17,7 @@ export function removedVacancySummary(vacancyId: string): VacancyCardSummary {
     salaryMax: null,
     salaryCurrency: null,
     workFormat: null,
+  isForeignRemote: false,
   };
 }
 

@@ -25,7 +25,7 @@ describe('understandQuery', () => {
     expect(result.intent.skills[0]?.canonicalId).toBeNull();
     expect(result.meta.tokenUsage).toEqual(usage);
     expect(cache.ttls).toEqual([86_400]);
-    expect(cache.store.has(understandCacheKey('test-model', '1', request))).toBe(true);
+    expect(cache.store.has(understandCacheKey('test-model', '2', request))).toBe(true);
     const schema = provider.calls[0]?.schema as { additionalProperties?: boolean };
     expect(schema.additionalProperties).toBe(false);
     expect(provider.calls[0]?.timeoutMs).toBe(7_000);
@@ -117,7 +117,7 @@ describe('understandQuery', () => {
 
   it('returns LLM_UPSTREAM_UNAVAILABLE when every attempt fails in transport', async () => {
     const provider = scripted(
-      new ProviderTransportError(429, 'slow'),
+      new ProviderTransportError(500, 'down'),
       new ProviderTransportError(null, 'reset'),
       new ProviderTransportError(503, 'down'),
     );
@@ -127,6 +127,15 @@ describe('understandQuery', () => {
     });
     expect(provider.calls).toHaveLength(3);
     expect(provider.sleeps).toEqual([200, 800]);
+  });
+
+  it('fails at once on a rate limit instead of spending more of the plan', async () => {
+    const provider = scripted(new ProviderTransportError(429, 'slow'));
+    await expect(understandQuery(deps(provider, memoryCache()), request)).rejects.toMatchObject({
+      status: 429,
+      errorCode: 'LLM_RATE_LIMITED',
+    });
+    expect(provider.calls).toHaveLength(1);
   });
 
   it('retries a duplicated soft constraint as invalid output', async () => {

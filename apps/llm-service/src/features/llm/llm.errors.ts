@@ -11,6 +11,8 @@ export class ProviderTransportError extends Error {
   constructor(
     readonly status: number | null,
     message: string,
+    /** Seconds the provider asked to wait, from `Retry-After`. Null when it did not say. */
+    readonly retryAfterSeconds: number | null = null,
   ) {
     super(message);
     this.name = 'ProviderTransportError';
@@ -26,6 +28,8 @@ export class LlmRouteError extends Error {
     readonly errorCode: string,
     message: string,
     details?: unknown,
+    /** Sent back as `Retry-After` so core-api can wait instead of retrying. */
+    readonly retryAfterSeconds: number | null = null,
   ) {
     super(message);
     this.name = 'LlmRouteError';

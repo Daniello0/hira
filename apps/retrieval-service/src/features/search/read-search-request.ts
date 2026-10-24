@@ -17,7 +17,7 @@ export interface ParsedSearch {
   options?: RetrievalOptions;
 }
 
-/** Reads the search body. A missing limit becomes 10; an out-of-range limit is rejected. */
+/** Reads the search body. A missing limit becomes the page size; an out-of-range limit is rejected. */
 export function readSearchRequest(body: unknown): ParsedSearch | null {
   if (!isRecord(body)) return null;
   const intent = readIntent(body.intent);
@@ -31,7 +31,7 @@ export function readSearchRequest(body: unknown): ParsedSearch | null {
 
 function readIntent(value: unknown): SearchIntent | null {
   if (!isRecord(value) || typeof value.rewrittenQuery !== 'string') return null;
-  if (!validConstraints(value.hardConstraints)) return null;
+  if (!validConstraints(value.hardConstraints) || !validSoft(value.softConstraints)) return null;
   const skills = readSkills(value.skills);
   const complexity = readComplexity(value.complexity);
   const seniority = readSeniority(value.seniority);
@@ -42,7 +42,13 @@ function readIntent(value: unknown): SearchIntent | null {
     complexity,
     seniority,
     hardConstraints: constraintsOf(value.hardConstraints),
+    softConstraints: (value.softConstraints ?? {}) as Record<string, number>,
   };
+}
+
+function validSoft(value: unknown): boolean {
+  if (value === undefined) return true;
+  return isRecord(value) && Object.values(value).every(numeric);
 }
 
 function readSkills(value: unknown): SkillMention[] | null {
@@ -150,7 +156,8 @@ function validConstraints(value: unknown): boolean {
     stringList(value.workFormat) &&
     stringList(value.employment) &&
     stringList(value.location) &&
-    (value.salaryMin === undefined || numeric(value.salaryMin))
+    (value.salaryMin === undefined || numeric(value.salaryMin)) &&
+    validFlag(value.includeForeignRemote)
   );
 }
 
@@ -161,6 +168,7 @@ function constraintsOf(value: unknown): HardConstraints {
     employment: value.employment as HardConstraints['employment'],
     location: value.location as HardConstraints['location'],
     salaryMin: value.salaryMin as HardConstraints['salaryMin'],
+    includeForeignRemote: value.includeForeignRemote as HardConstraints['includeForeignRemote'],
   };
 }
 

@@ -20,7 +20,8 @@ const FAVORITE_COLUMNS = `f.id::text AS id, f.vacancy_id::text AS "vacancyId", f
   f.note, f.added_by::text AS "addedBy", f.created_at AS "createdAt",
   (v.id IS NULL) AS "vacancyMissing", v.title, v.company_name AS "companyName", v.status::text AS status, v.url,
   v.salary_min AS "salaryMin", v.salary_max AS "salaryMax", v.salary_currency AS "salaryCurrency",
-  v.work_format::text AS "workFormat", l.city AS "locationCity", l.region AS "locationRegion"`;
+  v.work_format::text AS "workFormat", v.is_foreign_remote AS "isForeignRemote",
+  l.city AS "locationCity", l.region AS "locationRegion"`;
 
 /** Lists saved vacancies for one account. */
 export async function listFavorites(sql: Sql, userId: string, query: FavoriteListQuery): Promise<FavoriteDto[]> {
@@ -126,7 +127,8 @@ export async function loadVacancySummary(sql: Sql, vacancyId: string): Promise<V
     sql,
     `SELECT v.id::text AS id, v.title, v.company_name AS "companyName", v.status::text AS status, v.url,
       v.salary_min AS "salaryMin", v.salary_max AS "salaryMax", v.salary_currency AS "salaryCurrency",
-      v.work_format::text AS "workFormat", l.city AS "locationCity", l.region AS "locationRegion"
+      v.work_format::text AS "workFormat", v.is_foreign_remote AS "isForeignRemote",
+      l.city AS "locationCity", l.region AS "locationRegion"
      FROM vacancies v LEFT JOIN locations l ON l.id = v.location_id WHERE v.id = $1`,
     [vacancyId],
   );
@@ -165,6 +167,7 @@ function toSummary(row: Record<string, unknown>): VacancyCardSummary {
     salaryMax: asNumber(row.salaryMax),
     salaryCurrency: textOrNull(row.salaryCurrency),
     workFormat: textOrNull(row.workFormat) as WorkFormat | null,
+    isForeignRemote: row.isForeignRemote === true,
   };
 }
 

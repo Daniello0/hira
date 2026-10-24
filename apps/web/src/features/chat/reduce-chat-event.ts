@@ -1,7 +1,9 @@
 import {
+  DocumentFormat,
   IntentType,
   MessageRole,
   type ChatMessageView,
+  type DocumentDraftDto,
   type RetrievalDiagnostics,
   type SearchIntent,
   type VacancyResult,
@@ -20,6 +22,10 @@ export interface LiveTurn {
   diagnostics: RetrievalDiagnostics | null;
   banner: string | null;
   notice: string | null;
+  /** Draft that arrived in this turn, before its assistant message. */
+  pendingDraft: DocumentDraftDto | null;
+  /** Drafts keyed by the assistant message they belong to. They are not stored on the server. */
+  drafts: Record<string, DocumentDraftDto>;
 }
 
 /** Empty live turn. History can already be loaded. */
@@ -34,6 +40,8 @@ export function emptyTurn(messages: readonly ChatMessageView[] = []): LiveTurn {
     diagnostics: panel.diagnostics,
     banner: null,
     notice: null,
+    pendingDraft: null,
+    drafts: {},
   };
 }
 
@@ -43,6 +51,7 @@ export function reduceChatEvent(state: LiveTurn, raw: { event: string; data: unk
   if (raw.event === 'intent') return onIntent(state, raw.data);
   if (raw.event === 'results') return onResults(state, raw.data);
   if (raw.event === 'token') return onToken(state, raw.data);
+  if (raw.event === 'document-draft') return onDraft(state, raw.data);
   if (raw.event === 'assistant-message') return onAssistant(state, raw.data);
   if (raw.event === 'done') return finish(state);
   if (raw.event === 'error') return onError(state, raw.data);
@@ -64,7 +73,7 @@ function onUser(state: LiveTurn, data: unknown): LiveTurn {
   const message = asMessage(data);
   if (message === null) return state;
   const messages = state.messages.some((item) => item.id === message.id) ? state.messages : [...state.messages, message];
-  return { ...state, phase: StreamPhase.Searching, messages, pendingText: '', pendingResults: [] };
+  return { ...state, phase: StreamPhase.Searching, messages, pendingText: '', pendingResults: [], pendingDraft: null };
 }
 
 function onIntent(state: LiveTurn, data: unknown): LiveTurn {
@@ -88,15 +97,21 @@ function onToken(state: LiveTurn, data: unknown): LiveTurn {
   return { ...state, phase: StreamPhase.Writing, pendingText: state.pendingText + delta };
 }
 
+function onDraft(state: LiveTurn, data: unknown): LiveTurn {
+  const draft = asDraft(data);
+  return draft === null ? state : { ...state, pendingDraft: draft };
+}
+
 function onAssistant(state: LiveTurn, data: unknown): LiveTurn {
   const message = asMessage(data);
   if (message === null) return state;
   const stored = { ...message, content: message.content || state.pendingText, results: message.results ?? state.pendingResults };
-  return { ...state, messages: [...state.messages, stored], pendingText: '', pendingResults: [] };
+  const drafts = state.pendingDraft === null ? state.drafts : { ...state.drafts, [message.id]: state.pendingDraft };
+  return { ...state, messages: [...state.messages, stored], pendingText: '', pendingResults: [], pendingDraft: null, drafts };
 }
 
 function finish(state: LiveTurn): LiveTurn {
-  return { ...state, phase: StreamPhase.Idle, pendingText: '', pendingResults: [] };
+  return { ...state, phase: StreamPhase.Idle, pendingText: '', pendingResults: [], pendingDraft: null };
 }
 
 function onError(state: LiveTurn, data: unknown): LiveTurn {
@@ -106,6 +121,7 @@ function onError(state: LiveTurn, data: unknown): LiveTurn {
     phase: StreamPhase.Idle,
     pendingText: '',
     pendingResults: [],
+    pendingDraft: null,
     banner: code === RATE_LIMIT_ERROR_CODE ? SIGN_UP_BANNER : state.banner,
     notice: code === RATE_LIMIT_ERROR_CODE ? null : text(data, 'message') || 'Something went wrong',
   };
@@ -121,6 +137,18 @@ function asMessage(data: unknown): ChatMessageView | null {
   };
   if (Array.isArray(data.results)) view.results = data.results as VacancyResult[];
   return view;
+}
+
+/** Validates the `document-draft` payload. Shared with the call screen. */
+export function asDraft(data: unknown): DocumentDraftDto | null {
+  if (!isRecord(data) || typeof data.title !== 'string' || typeof data.content !== 'string') return null;
+  return {
+    title: data.title,
+    format: data.format === DocumentFormat.Txt ? DocumentFormat.Txt : DocumentFormat.Md,
+    content: data.content,
+    targetDocumentId: typeof data.targetDocumentId === 'string' ? data.targetDocumentId : null,
+    targetTitle: typeof data.targetTitle === 'string' ? data.targetTitle : null,
+  };
 }
 
 function asIntent(data: unknown): SearchIntent | null {

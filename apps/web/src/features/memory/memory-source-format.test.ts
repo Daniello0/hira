@@ -10,7 +10,7 @@ describe('formatMemorySource', () => {
     });
     expect(formatMemorySource(fact({ sourceCallSessionId: 'call-9', sourceCallTurnId: 'turn-1' }))).toEqual({
       href: null,
-      label: 'Call session call-9',
+      label: 'Call · Oct 24, 2026',
     });
   });
 });

@@ -1,4 +1,5 @@
 import { MatchFactor, VacancyStatus, type MatchExplanation, type SkillMatch, type VacancyDto, type VacancyResult } from '@hira/contracts';
+import { rateUnitLabel, workFormatLabel } from '../../common/utils/enum-labels';
 import { CARD_SKILL_BADGE_LIMIT, SALARY_NOT_LISTED } from './vacancy.constants';
 
 export interface VacancyCardModel {
@@ -11,6 +12,7 @@ export interface VacancyCardModel {
   badges: string[];
   closed: boolean;
   originalUrl: string;
+  foreignRemote: boolean;
 }
 
 export interface FactorBar {
@@ -46,11 +48,12 @@ export function toVacancyCardModel(result: VacancyResult): VacancyCardModel {
     company: result.vacancy.companyName ?? '',
     location: result.vacancy.locationLabel ?? '',
     pay: payLabel(result.vacancy),
-    format: result.vacancy.workFormat,
+    format: result.vacancy.workFormat === null ? null : workFormatLabel(result.vacancy.workFormat),
     score: Math.round(result.score),
     badges: result.explanation.matchedSkills.slice(0, CARD_SKILL_BADGE_LIMIT).map((skill) => skill.surface),
     closed: result.vacancy.status !== VacancyStatus.Active,
     originalUrl: result.vacancy.url,
+    foreignRemote: result.vacancy.isForeignRemote === true,
   };
 }
 
@@ -72,9 +75,10 @@ export function skillGroups(explanation: MatchExplanation): SkillGroup[] {
   ];
 }
 
-function payLabel(vacancy: VacancyDto): string {
+/** Salary, rate, or the "not listed" line. Shared by the card and the detail drawer. */
+export function payLabel(vacancy: VacancyDto): string {
   if (vacancy.salaryMin !== null || vacancy.salaryMax !== null) return range(vacancy.salaryMin, vacancy.salaryMax, vacancy.salaryCurrency);
-  if (vacancy.rateAmount !== null) return `${vacancy.rateAmount} ${vacancy.rateUnit ?? ''}`.trim();
+  if (vacancy.rateAmount !== null) return `${vacancy.rateAmount} ${vacancy.rateUnit === null ? '' : rateUnitLabel(vacancy.rateUnit)}`.trim();
   return SALARY_NOT_LISTED;
 }
 

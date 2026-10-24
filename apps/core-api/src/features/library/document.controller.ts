@@ -1,10 +1,14 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Patch, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { DocumentFormat, DocumentKind, ParseStatus, type DocumentSummaryDto } from '@hira/contracts';
 import { plainToInstance } from 'class-transformer';
 import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength, validateSync } from 'class-validator';
 import type { Request } from 'express';
+import type { Logger } from 'pino';
+import { LOGGER } from '../../common/constants/app.constants';
+import { readRequestId } from '../../common/interceptors/request-id.interceptor';
+import type { LibrarySummary } from './library.store';
 import { LLM_GATEWAY } from '../search-orchestrator/search.constants';
 import type { LlmGateway } from '../search-orchestrator/upstream-gateway';
 import { validatedBody, validationException } from '../auth/validation-exception';
@@ -24,37 +28,60 @@ import {
 } from '../memory/memory.constants';
 
 class TextDocumentBody {
+  @ApiProperty({ enum: DocumentKind })
   @IsEnum(DocumentKind)
   kind!: DocumentKind;
 
+  @ApiProperty({ type: String, minLength: 1, maxLength: DOCUMENT_TITLE_MAX_CHARS })
   @IsString()
   @MinLength(1)
   @MaxLength(DOCUMENT_TITLE_MAX_CHARS)
   title!: string;
 
+  @ApiProperty({ enum: [DocumentFormat.Md, DocumentFormat.Txt] })
   @IsEnum(DocumentFormat)
   format!: DocumentFormat;
 
+  @ApiProperty({ type: String, minLength: 1 })
   @IsString()
   @MinLength(1)
   content!: string;
+
+  @ApiPropertyOptional({ type: Boolean, description: 'True when the user saves a draft Hira proposed' })
+  @IsOptional()
+  @IsBoolean()
+  fromAssistant?: boolean;
 }
 
 class DocumentPatchBody {
+  @ApiPropertyOptional({ type: String, minLength: 1, maxLength: DOCUMENT_TITLE_MAX_CHARS })
   @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(DOCUMENT_TITLE_MAX_CHARS)
   title?: string;
 
+  @ApiPropertyOptional({ type: String, description: 'Markdown or text only' })
   @IsOptional()
   @IsString()
   content?: string;
 
+  @ApiPropertyOptional({ type: Boolean })
   @IsOptional()
   @IsBoolean()
   isPinned?: boolean;
 }
+
+/** Swagger shape of the resume upload. */
+const UPLOAD_SCHEMA = {
+  type: 'object',
+  properties: {
+    file: { type: 'string', format: 'binary', description: 'Resume PDF' },
+    kind: { type: 'string', enum: [DocumentKind.Resume] },
+    format: { type: 'string', enum: [DocumentFormat.Pdf] },
+  },
+  required: ['file'],
+};
 
 interface UploadFile {
   buffer: Buffer;
@@ -65,6 +92,7 @@ interface UploadFile {
 /** Personal library. Demo sessions are rejected. */
 @ApiTags('documents')
 @ApiBearerAuth()
+@ApiExtraModels(TextDocumentBody, DocumentPatchBody)
 @UseGuards(OptionalAccessGuard)
 @Controller('documents')
 export class DocumentController {
@@ -73,6 +101,7 @@ export class DocumentController {
     @Inject(LibraryService) private readonly library: LibraryService,
     @Inject(ProfileService) private readonly profiles: ProfileService,
     @Inject(LLM_GATEWAY) private readonly llm: LlmGateway,
+    @Inject(LOGGER) private readonly logger: Logger,
   ) {}
 
   /** Lists files without their text. */
@@ -96,6 +125,11 @@ export class DocumentController {
   /** Creates Markdown or text, or uploads a resume PDF. */
   @Post()
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: PDF_MAX_BYTES + 1 } }))
+  @ApiConsumes('application/json', 'multipart/form-data')
+  @ApiBody({
+    schema: { oneOf: [{ $ref: '#/components/schemas/TextDocumentBody' }, UPLOAD_SCHEMA] },
+    description: 'JSON for Markdown or text; multipart with `file` for a resume PDF',
+  })
   @ApiOperation({ summary: 'Create a document' })
   create(@UploadedFile() file: UploadFile | undefined, @Body() body: Partial<TextDocumentBody>, @Req() request: Request) {
     return this.call(request, async (userId) => {
@@ -139,10 +173,11 @@ export class DocumentController {
     const title = pdfTitle(file.originalname);
     const document = await this.library.createPdf(userId, title, file.buffer);
     try {
-      const parsed = await this.llm.parseResume({ resumeText: document.extractedText }, requestId(request));
+      const parsed = await this.llm.parseResume({ resumeText: document.extractedText }, readRequestId(request));
       await this.profiles.offerResume(userId, document.id, parsed.skills, parsed.experience);
       await this.library.setParseStatus(userId, document.id, ParseStatus.Success);
-    } catch {
+    } catch (error) {
+      this.logger.warn({ err: error, documentId: document.id }, 'resume parsing failed');
       await this.library.setParseStatus(userId, document.id, ParseStatus.Failed);
     }
     const saved = await this.library.find(userId, document.id);
@@ -160,7 +195,7 @@ export class DocumentController {
   }
 }
 
-function summaryOf(document: { id: string; kind: DocumentKind; title: string; format: DocumentFormat; isPinned: boolean; parseStatus: ParseStatus | null; createdAt: Date }): DocumentSummaryDto {
+function summaryOf(document: LibrarySummary): DocumentSummaryDto {
   return {
     id: document.id,
     kind: document.kind,
@@ -168,7 +203,9 @@ function summaryOf(document: { id: string; kind: DocumentKind; title: string; fo
     format: document.format,
     isPinned: document.isPinned,
     parseStatus: document.parseStatus,
+    createdBy: document.createdBy,
     createdAt: document.createdAt.toISOString(),
+    updatedAt: document.updatedAt.toISOString(),
   };
 }
 
@@ -191,7 +228,3 @@ function pdfTitle(name: string | undefined): string {
   return title;
 }
 
-function requestId(request: Request): string {
-  const value = request.header('x-request-id');
-  return value === undefined || value.length === 0 ? 'document' : value;
-}

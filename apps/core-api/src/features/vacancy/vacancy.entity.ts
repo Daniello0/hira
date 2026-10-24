@@ -89,6 +89,10 @@ export class Vacancy {
   @Column({ type: 'boolean', default: false })
   isForeignRemote!: boolean;
 
+  /** Failed skill-extraction attempts; ingestion stops retrying after a few. */
+  @Column({ type: 'int', default: 0 })
+  skillExtractFailures!: number;
+
   @Column({ type: 'enum', enum: VacancyStatus, enumName: 'vacancy_status' })
   status!: VacancyStatus;
 

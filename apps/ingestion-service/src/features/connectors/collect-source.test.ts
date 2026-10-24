@@ -138,10 +138,10 @@ describe('collectSource', () => {
     expect(result.raws.map((row) => row.region)).toEqual([null]);
   });
 
-  it('rejects a source that belongs to a later stage', async () => {
+  it('rejects a source that is switched off', async () => {
     const http: HttpGet = { get: async () => ({ status: 200, body: '' }) };
     await expect(collectSource(VacancySource.LinkedIn, { http, limit: 1 })).rejects.toThrow(
-      /stage 7/i,
+      /disabled/i,
     );
   });
 });

@@ -1,4 +1,5 @@
-import type { VacancyResult } from '@hira/contracts';
+import type { RetrievalBranch, VacancyResult } from '@hira/contracts';
+import { branchLabel } from '../../common/utils/enum-labels';
 import { factorBars, skillGroups } from './vacancy-card-model';
 
 /** Expanded match: factor bars, skill groups, and branch badges. */
@@ -46,12 +47,12 @@ function SkillGroupView({ title, skills }: { title: string; skills: { surface: s
   );
 }
 
-function BranchBadges({ branches }: { branches: readonly string[] }) {
+function BranchBadges({ branches }: { branches: readonly RetrievalBranch[] }) {
   return (
     <ul className="flex gap-2">
       {branches.map((branch) => (
         <li key={branch} className="rounded bg-hira-accent/30 px-2 py-1 text-xs">
-          {branch}
+          {branchLabel(branch)}
         </li>
       ))}
     </ul>

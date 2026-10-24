@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { buildGenerateMessages } from './build-generate-messages';
 
 const instruction =
-  'Answer in the language of the latest user message. Use only the vacancies and explanations provided. Do not invent vacancies.';
+  'You are Hira, a job-search assistant. Always answer in the language of the latest user message. Use only the vacancies and explanations provided. Do not invent vacancies.';
 
 describe('buildGenerateMessages', () => {
   it('grounds the prompt in the title, score, and explanation', () => {
@@ -52,6 +52,17 @@ describe('buildGenerateMessages', () => {
       .map((message) => message.content)
       .join('\n');
     expect(empty).toContain('No vacancies were retrieved.');
+  });
+
+  it('gives career advice the original message and no vacancy list', () => {
+    const messages = buildGenerateMessages({
+      intent: { ...intent(), intentType: IntentType.CareerAdvice },
+      history: [{ role: MessageRole.User, content: 'как перейти в data science?' }],
+      results: [result('Backend engineer', 'desc', 'Docker')],
+    });
+    expect(messages[0]?.content).not.toContain('Use only the vacancies');
+    expect(messages[1]?.content).toContain('Latest user message: как перейти в data science?');
+    expect(messages[1]?.content).not.toContain('Backend engineer');
   });
 });
 

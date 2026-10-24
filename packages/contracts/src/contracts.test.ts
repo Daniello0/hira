@@ -80,6 +80,7 @@ describe('domain enums', () => {
       'COMPARE',
       'CAREER_ADVICE',
       'SMALL_TALK',
+      'DRAFT_DOCUMENT',
     ]);
   });
 

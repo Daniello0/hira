@@ -63,6 +63,7 @@ const intentSchema = z
         employment: z.array(stringEnum(Object.values(EmploymentType))).optional(),
         location: z.array(z.string()).optional(),
         salaryMin: z.number().optional(),
+        includeForeignRemote: z.boolean().optional(),
       })
       .strict(),
     softConstraints: z.record(z.string(), z.number()),

@@ -1,4 +1,5 @@
 import type { MatchExplanation, SeniorityLevel } from '@hira/contracts';
+import type { ProfileSignals } from '../personalize/profile-signals';
 
 /** Inputs of the six explanation factors. Missing branch data is null. */
 export interface FactorInput {
@@ -11,6 +12,8 @@ export interface FactorInput {
   workFormatAsked: boolean;
   employmentAsked: boolean;
   salaryAsked: boolean;
+  /** S5 profile fit. Fills a factor the query left open; absent when personalization is off. */
+  profile?: ProfileSignals | null;
 }
 
 /** Factor scores and their average. Both live on 0..100. */
@@ -29,7 +32,7 @@ export function scoreFactors(input: FactorInput): FactorBreakdown {
     lexicalFit: { score: lexicalFit(input) },
     experienceFit: { score: experienceFit(input) },
     formatFit: { score: formatFit(input) },
-    salaryFit: { score: input.salaryAsked ? 100 : 0 },
+    salaryFit: { score: salaryFit(input) },
   };
   const totalScore =
     Object.values(factors).reduce((sum, factor) => sum + factor.score, 0) / FACTOR_COUNT;
@@ -37,8 +40,9 @@ export function scoreFactors(input: FactorInput): FactorBreakdown {
 }
 
 function skillFit(input: FactorInput): number {
-  if (!input.graphRan || input.coverage === null) return 0;
-  return clamp(input.coverage * 100);
+  if (input.graphRan && input.coverage !== null) return clamp(input.coverage * 100);
+  const overlap = input.profile?.skillOverlap ?? null;
+  return overlap === null ? 0 : clamp(overlap * 100);
 }
 
 function semanticFit(input: FactorInput): number {
@@ -52,12 +56,19 @@ function lexicalFit(input: FactorInput): number {
 }
 
 function experienceFit(input: FactorInput): number {
-  if (input.querySeniority === null || input.vacancySeniority === null) return 0;
+  if (input.querySeniority === null) return input.profile?.seniorityMatch === true ? 100 : 0;
+  if (input.vacancySeniority === null) return 0;
   return input.querySeniority === input.vacancySeniority ? 100 : 0;
 }
 
 function formatFit(input: FactorInput): number {
-  return input.workFormatAsked || input.employmentAsked ? 100 : 0;
+  if (input.workFormatAsked || input.employmentAsked) return 100;
+  return input.profile?.formatMatch === true ? 100 : 0;
+}
+
+function salaryFit(input: FactorInput): number {
+  if (input.salaryAsked) return 100;
+  return input.profile?.salaryMatch === true ? 100 : 0;
 }
 
 function clamp(value: number): number {

@@ -5,6 +5,7 @@ import { isRecord } from '../../common/utils/is-record';
 import { readPromptCache, writePromptCache, type PromptCache } from '../cache/prompt-cache';
 import { understandCacheKey } from '../cache/understand-cache-key';
 import {
+  MAX_TOKENS,
   SEARCH_INTENT_SCHEMA_VERSION,
   UNDERSTAND_ATTEMPT_TIMEOUT_MS,
   UNDERSTAND_CACHE_TTL_SECONDS,
@@ -21,6 +22,7 @@ export interface UnderstandDeps {
       messages: ChatMessage[],
       schema: Record<string, unknown>,
       timeoutMs: number,
+      maxTokens?: number,
     ): Promise<{ content: string; tokenUsage: TokenUsage }>;
   };
   cache: PromptCache;
@@ -85,6 +87,7 @@ async function requestIntent(
     withFeedback(buildUnderstandMessages(request), feedback),
     buildSearchIntentJsonSchema(),
     timeoutMs,
+    MAX_TOKENS.understand,
   );
   return { intent: asModelOutput(completion.content), meta: { tokenUsage: completion.tokenUsage } };
 }

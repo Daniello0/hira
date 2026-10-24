@@ -11,6 +11,9 @@ export const INTERNAL_ERROR_CODE = 'INTERNAL_ERROR';
 export const INTERNAL_ERROR_MESSAGE = 'Unexpected error';
 export const SERVICE_NAME = 'retrieval-service';
 
+/** Shape of a Postgres uuid (`users.id`, `vacancies.id`). */
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const ENV = {
   port: 'PORT',
   logLevel: 'LOG_LEVEL',

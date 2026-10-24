@@ -17,15 +17,23 @@ interface AxiosLike {
     url: string,
     body: unknown,
     config: AxiosRequestConfig,
-  ): Promise<{ status: number; data: unknown }>;
+  ): Promise<{ status: number; data: unknown; headers?: unknown }>;
 }
 
 interface Deadline {
   signal: AbortSignal;
   stop: () => void;
+  /** Starts a fresh countdown, used after every streamed chunk. */
+  restart: (timeoutMs: number) => void;
 }
 
-/** Axios adapter that returns provider statuses and aborts a live stream at the attempt deadline. */
+type HttpResult = { status: number; data: unknown; headers?: Record<string, unknown> };
+
+/**
+ * Axios adapter that returns provider statuses and headers.
+ * `timeout` bounds the wait for the response (the first byte of a stream); with `idleTimeout`
+ * a live stream is then aborted only when it goes quiet that long between chunks.
+ */
 export function createAxiosPost(client: AxiosLike): HttpPost {
   return {
     post: (url, body, init) => post(client, url, body, init),
@@ -37,11 +45,12 @@ async function post(
   url: string,
   body: unknown,
   init: HttpInit,
-): Promise<{ status: number; data: unknown }> {
+): Promise<HttpResult> {
   const deadline = startDeadline(init.timeout);
   try {
     const response = await client.post(url, body, requestConfig(init, deadline.signal));
-    return attachStreamDeadline(response, init.responseType, deadline);
+    const result = { status: response.status, data: response.data, headers: readHeaders(response.headers) };
+    return attachStreamDeadline(result, init, deadline);
   } catch (error) {
     deadline.stop();
     throw asTransport(error, deadline.signal.aborted);
@@ -58,29 +67,32 @@ function requestConfig(init: HttpInit, signal: AbortSignal): AxiosRequestConfig 
   };
 }
 
-function attachStreamDeadline(
-  response: { status: number; data: unknown },
-  responseType: HttpInit['responseType'],
-  deadline: Deadline,
-): { status: number; data: unknown } {
-  if (responseType !== 'stream' || !(response.data instanceof Readable)) {
+function attachStreamDeadline(response: HttpResult, init: HttpInit, deadline: Deadline): HttpResult {
+  if (init.responseType !== 'stream' || !(response.data instanceof Readable)) {
     deadline.stop();
     return response;
   }
-  return { status: response.status, data: streamWithDeadline(response.data, deadline) };
+  return { ...response, data: streamWithDeadline(response.data, deadline, init.idleTimeout) };
 }
 
 function startDeadline(timeoutMs: number): Deadline {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return { signal: controller.signal, stop: () => clearTimeout(timer) };
+  let timer = setTimeout(() => controller.abort(), timeoutMs);
+  return {
+    signal: controller.signal,
+    stop: () => clearTimeout(timer),
+    restart: (nextMs) => {
+      clearTimeout(timer);
+      if (!controller.signal.aborted) timer = setTimeout(() => controller.abort(), nextMs);
+    },
+  };
 }
 
-function streamWithDeadline(stream: Readable, deadline: Deadline): AsyncIterable<unknown> {
+function streamWithDeadline(stream: Readable, deadline: Deadline, idleTimeoutMs: number | undefined): AsyncIterable<unknown> {
   const onAbort = (): void => destroyAtDeadline(stream);
   deadline.signal.addEventListener('abort', onAbort);
   return {
-    [Symbol.asyncIterator]: () => readUntilDeadline(stream, deadline, onAbort),
+    [Symbol.asyncIterator]: () => readUntilDeadline(stream, deadline, onAbort, idleTimeoutMs),
   };
 }
 
@@ -88,10 +100,14 @@ async function* readUntilDeadline(
   stream: Readable,
   deadline: Deadline,
   onAbort: () => void,
+  idleTimeoutMs: number | undefined,
 ): AsyncGenerator<unknown> {
   try {
     failIfAlreadyAborted(stream, deadline);
-    for await (const chunk of stream) yield chunk;
+    for await (const chunk of stream) {
+      if (idleTimeoutMs !== undefined) deadline.restart(idleTimeoutMs);
+      yield chunk;
+    }
   } catch (error) {
     throw asTransport(error, deadline.signal.aborted);
   } finally {
@@ -119,6 +135,12 @@ function ensureErrorListener(stream: Readable): void {
 
 function keepStreamErrorHandled(): void {
   return undefined;
+}
+
+function readHeaders(headers: unknown): Record<string, unknown> | undefined {
+  if (typeof headers !== 'object' || headers === null) return undefined;
+  const plain = 'toJSON' in headers && typeof headers.toJSON === 'function' ? (headers.toJSON() as unknown) : headers;
+  return typeof plain === 'object' && plain !== null ? (plain as Record<string, unknown>) : undefined;
 }
 
 function asTransport(error: unknown, aborted: boolean): ProviderTransportError {

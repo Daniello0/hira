@@ -1,6 +1,7 @@
-import { VacancySource } from '@hira/contracts';
+import type { VacancySource } from '@hira/contracts';
 import { isArchivedVacancy } from './archived-page';
 import { assertRobots, detailTarget, readResponse, type CollectInput } from './collect-source';
+import { connectorFor } from './registry';
 
 export type AliveVerdict = 'open' | 'archived' | 'gone';
 
@@ -12,12 +13,16 @@ export async function checkAlive(
 ): Promise<AliveVerdict> {
   const target = detailTarget(source, externalId);
   const response = await readResponse(input, `${target.origin}${target.path}`);
-  return aliveVerdict(response.status, response.body);
+  return aliveVerdict(response.status, response.body, connectorFor(source).isArchived);
 }
 
 /** Maps an HTTP response to a liveness verdict. Transport errors are thrown. */
-export function aliveVerdict(status: number, body: string): AliveVerdict {
-  if (isArchivedVacancy(body)) return 'archived';
+export function aliveVerdict(
+  status: number,
+  body: string,
+  isArchived: (html: string) => boolean = isArchivedVacancy,
+): AliveVerdict {
+  if (isArchived(body) || isArchivedVacancy(body)) return 'archived';
   if (status === 404 || status === 410) return 'gone';
   if (status >= 400) throw new Error(`HTTP ${status}`);
   return 'open';

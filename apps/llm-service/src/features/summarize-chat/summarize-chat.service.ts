@@ -1,5 +1,6 @@
 import type { SummarizeChatRequest, SummarizeChatResponse } from '@hira/contracts';
 import { completeJson, type StructuredDeps } from '../llm/complete-json';
+import { MAX_TOKENS } from '../llm/llm.constants';
 import { buildSummaryJsonSchema, formatChatSummary, parseSummaryParts } from './summarize-chat.schema';
 
 const SYSTEM_PROMPT =
@@ -10,7 +11,7 @@ export async function summarizeChat(
   deps: StructuredDeps,
   request: SummarizeChatRequest,
 ): Promise<SummarizeChatResponse> {
-  const parts = await completeJson(deps, messages(request), buildSummaryJsonSchema(), parseSummaryParts);
+  const parts = await completeJson(deps, messages(request), buildSummaryJsonSchema(), parseSummaryParts, MAX_TOKENS.summary);
   return { summary: formatChatSummary(parts) };
 }
 

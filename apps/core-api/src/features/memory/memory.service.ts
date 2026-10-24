@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { MemoryFactDto, UpdateMemoryRequest } from '@hira/contracts';
-import { MEMORY_NOT_FOUND_MESSAGE } from './memory.constants';
+import { MEMORY_NOT_FOUND_MESSAGE, MEMORY_PATCH_EMPTY_MESSAGE } from './memory.constants';
 import { isListedFact } from './select-memory';
 import { MEMORY_STORE, type MemoryStore } from './memory.store';
 import type { MemoryFact } from './memory.types';
@@ -10,6 +10,14 @@ export class MemoryNotFoundError extends Error {
   constructor() {
     super(MEMORY_NOT_FOUND_MESSAGE);
     this.name = 'MemoryNotFoundError';
+  }
+}
+
+/** `PATCH /memory/{id}` carried neither `content` nor `isPinned`. */
+export class EmptyMemoryPatchError extends Error {
+  constructor() {
+    super(MEMORY_PATCH_EMPTY_MESSAGE);
+    this.name = 'EmptyMemoryPatchError';
   }
 }
 

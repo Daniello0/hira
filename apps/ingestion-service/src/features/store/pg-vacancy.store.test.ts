@@ -121,6 +121,9 @@ function vacancy(patch: Partial<CanonicalVacancy> = {}): CanonicalVacancy {
     salaryMinByn: null,
     salaryMaxByn: null,
     isGross: null,
+    rateAmount: null,
+    rateUnit: null,
+    projectDurationDays: null,
     isForeignRemote: false,
     status: VacancyStatus.Active,
     publishedAt: null,
@@ -153,7 +156,7 @@ class PairDb implements SqlClient {
     if (sql.includes('INSERT INTO vacancies')) return { rows: [this.insert(params)] };
     if (sql.includes('DELETE FROM vacancy_skills')) return this.clearLinks(params);
     if (sql.includes('DELETE FROM vacancy_chunks')) return this.clearChunks(params);
-    if (sql.includes('content_hash = $26')) return this.touch(params);
+    if (sql.includes('content_hash = $29')) return this.touch(params);
     if (sql.includes('FROM vacancies v')) return { rows: this.candidates(params) };
     if (sql.includes('INSERT INTO vacancy_duplicates')) return this.addPair(sql, params);
     if (sql.includes("status = 'DUPLICATE'")) return this.markDuplicate(params);

@@ -3,7 +3,8 @@ import { AuthModule } from '../auth/auth.module';
 import { ChatModule } from '../chat/chat.module';
 import { EmbedModule } from '../embed/embed.module';
 import { DiskFileStore } from './disk-file.store';
-import { LibraryService, TypeOrmLibraryStore } from './library.service';
+import { LibraryService } from './library.service';
+import { TypeOrmLibraryStore } from './typeorm-library.store';
 import { FILE_STORE, LIBRARY_STORE, PDF_READER, type PdfReader } from './library.store';
 import { readPdfText } from './read-pdf-text';
 

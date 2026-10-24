@@ -25,6 +25,8 @@ export const SSE_EVENT = {
   userMessage: 'user-message',
   intent: 'intent',
   results: 'results',
+  /** `DocumentDraftDto` after the tokens of a `DRAFT_DOCUMENT` turn. */
+  documentDraft: 'document-draft',
   token: 'token',
   assistantMessage: 'assistant-message',
   done: 'done',

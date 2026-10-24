@@ -4,6 +4,9 @@ export const DEFAULT_COLLECTION_NAME = 'Saved';
 /** `collections.name` is varchar(128). */
 export const COLLECTION_NAME_MAX = 128;
 
+/** Cap for a collection description. */
+export const COLLECTION_DESCRIPTION_MAX = 2_000;
+
 /** Cap for a private note on a saved vacancy. */
 export const FAVORITE_NOTE_MAX = 2_000;
 

@@ -31,7 +31,7 @@ import {
   VacancyMissingError,
 } from '../favorite/favorite.errors';
 import { DocumentNotFoundError, LibraryInputError } from '../library/library.service';
-import { MemoryNotFoundError } from '../memory/memory.service';
+import { EmptyMemoryPatchError, MemoryNotFoundError } from '../memory/memory.service';
 import { SkillExistsError, SkillMissingError, SuggestionClosedError } from '../profile/profile.service';
 
 /** Maps account, library, and profile failures onto the shared error body. */
@@ -41,6 +41,7 @@ export function mapAccountError(error: unknown, request: Request): ApiHttpExcept
   if (error instanceof LibraryInputError) return apiError(HttpStatus.BAD_REQUEST, VALIDATION_ERROR_CODE, error.message, request);
   if (error instanceof DocumentNotFoundError) return apiError(HttpStatus.NOT_FOUND, DOCUMENT_NOT_FOUND, error.message, request);
   if (error instanceof MemoryNotFoundError) return apiError(HttpStatus.NOT_FOUND, MEMORY_NOT_FOUND, error.message, request);
+  if (error instanceof EmptyMemoryPatchError) return apiError(HttpStatus.BAD_REQUEST, VALIDATION_ERROR_CODE, error.message, request);
   if (error instanceof SkillExistsError) return apiError(HttpStatus.CONFLICT, SKILL_EXISTS, error.message, request);
   if (error instanceof SkillMissingError) return apiError(HttpStatus.NOT_FOUND, SKILL_NOT_FOUND, error.message, request);
   if (error instanceof SuggestionClosedError) return apiError(HttpStatus.NOT_FOUND, SUGGESTION_NOT_FOUND, error.message, request);

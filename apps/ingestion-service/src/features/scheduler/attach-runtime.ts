@@ -4,15 +4,29 @@ import { Redis } from 'ioredis';
 import cron from 'node-cron';
 import type { Logger } from 'pino';
 import type { Pool, PoolClient } from 'pg';
-import { IngestionStatus } from '@hira/contracts';
-import { INGEST_QUEUE, JOB_EMBED, JOB_EXTRACT_SKILLS, QUEUE_PREFIX } from '../ingestion.constants';
+import { IngestionStatus, type VacancySource } from '@hira/contracts';
+import { createRedisDailyCounter, type DailyCounter } from '../budget/daily-counter';
+import { dailyRequestCap } from '../connectors/registry';
+import {
+  INGEST_QUEUE,
+  JOB_EMBED,
+  JOB_EXTRACT_SKILLS,
+  JOB_GRAPH,
+  QUEUE_PREFIX,
+} from '../ingestion.constants';
 import { clearReindex } from '../reindex/clear-reindex';
 import { createRunsRouter } from '../runs/runs.router';
 import type { HttpGet } from '../connectors/collect-source';
 import { createDailyRates, fetchNbrbRates } from '../normalize/nbrb-rates';
 import { performIngest } from '../store/perform-ingest';
 import { createPgRunStore } from '../store/pg-run.store';
-import { runEmbedding, runSkillExtraction, startSkillWorkers } from './skill-jobs';
+import {
+  cronJobOptions,
+  runEmbedding,
+  runGraphRefresh,
+  runSkillExtraction,
+  startSkillWorkers,
+} from './skill-jobs';
 import { registerSkillIndexCron } from './skill-schedules';
 import type { IngestJob, IngestQueue } from './schedules';
 import { registerIngestionCron } from './schedules';
@@ -32,6 +46,7 @@ export function attachIngestionRuntime(
   const runs = createPgRunStore(pool);
   const queueConnection = new Redis(redisUrl, { maxRetriesPerRequest: null });
   const workerConnection = new Redis(redisUrl, { maxRetriesPerRequest: null });
+  const budget = createRedisDailyCounter(queueConnection);
   const queue = new Queue<IngestJob>(INGEST_QUEUE, {
     connection: queueConnection,
     prefix: QUEUE_PREFIX,
@@ -42,14 +57,14 @@ export function attachIngestionRuntime(
   );
   const worker = new Worker<IngestJob>(
     INGEST_QUEUE,
-    (job) => handleJob(pool, job.data, limit, logger, rates),
+    (job) => handleJob(pool, job.data, { limit, logger, rates, budget }),
     {
       connection: workerConnection,
       prefix: QUEUE_PREFIX,
     },
   );
   registerIngestionCron(cron, queueAdapter(queue));
-  const skills = startSkillWorkers(pool, redisUrl, logger);
+  const skills = startSkillWorkers(pool, redisUrl, logger, budget);
   registerSkillIndexCron(cron, skills.queue);
   worker.on('failed', (job, error) =>
     logger.error({ err: error, jobId: job?.id }, 'ingestion job failed'),
@@ -75,45 +90,63 @@ function runsRouter(
 
 function queueAdapter(queue: Queue<IngestJob>): IngestQueue {
   return {
-    add: async (job) => {
-      await queue.add(job.jobType, job);
+    add: async (job, options) => {
+      await queue.add(job.jobType, job, cronJobOptions(options?.jobId));
     },
   };
 }
 
-async function handleJob(
-  pool: Pool,
-  job: IngestJob,
-  limit: number,
-  logger: Logger,
-  rates: () => Promise<Record<string, number>>,
-): Promise<void> {
+interface JobContext {
+  limit: number;
+  logger: Logger;
+  rates: () => Promise<Record<string, number>>;
+  budget: DailyCounter;
+}
+
+async function handleJob(pool: Pool, job: IngestJob, context: JobContext): Promise<void> {
   const runs = createPgRunStore(pool);
   const runId = job.runId ?? (await runs.start(job.source, job.jobType, new Date())).id;
   const client = await pool.connect();
   try {
-    await runs.finish(runId, await runOne(client, job, limit, logger, rates));
+    await runs.finish(runId, await runOne(client, job, context));
   } catch (error) {
-    logger.error({ err: error, runId }, 'ingestion run failed');
+    context.logger.error({ err: error, runId }, 'ingestion run failed');
     await failRun(runs, runId, error);
   } finally {
     client.release();
   }
 }
 
-async function runOne(
-  client: PoolClient,
-  job: IngestJob,
-  limit: number,
-  logger: Logger,
-  rates: () => Promise<Record<string, number>>,
-) {
+async function runOne(client: PoolClient, job: IngestJob, context: JobContext) {
+  const now = new Date();
   if (job.jobType === JOB_EXTRACT_SKILLS) {
-    return runSkillExtraction(client, job.source, process.env, new Date());
+    return runSkillExtraction(client, job.source, process.env, now, context.budget);
   }
-  if (job.jobType === JOB_EMBED) return runEmbedding(client, job.source, process.env, new Date());
-  const quoted = await quotedRates(rates, logger);
-  return performIngest(performInput(client, job, limit, quoted));
+  if (job.jobType === JOB_EMBED) return runEmbedding(client, job.source, process.env, now);
+  if (job.jobType === JOB_GRAPH) return runGraph(client, now);
+  const quoted = await quotedRates(context.rates, context.logger);
+  return performIngest(performInput(client, job, context, quoted));
+}
+
+async function runGraph(client: PoolClient, now: Date) {
+  await runGraphRefresh(client, process.env);
+  return {
+    status: IngestionStatus.Success,
+    fetched: 0,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    failed: 0,
+    errors: null,
+    finishedAt: now,
+  };
+}
+
+/** Spends one request of the source's daily cap; uncapped sources always pass. */
+function requestBudget(source: VacancySource, budget: DailyCounter) {
+  const cap = dailyRequestCap(source, process.env);
+  if (cap === null) return undefined;
+  return () => budget.take(`source-requests:${source}`, cap);
 }
 
 async function quotedRates(
@@ -131,7 +164,7 @@ async function quotedRates(
 function performInput(
   client: PoolClient,
   job: IngestJob,
-  limit: number,
+  context: JobContext,
   quoted: { rates: Record<string, number>; rateError: string | null },
 ) {
   return {
@@ -140,8 +173,9 @@ function performInput(
     http: liveHttp(),
     rates: quoted.rates,
     rateError: quoted.rateError,
-    limit,
+    limit: context.limit,
     now: new Date(),
+    requestBudget: requestBudget(job.source, context.budget),
   };
 }
 

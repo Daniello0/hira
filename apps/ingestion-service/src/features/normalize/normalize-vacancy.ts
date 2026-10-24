@@ -1,6 +1,7 @@
 import {
   EmploymentType,
   Language,
+  RateUnit,
   SeniorityLevel,
   VacancySource,
   VacancyStatus,
@@ -11,7 +12,10 @@ import { normalizeCompanyName } from './company-name';
 import { dictionaryCity } from './dictionary-city';
 import { conditionsText, contentHash, sourceHash } from './content-hash';
 import { mapEmployment, mapSeniority, mapWorkFormat } from './map-enums';
-import { stripHtml } from './strip-html';
+import { detectLanguage } from './detect-language';
+import { isForeignRemote } from './foreign-remote';
+import { parseProjectDurationDays, parseRate } from './parse-rate';
+import { flattenWhitespace, stripHtml } from './strip-html';
 import { simhash } from '../dedupe/simhash';
 
 /** Canonical vacancy row ready for `vacancies`. `search_document` is not included. */
@@ -38,7 +42,10 @@ export interface CanonicalVacancy {
   salaryMinByn: string | null;
   salaryMaxByn: string | null;
   isGross: boolean | null;
-  isForeignRemote: false;
+  rateAmount: string | null;
+  rateUnit: RateUnit | null;
+  projectDurationDays: number | null;
+  isForeignRemote: boolean;
   status: VacancyStatus;
   publishedAt: string | null;
   contentHash: string;
@@ -53,7 +60,7 @@ export function normalizeVacancy(
   rates: Record<string, number>,
   source: VacancySource = VacancySource.RabotaBy,
 ): CanonicalVacancy {
-  const title = raw.title.trim();
+  const title = flattenWhitespace(raw.title);
   if (title.length === 0) throw new Error('vacancy title is empty');
   const description = stripHtml(raw.descriptionHtml);
   const workFormat = mapWorkFormat(raw.workFormatRaw);
@@ -68,12 +75,19 @@ function buildCanonical(
   workFormat: WorkFormat | null,
   rates: Record<string, number>,
 ): CanonicalVacancy {
+  const employment = mapEmployment(raw.employmentRaw);
   return {
     ...identity(raw, source, title, description),
-    ...pay(raw, rates),
+    ...pay(raw, rates, employment, description),
     workFormat,
+    isForeignRemote: isForeignRemote({
+      workFormat,
+      country: raw.country,
+      city: raw.city,
+      remoteWorldwide: raw.remoteWorldwide,
+    }),
     seniority: mapSeniority(raw.seniorityRaw),
-    employment: mapEmployment(raw.employmentRaw),
+    employment,
     schedule: raw.schedule,
     status: raw.archived ? VacancyStatus.Closed : VacancyStatus.Active,
     contentHash: hashOf(title, description, workFormat, raw.schedule),
@@ -105,13 +119,12 @@ function identity(
   | 'city'
   | 'description'
   | 'descriptionRaw'
-  | 'isForeignRemote'
   | 'skillsText'
   | 'publishedAt'
 > {
   return {
     source,
-    language: Language.Ru,
+    language: detectLanguage(`${title}\n${description}`, Language.Ru),
     externalId: raw.externalId,
     url: raw.url,
     title,
@@ -122,21 +135,54 @@ function identity(
     city: dictionaryCity(raw.city),
     description,
     descriptionRaw: raw.descriptionHtml,
-    isForeignRemote: false,
     skillsText: '',
     publishedAt: raw.publishedAt,
   };
 }
 
-function pay(raw: RawVacancy, rates: Record<string, number>) {
+/** Monthly salary, or a freelance rate instead of it when the pay phrase is per hour/day/project. */
+function pay(
+  raw: RawVacancy,
+  rates: Record<string, number>,
+  employment: EmploymentType | null,
+  description: string,
+) {
+  const rate = rateOf(raw);
+  const salaryMin = rate === null ? raw.salaryMin : null;
+  const salaryMax = rate === null ? raw.salaryMax : null;
   return {
-    salaryMin: money(raw.salaryMin),
-    salaryMax: money(raw.salaryMax),
+    salaryMin: money(salaryMin),
+    salaryMax: money(salaryMax),
     salaryCurrency: raw.salaryCurrency,
-    salaryMinByn: toByn(raw.salaryMin, raw.salaryCurrency, rates),
-    salaryMaxByn: toByn(raw.salaryMax, raw.salaryCurrency, rates),
+    salaryMinByn: toByn(salaryMin, raw.salaryCurrency, rates),
+    salaryMaxByn: toByn(salaryMax, raw.salaryCurrency, rates),
     isGross: raw.isGross,
+    rateAmount: money(rate?.amount ?? null),
+    rateUnit: rate?.unit ?? null,
+    projectDurationDays: durationOf(raw, rate !== null, employment, description),
   };
+}
+
+function rateOf(raw: RawVacancy): { amount: number; unit: RateUnit } | null {
+  if (raw.rateAmount != null && raw.rateUnit != null) {
+    return { amount: raw.rateAmount, unit: raw.rateUnit };
+  }
+  return parseRate(raw.payText);
+}
+
+/** A contract length is read only for project or freelance work, where it means the project. */
+function durationOf(
+  raw: RawVacancy,
+  hasRate: boolean,
+  employment: EmploymentType | null,
+  description: string,
+): number | null {
+  const projectLike =
+    hasRate || employment === EmploymentType.Project || employment === EmploymentType.Freelance;
+  if (!projectLike) return null;
+  return parseProjectDurationDays(
+    `${raw.payText ?? ''}\n${raw.employmentRaw ?? ''}\n${description}`,
+  );
 }
 
 function hashOf(

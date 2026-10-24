@@ -49,7 +49,7 @@ interface ApiErrorResponse {
 
 #### `POST /api/v1/chats/{chatId}/messages`
 
-Запрос: `{ content: string, useMemory?: boolean }`
+Запрос: `{ content: string, useMemory?: boolean, includeForeignRemote?: boolean }`. `includeForeignRemote: false` попадает в `hardConstraints` и скрывает зарубежную удалёнку (Q30, ADR-041)
 
 Ответ: `text/event-stream`, последовательность событий:
 
@@ -58,6 +58,7 @@ event: user-message      data: { id, role: "USER", content, createdAt }
 event: intent            data: SearchIntent
 event: results           data: { results: VacancyResult[], diagnostics }
 event: token             data: { delta: "текст" }          ← много раз
+event: document-draft    data: DocumentDraftDto           ← только у DRAFT_DOCUMENT (ADR-041)
 event: assistant-message data: { id, role: "ASSISTANT", content, createdAt }
 event: done              data: { messageId, totalLatencyMs }
 event: error             data: ApiErrorResponse
@@ -67,7 +68,7 @@ event: error             data: ApiErrorResponse
 
 `GET` чата и истории кладут `intent` и `diagnostics` на сообщение пользователя, когда ход их уже записал. У ассистента по-прежнему `results`. `VacancyDto` в потоке и в истории включает `companyName` и `locationLabel` (город и регион). `GET /profile/skills` включает `canonicalName`.
 
-Поток открывается после записи user-сообщения. Сбой `understand` не даёт `error`: намерение строится эвристически, `rewrittenQuery` равен тексту реплики. Квота списывается после `intent` и только для `SEARCH`, `REFINE`, `COMPARE`; отказ — `event: error` с `RATE_LIMIT_EXCEEDED`, без `done`. `SMALL_TALK` и `CAREER_ADVICE` не ищут и квоту не тратят. Сбой retrieval — `event: error` с `SEARCH_UPSTREAM_UNAVAILABLE`, снимок не пишется. Сбой `generate` оставляет карточки и пустой или частичный текст, затем `assistant-message` и `done`, без `error`.
+Поток открывается после записи user-сообщения. Сбой `understand` не даёт `error`: намерение строится эвристически, `rewrittenQuery` равен тексту реплики. Квота списывается после `intent`. У аккаунта — только `SEARCH`, `REFINE`, `COMPARE`; у демо — каждый отвеченный ход (лимит 3), кроме приветствия, которое эвристика поставила после сбоя `understand`. Отказ — `event: error` с `RATE_LIMIT_EXCEEDED`, без `done`. `SMALL_TALK` и `CAREER_ADVICE` не ищут. У аккаунта они квоту не тратят. Сбой retrieval — `event: error` с `SEARCH_UPSTREAM_UNAVAILABLE`, снимок не пишется. Сбой `generate` оставляет карточки и пустой или частичный текст, затем `assistant-message` и `done`, без `error`. Память после хода извлекается только если это был поиск с непустым ответом и генерация не оборвалась (ADR-041).
 
 ### 1.3 Вакансии
 
@@ -75,7 +76,8 @@ event: error             data: ApiErrorResponse
 |---|---|---|
 | `GET` | `/api/v1/vacancies/{id}` | Полная карточка, включая навыки с `evidence_span` |
 | `GET` | `/api/v1/vacancies/{id}/similar` | Похожие (плотный поиск по эмбеддингу вакансии) |
-| `GET` | `/api/v1/vacancies/{id}/skill-gap` | Разрыв навыков относительно профиля текущего пользователя (US-6) |
+| `GET` | `/api/v1/vacancies/{id}/skill-gap` | Разрыв навыков относительно профиля текущего пользователя (US-6). Только аккаунт |
+| `GET` | `/api/v1/locations?q=` | Города для профиля, до 50, `LocationDto` |
 | `POST` | `/api/v1/search` | Прямой поиск без чата — для отладки, демонстрации и главы 4 |
 
 Наличие «голого» `POST /api/v1/search` принципиально: он даёт воспроизводимый вход для экспериментов, не завязанный на диалог.
@@ -124,6 +126,8 @@ Demo-чат создаётся автоматически при первом з
 | Метод | Путь |
 |---|---|
 | `POST` | `/api/v1/feedback` |
+
+`POST /feedback` — `{ messageId, vacancyId, rating, comment? }`, только аккаунт; повторный голос по той же паре заменяет прежний. Сообщение чужого чата — `404`. `GET /admin/ingestion/runs` — роль `ADMIN`, иначе `403 ADMIN_REQUIRED`.
 | `GET` | `/health`, `/health/ready` |
 | `GET` | `/api/v1/admin/ingestion/runs` (роль `ADMIN`) |
 
@@ -137,7 +141,7 @@ Demo-чат создаётся автоматически при первом з
 | `GET` / `PATCH` / `DELETE` | `/api/v1/documents/{id}` | Текст, правка md/txt, закрепление, удаление |
 | `PATCH` | `/api/v1/settings/memory` | `{ "crossChatMemory": boolean }` |
 | `POST` | `/api/v1/calls` | Начать вызов |
-| `POST` | `/api/v1/calls/{id}/turns` | Реплика транскрипта; ответ SSE, тот же набор событий, что у сообщения чата, если нужен поиск |
+| `POST` | `/api/v1/calls/{id}/turns` | Реплика транскрипта; ответ SSE, тот же набор событий, что у сообщения чата, если нужен поиск. Тело принимает `includeForeignRemote`, как сообщение чата: переключатель один и лежит в браузере |
 | `POST` | `/api/v1/calls/{id}/end` | Завершить |
 
 Сохранение файла, который предложила Hira, — обычный `POST`/`PATCH` документов после подтверждения в UI, не отдельный «тихий» эндпоинт.
@@ -186,6 +190,10 @@ interface VacancyResult {
 ### `POST /internal/v1/similar`, `POST /internal/v1/skill-gap`
 
 Похожие вакансии и расчёт разрыва навыков — тоже здесь, потому что оба требуют доступа к векторам и графу.
+
+- `similar`: `{ vacancyId, limit? }` (по умолчанию 10, не больше 30) → `{ items: VacancyDto[] }`. Соседи по `vacancies.embedding`, только `ACTIVE`, без самой вакансии и её дублей. Нет эмбеддинга — пустой список.
+- `skill-gap`: `{ vacancyId, userId }` → `SkillGapDto` (`matched`, `missing` с `relatedOwned` в пределах двух шагов графа, `coverage`).
+- Неизвестная вакансия — `404 NOT_FOUND`, плохое тело — `400 VALIDATION_FAILED`.
 
 ---
 

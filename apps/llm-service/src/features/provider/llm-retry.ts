@@ -10,9 +10,12 @@ interface AttemptOptions<T> {
   now: () => number;
   startedAtMs: number;
   timeoutCapMs: number;
+  /** Total time new attempts may start in. Defaults to `LLM_BUDGET_MS`. */
+  budgetMs?: number;
 }
 
-const TRANSIENT_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
+/** 429 is deliberately absent: the free plan is rate limited, and a retry only spends more of it. */
+const TRANSIENT_STATUSES = new Set([408, 500, 502, 503, 504]);
 
 /** Classifies a provider or validation failure for the shared attempt budget. */
 export function classifyLlmFailure(error: unknown): LlmFailureKind {
@@ -24,12 +27,13 @@ export function classifyLlmFailure(error: unknown): LlmFailureKind {
 /**
  * Runs a provider call, then up to two retries.
  * Invalid JSON feeds the error text into the next prompt. Transport failures keep the prompt.
+ * A 429 fails at once and carries the provider's `Retry-After` up.
  */
 export async function runLlmAttempts<T>(options: AttemptOptions<T>): Promise<T> {
   let feedback: string | null = null;
   let lastError: unknown;
   for (let attempt = 1; attempt <= MAX_LLM_ATTEMPTS; attempt += 1) {
-    const timeoutMs = nextAttemptTimeout(options.startedAtMs, options.now(), options.timeoutCapMs);
+    const timeoutMs = nextAttemptTimeout(options.startedAtMs, options.now(), options.timeoutCapMs, options.budgetMs);
     if (timeoutMs <= 0) throw lastError ?? deadlineError();
     try {
       return await options.run(feedback, timeoutMs);

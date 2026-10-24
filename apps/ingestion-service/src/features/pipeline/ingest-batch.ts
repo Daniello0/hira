@@ -36,7 +36,12 @@ export function isStale(lastSeen: Date, now: Date): boolean {
   return now.getTime() - lastSeen.getTime() >= STALE_THRESHOLD_HOURS * HOUR_MS;
 }
 
-/** Expires active rows last seen more than 48 hours ago. */
+/**
+ * Expires active rows last seen more than 48 hours ago. Deliberately not scheduled: a crawl is
+ * capped by `INGEST_LIMIT`, so "not in the last list pages" does not mean "closed". The nightly
+ * liveness pass (`check-alive`) asks each detail page instead and only closes what the source
+ * itself reports archived or gone (Wiki/03 §2.4).
+ */
 export async function expireUnseen(writer: VacancyWriter, now: Date): Promise<number> {
   const cutoff = new Date(now.getTime() - STALE_THRESHOLD_HOURS * HOUR_MS);
   return writer.expireOlderThan(cutoff);

@@ -3,7 +3,7 @@ import type { Logger } from 'pino';
 import { readPromptCache, writePromptCache, type PromptCache } from '../cache/prompt-cache';
 import { parseResumeCacheKey } from '../cache/parse-resume-cache-key';
 import { completeJson, type StructuredDeps } from '../llm/complete-json';
-import { PARSE_RESUME_SCHEMA_VERSION, UNDERSTAND_CACHE_TTL_SECONDS } from '../llm/llm.constants';
+import { MAX_TOKENS, PARSE_RESUME_SCHEMA_VERSION, UNDERSTAND_CACHE_TTL_SECONDS } from '../llm/llm.constants';
 import { buildParseResumeJsonSchema, parseResumeModel } from './parse-resume.schema';
 
 const SYSTEM_PROMPT =
@@ -20,7 +20,7 @@ export async function parseResume(deps: ParseResumeDeps, request: ParseResumeReq
   const key = parseResumeCacheKey(deps.model, PARSE_RESUME_SCHEMA_VERSION, request.resumeText);
   const cached = await readCached(deps, key);
   if (cached !== null) return cached;
-  const parsed = await completeJson(deps, messages(request.resumeText), buildParseResumeJsonSchema(), parseResumeModel);
+  const parsed = await completeJson(deps, messages(request.resumeText), buildParseResumeJsonSchema(), parseResumeModel, MAX_TOKENS.parseResume);
   await writePromptCache(deps.cache, key, JSON.stringify(parsed), UNDERSTAND_CACHE_TTL_SECONDS, deps.logger);
   return parsed;
 }

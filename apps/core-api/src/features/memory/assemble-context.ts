@@ -27,7 +27,7 @@ export function assembleTurnContext(input: AssembleInput): TurnContext {
   return {
     summary: input.summary,
     memory: selectPromptFacts(facts, input.queryVector, input.now),
-    documents: selectPromptDocuments(input.documents, input.queryVector),
+    documents: selectPromptDocuments(input.documents),
     extract,
   };
 }

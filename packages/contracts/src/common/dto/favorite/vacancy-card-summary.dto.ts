@@ -13,4 +13,5 @@ export interface VacancyCardSummary {
   salaryMax: number | null;
   salaryCurrency: string | null;
   workFormat: WorkFormat | null;
+  isForeignRemote: boolean;
 }

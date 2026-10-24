@@ -56,6 +56,7 @@ function job(): FollowUpJob {
     sourceMessageId: 'message-1',
     sourceCallTurnId: null,
     sourceCallSessionId: null,
+    previousCount: 14,
     messageCount: 16,
     previousSummary: 'Цель поиска: python',
     exchange: [{ role: MessageRole.User, content: 'remote' }],
@@ -64,7 +65,7 @@ function job(): FollowUpJob {
 
 function chats(save = false): ChatStore {
   const setSummary = save ? () => Promise.resolve() : () => Promise.reject(new Error('summary must stay'));
-  return { chronologicalMessages: () => Promise.resolve(history()), setSummary } as unknown as ChatStore;
+  return { recentMessages: () => Promise.resolve(history()), setSummary } as unknown as ChatStore;
 }
 
 function history(): MessageRecord[] {
