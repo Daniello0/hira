@@ -17,6 +17,8 @@ export interface HardConstraints {
   employment?: EmploymentType[];
   location?: string[];
   salaryMin?: number;
+  /** `false` hides foreign remote vacancies (Q30). Absent or `true` keeps them. */
+  includeForeignRemote?: boolean;
 }
 
 /** Structured intent produced by `llm-service`. Shape follows Wiki/02-retrieval-layer.md. */

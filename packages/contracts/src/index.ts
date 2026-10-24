@@ -129,3 +129,14 @@ export { type LoginRequest } from './common/dto/auth/login-request.dto';
 export { type RegisterRequest } from './common/dto/auth/register-request.dto';
 export { type VacancyDto } from './common/dto/vacancy/vacancy.dto';
 export { formatLocationLabel } from './common/dto/vacancy/location-label';
+export { type DocumentDraftDto } from './common/dto/chat/document-draft.dto';
+export {
+  type SimilarVacanciesDto,
+  type SkillGapDto,
+  type SkillGapItem,
+  type VacancyDetailDto,
+  type VacancySkillDto,
+} from './common/dto/vacancy/vacancy-detail.dto';
+export { type CreateFeedbackRequest, type FeedbackDto } from './common/dto/feedback/feedback.dto';
+export { type LocationDto } from './common/dto/location/location.dto';
+export { type IngestionRunDto } from './common/dto/ingestion/ingestion-run.dto';
