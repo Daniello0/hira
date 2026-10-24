@@ -35,6 +35,18 @@ export class SearchQuotaService {
     return decideQuota(count, DEMO_SEARCH_LIMIT, null);
   }
 
+  /** Reads the demo counter without spending it. */
+  async peekDemo(sessionId: string): Promise<QuotaConsumption> {
+    const count = await this.counters.read(`${DEMO_QUOTA_PREFIX}${sessionId}`);
+    return decideQuota((count ?? 0) + 1, DEMO_SEARCH_LIMIT, null);
+  }
+
+  /** Reads today's counter without spending it. A spent day reports the seconds until UTC midnight. */
+  async peekRegistered(userId: string): Promise<QuotaConsumption> {
+    const { used } = await this.readRegistered(userId);
+    return decideQuota(used + 1, REGISTERED_SEARCH_LIMIT, secondsUntilUtcMidnight(this.clock.now()));
+  }
+
   /**
    * Searches already used today. A missing key is zero.
    * This does not call `increment`.

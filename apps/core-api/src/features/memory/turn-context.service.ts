@@ -13,7 +13,9 @@ import { enqueueUser } from './follow-up-queue';
 import { MEMORY_STORE, type MemoryStore } from './memory.store';
 import type { MemoryFact } from './memory.types';
 import { isPromptLive } from './select-memory';
-import { outsideWindow, shouldSummarize } from './summarize-when';
+import { shouldSummarize, summarySource } from './summarize-when';
+import { DOCUMENT_NEIGHBOR_LIMIT, SUMMARY_SOURCE_LIMIT } from './memory.constants';
+import { WORKING_WINDOW_SIZE } from '../chat/chat.constants';
 import type { ContextLoad, FollowUpJob } from '../search-orchestrator/orchestrate-search';
 import { LLM_GATEWAY } from '../search-orchestrator/search.constants';
 import type { LlmGateway } from '../search-orchestrator/upstream-gateway';
@@ -38,9 +40,9 @@ export class TurnContextService {
     if (input.caller.kind !== 'user') return this.closed(input.summary);
     const account = await this.users.findById(input.caller.userId);
     const enabled = account?.crossChatMemoryEnabled ?? false;
-    const documents = await this.library.list(input.caller.userId);
     const facts = enabled && input.useMemory ? await this.memories.list(input.caller.userId) : [];
     const queryVector = await this.embed(input.query);
+    const documents = await this.library.forPrompt(input.caller.userId, queryVector, DOCUMENT_NEIGHBOR_LIMIT);
     return assembleTurnContext({
       enabled,
       useMemory: input.useMemory,
@@ -51,7 +53,6 @@ export class TurnContextService {
         kind: document.kind,
         content: document.extractedText,
         isPinned: document.isPinned,
-        embedding: document.embedding,
       })),
       queryVector,
       now: new Date(),
@@ -74,9 +75,10 @@ export class TurnContextService {
   }
 
   private async safeSummarize(job: FollowUpJob): Promise<void> {
-    if (job.chatId === null || !shouldSummarize(job.messageCount)) return;
+    if (job.chatId === null || !shouldSummarize(job.previousCount, job.messageCount)) return;
     try {
-      const messages = outsideWindow(await this.chats.chronologicalMessages(job.chatId)).map(toTurn);
+      const recent = await this.chats.recentMessages(job.chatId, WORKING_WINDOW_SIZE + SUMMARY_SOURCE_LIMIT);
+      const messages = summarySource(recent, job.previousSummary).map(toTurn);
       if (messages.length === 0) return;
       const response = await this.llm.summarize({ previousSummary: job.previousSummary, messages }, job.chatId);
       await this.chats.setSummary(job.chatId, response.summary);

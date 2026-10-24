@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import type { Request } from 'express';
 import { validatedBody } from '../auth/validation-exception';
@@ -8,31 +8,35 @@ import { mapAccountError } from '../auth/account-http';
 import { requireUserId } from '../auth/require-user-id';
 import { actorHint } from '../chat/actor-hint';
 import { ChatService } from '../chat/chat.service';
-import { COLLECTION_NAME_MAX } from './favorite.constants';
+import { COLLECTION_DESCRIPTION_MAX, COLLECTION_NAME_MAX } from './favorite.constants';
 import { FavoriteService } from './favorite.service';
 
 class CreateCollectionBody {
+  @ApiProperty({ type: String, minLength: 1, maxLength: COLLECTION_NAME_MAX })
   @IsString()
   @MinLength(1)
   @MaxLength(COLLECTION_NAME_MAX)
   name!: string;
 
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: COLLECTION_DESCRIPTION_MAX })
   @IsOptional()
   @IsString()
-  @MaxLength(2_000)
+  @MaxLength(COLLECTION_DESCRIPTION_MAX)
   description?: string | null;
 }
 
 class UpdateCollectionBody {
+  @ApiPropertyOptional({ type: String, minLength: 1, maxLength: COLLECTION_NAME_MAX })
   @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(COLLECTION_NAME_MAX)
   name?: string;
 
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: COLLECTION_DESCRIPTION_MAX })
   @IsOptional()
   @IsString()
-  @MaxLength(2_000)
+  @MaxLength(COLLECTION_DESCRIPTION_MAX)
   description?: string | null;
 }
 

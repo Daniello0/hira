@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import type { Request } from 'express';
 import { validatedBody } from '../auth/validation-exception';
@@ -13,13 +13,16 @@ import { readFavoriteQuery } from './favorite-query';
 import { FavoriteService } from './favorite.service';
 
 class CreateFavoriteBody {
+  @ApiProperty({ type: String, format: 'uuid' })
   @IsUUID()
   vacancyId!: string;
 
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   collectionId?: string | null;
 
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: FAVORITE_NOTE_MAX })
   @IsOptional()
   @IsString()
   @MaxLength(FAVORITE_NOTE_MAX)
@@ -27,10 +30,12 @@ class CreateFavoriteBody {
 }
 
 class UpdateFavoriteBody {
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   collectionId?: string | null;
 
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: FAVORITE_NOTE_MAX })
   @IsOptional()
   @IsString()
   @MaxLength(FAVORITE_NOTE_MAX)
@@ -51,6 +56,8 @@ export class FavoriteController {
   /** Lists saved vacancies. `q` matches the note, ignoring case. */
   @Get('favorites')
   @ApiOperation({ summary: 'List favorites' })
+  @ApiQuery({ name: 'collectionId', required: false, type: String })
+  @ApiQuery({ name: 'q', required: false, type: String, description: 'Substring of the note, ignoring case' })
   list(@Query('collectionId') collectionId: string | undefined, @Query('q') q: string | undefined, @Req() request: Request) {
     return this.call(request, (userId) => this.favorites.list(userId, readFavoriteQuery(collectionId, q)));
   }

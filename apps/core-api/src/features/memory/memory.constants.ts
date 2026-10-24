@@ -13,6 +13,12 @@ export const GOAL_TTL_DAYS = 90;
 /** Rebuild the chat summary on this many stored messages, once the window is full. */
 export const SUMMARY_EVERY_MESSAGES = 8;
 
+/** At most this many displaced messages go to the first summary of a chat. */
+export const SUMMARY_SOURCE_LIMIT = 30;
+
+/** Displaced messages sent to a summary rebuild: one interval plus a small overlap. */
+export const SUMMARY_DELTA_MESSAGES = SUMMARY_EVERY_MESSAGES + 2;
+
 /** Nearest unpinned files added beside the pinned ones. */
 export const DOCUMENT_NEIGHBOR_LIMIT = 3;
 
@@ -47,6 +53,10 @@ export const CALL_ENDED_MESSAGE = 'Call has already ended';
 
 export const MEMORY_NOT_FOUND = 'MEMORY_NOT_FOUND';
 export const MEMORY_NOT_FOUND_MESSAGE = 'Memory fact was not found';
+export const MEMORY_PATCH_EMPTY_MESSAGE = 'Send content or isPinned';
+
+/** Longest memory fact a person can type. */
+export const MEMORY_CONTENT_MAX = 4_000;
 
 export const SKILL_EXISTS = 'SKILL_EXISTS';
 export const SKILL_EXISTS_MESSAGE = 'That skill is already on the profile';
@@ -60,4 +70,8 @@ export const SUGGESTION_CLOSED_MESSAGE = 'Suggestion is no longer pending';
 export const PDF_TEXT_EMPTY_MESSAGE = 'The PDF did not contain text';
 export const PDF_TOO_LARGE_MESSAGE = 'The PDF is too large';
 export const PDF_CONTENT_LOCKED_MESSAGE = 'PDF text cannot be edited';
+export const RESUME_TEXT_MESSAGE = 'A resume must be uploaded as a PDF file';
+
+/** A library title shorter than this is too generic to match inside a message. */
+export const DRAFT_TARGET_MIN_TITLE = 3;
 export const TEXT_TOO_LONG_MESSAGE = 'The document text is too long';

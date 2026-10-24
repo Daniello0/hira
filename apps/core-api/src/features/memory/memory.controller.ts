@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Patch, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import type { Request } from 'express';
 import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { CLOCK, type Clock } from '../../common/utils/clock';
@@ -11,21 +12,26 @@ import { ChatService } from '../chat/chat.service';
 import { mapAccountError } from '../auth/account-http';
 import { requireUserId } from '../auth/require-user-id';
 import { USER_STORE, type UserStore } from '../auth/user.store';
-import { MemoryNotFoundError, MemoryService } from './memory.service';
+import { EmptyMemoryPatchError, MemoryNotFoundError, MemoryService } from './memory.service';
+import { MEMORY_CONTENT_MAX } from './memory.constants';
 
 class MemoryPatchBody {
+  @ApiPropertyOptional({ type: String, minLength: 1, maxLength: MEMORY_CONTENT_MAX })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   @IsOptional()
   @IsString()
   @MinLength(1)
-  @MaxLength(4000)
+  @MaxLength(MEMORY_CONTENT_MAX)
   content?: string;
 
+  @ApiPropertyOptional({ type: Boolean })
   @IsOptional()
   @IsBoolean()
   isPinned?: boolean;
 }
 
 class MemorySettingsBody {
+  @ApiProperty({ type: Boolean })
   @IsBoolean()
   crossChatMemory!: boolean;
 }
@@ -60,6 +66,7 @@ export class MemoryController {
     @Req() request: Request,
   ) {
     return this.call(request, async (userId) => {
+      if (body.content === undefined && body.isPinned === undefined) throw new EmptyMemoryPatchError();
       const embedding = body.content === undefined ? undefined : await this.embed(body.content);
       const updated = await this.memory.patch(userId, id, body, embedding);
       if (updated === null) throw new MemoryNotFoundError();

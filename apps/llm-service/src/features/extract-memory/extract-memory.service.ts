@@ -1,5 +1,6 @@
 import type { ExtractMemoryRequest, ExtractMemoryResponse } from '@hira/contracts';
 import { completeJson, type StructuredDeps } from '../llm/complete-json';
+import { MAX_TOKENS } from '../llm/llm.constants';
 import { buildExtractMemoryJsonSchema, parseExtractMemoryModel } from './extract-memory.schema';
 
 const SYSTEM_PROMPT =
@@ -10,7 +11,7 @@ export async function extractMemory(
   deps: StructuredDeps,
   request: ExtractMemoryRequest,
 ): Promise<ExtractMemoryResponse> {
-  return completeJson(deps, messages(request), buildExtractMemoryJsonSchema(), parseExtractMemoryModel);
+  return completeJson(deps, messages(request), buildExtractMemoryJsonSchema(), parseExtractMemoryModel, MAX_TOKENS.extractMemory);
 }
 
 function messages(request: ExtractMemoryRequest) {

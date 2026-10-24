@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { FileStore, LibraryDocument, LibraryStore } from './library.store';
+import { cosineSimilarity } from '../memory/cosine';
+import type { FileStore, LibraryDocument, LibraryStore, LibrarySummary } from './library.store';
 
 /** Process-local library. Bytes live in `files`. */
 @Injectable()
@@ -7,8 +8,16 @@ export class MemoryLibraryStore implements LibraryStore {
   readonly documents: LibraryDocument[] = [];
 
   /** @inheritdoc */
-  async list(userId: string): Promise<LibraryDocument[]> {
-    return this.documents.filter((document) => document.userId === userId).map((document) => ({ ...document }));
+  async list(userId: string): Promise<LibrarySummary[]> {
+    return this.documents.filter((document) => document.userId === userId).map(toSummary);
+  }
+
+  /** @inheritdoc */
+  async forPrompt(userId: string, query: readonly number[] | null, neighborLimit: number): Promise<LibraryDocument[]> {
+    const owned = this.documents.filter((document) => document.userId === userId);
+    const pinned = owned.filter((document) => document.isPinned);
+    const rest = owned.filter((document) => !document.isPinned);
+    return [...pinned, ...rankUnpinned(rest, query).slice(0, neighborLimit)].map((document) => ({ ...document }));
   }
 
   /** @inheritdoc */
@@ -27,7 +36,7 @@ export class MemoryLibraryStore implements LibraryStore {
   async update(userId: string, id: string, patch: Partial<LibraryDocument>): Promise<LibraryDocument | null> {
     const document = this.owned(userId, id);
     if (document === null) return null;
-    Object.assign(document, patch, { id: document.id, userId: document.userId });
+    Object.assign(document, patch, { id: document.id, userId: document.userId, updatedAt: new Date() });
     return { ...document };
   }
 
@@ -58,6 +67,18 @@ export class MemoryFileStore implements FileStore {
   async remove(userId: string, documentId: string): Promise<void> {
     this.files.delete(key(userId, documentId));
   }
+}
+
+function rankUnpinned(documents: LibraryDocument[], query: readonly number[] | null): LibraryDocument[] {
+  if (query === null) return [...documents].sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime());
+  return documents
+    .filter((document) => document.embedding !== null)
+    .sort((left, right) => cosineSimilarity(right.embedding ?? [], query) - cosineSimilarity(left.embedding ?? [], query));
+}
+
+function toSummary(document: LibraryDocument): LibrarySummary {
+  const { id, userId, kind, title, format, isPinned, createdBy, parseStatus, createdAt, updatedAt } = document;
+  return { id, userId, kind, title, format, isPinned, createdBy, parseStatus, createdAt, updatedAt };
 }
 
 function key(userId: string, documentId: string): string {

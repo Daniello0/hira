@@ -1,14 +1,15 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { InvalidSearchError } from '../chat/chat.errors';
 import { readRetrievalBody } from './read-retrieval-body';
-import { ApiBearerAuth, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
+import { RETRIEVAL_BODY_SCHEMA } from './retrieval-body.schema';
 import type { Request, Response } from 'express';
 import { readRequestId } from '../../common/interceptors/request-id.interceptor';
 import { OptionalAccessGuard } from '../auth/optional-access.guard';
 import { validatedBody } from '../auth/validation-exception';
 import { actorHint } from '../chat/actor-hint';
 import { CreateMessageBodyDto } from '../chat/chat.dto';
-import { failStream, mapChatError, openSse, writeSse } from '../chat/chat-http';
+import { abortOnClose, failStream, mapChatError, responseSink } from '../chat/chat-http';
 import { ChatService } from '../chat/chat.service';
 import { SearchOrchestratorService } from './search-orchestrator.service';
 
@@ -27,6 +28,7 @@ export class SearchController {
   @Post('search')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Search without a chat' })
+  @ApiBody({ schema: RETRIEVAL_BODY_SCHEMA })
   async searchVacancies(@Body() body: unknown, @Req() request: Request) {
     try {
       const parsed = readRetrievalBody(body);
@@ -44,6 +46,7 @@ export class SearchController {
   @Post('chats/:chatId/messages')
   @HttpCode(HttpStatus.OK)
   @ApiProduces('text/event-stream')
+  @ApiBody({ type: CreateMessageBodyDto })
   @ApiOperation({ summary: 'Send a message' })
   async send(
     @Param('chatId', ParseUUIDPipe) chatId: string,
@@ -55,8 +58,16 @@ export class SearchController {
       const caller = this.chats.caller(actorHint(request));
       const chat = await this.chats.owned(caller, chatId);
       await this.search.postMessage(
-        { caller, chat, content: body.content, requestId: readRequestId(request), useMemory: body.useMemory },
-        { open: () => openSse(response), write: (event, data) => writeSse(response, event, data) },
+        {
+          caller,
+          chat,
+          content: body.content,
+          requestId: readRequestId(request),
+          useMemory: body.useMemory,
+          includeForeignRemote: body.includeForeignRemote,
+          signal: abortOnClose(response),
+        },
+        responseSink(response),
       );
       response.end();
     } catch (error) {

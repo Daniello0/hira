@@ -1,6 +1,13 @@
-import type { GenerateRequest, TokenUsage } from '@hira/contracts';
+import { IntentType, type GenerateRequest, type TokenUsage } from '@hira/contracts';
 import { buildGenerateMessages } from './build-generate-messages';
-import { GENERATE_ATTEMPT_TIMEOUT_MS, SSE_DONE_EVENT, SSE_TOKEN_EVENT, ZERO_TOKEN_USAGE } from '../llm/llm.constants';
+import {
+  GENERATE_FIRST_BYTE_TIMEOUT_MS,
+  GENERATE_IDLE_TIMEOUT_MS,
+  MAX_TOKENS,
+  SSE_DONE_EVENT,
+  SSE_TOKEN_EVENT,
+  ZERO_TOKEN_USAGE,
+} from '../llm/llm.constants';
 import { StreamInterruptedError } from '../llm/llm.errors';
 import { toRouteError } from '../llm/route-error';
 import { runLlmAttempts } from '../provider/llm-retry';
@@ -14,14 +21,22 @@ export interface LlmStreamEvent {
 
 export interface GenerateDeps {
   provider: {
-    streamText(messages: ChatMessage[], timeoutMs: number): AsyncIterable<StreamEvent>;
+    streamText(
+      messages: ChatMessage[],
+      timeoutMs: number,
+      limits?: { idleTimeoutMs?: number; maxTokens?: number },
+    ): AsyncIterable<StreamEvent>;
   };
   sleep: (ms: number) => Promise<void>;
   now: () => number;
   startedAtMs?: number;
 }
 
-/** Streams a grounded answer. A failure after the first token is not retried. */
+/**
+ * Streams a grounded answer. Each attempt waits `GENERATE_FIRST_BYTE_TIMEOUT_MS` for the first byte;
+ * after that only a gap of `GENERATE_IDLE_TIMEOUT_MS` between chunks stops it, so a long draft is not cut.
+ * A failure after the first token is not retried.
+ */
 export async function generateAnswer(
   deps: GenerateDeps,
   request: GenerateRequest,
@@ -32,7 +47,7 @@ export async function generateAnswer(
       sleep: deps.sleep,
       now: deps.now,
       startedAtMs: deps.startedAtMs ?? deps.now(),
-      timeoutCapMs: GENERATE_ATTEMPT_TIMEOUT_MS,
+      timeoutCapMs: GENERATE_FIRST_BYTE_TIMEOUT_MS,
       run: (feedback, timeoutMs) => streamOnce(deps, request, feedback, timeoutMs, emit),
     });
   } catch (error) {
@@ -49,20 +64,25 @@ async function streamOnce(
   emit: (event: LlmStreamEvent) => void,
 ): Promise<void> {
   const messages = withFeedback(buildGenerateMessages(request), feedback);
-  const usage = await readDeltas(deps, messages, timeoutMs, emit);
+  const limits = { idleTimeoutMs: GENERATE_IDLE_TIMEOUT_MS, maxTokens: maxTokensFor(request) };
+  const usage = await readDeltas(deps, messages, { timeoutMs, limits }, emit);
   emit({ name: SSE_DONE_EVENT, data: { meta: { tokenUsage: usage } } });
+}
+
+function maxTokensFor(request: GenerateRequest): number {
+  return request.intent.intentType === IntentType.DraftDocument ? MAX_TOKENS.draft : MAX_TOKENS.generate;
 }
 
 async function readDeltas(
   deps: GenerateDeps,
   messages: ChatMessage[],
-  timeoutMs: number,
+  call: { timeoutMs: number; limits: { idleTimeoutMs: number; maxTokens: number } },
   emit: (event: LlmStreamEvent) => void,
 ): Promise<TokenUsage> {
   let emitted = false;
   let tokenUsage: TokenUsage = { ...ZERO_TOKEN_USAGE };
   try {
-    for await (const event of deps.provider.streamText(messages, timeoutMs)) {
+    for await (const event of deps.provider.streamText(messages, call.timeoutMs, call.limits)) {
       emitted = applyEvent(event, emit) || emitted;
       if (event.kind === 'usage') tokenUsage = event.tokenUsage;
     }

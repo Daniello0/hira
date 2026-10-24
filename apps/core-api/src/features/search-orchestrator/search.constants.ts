@@ -18,3 +18,23 @@ export const DEFAULT_LLM_URL = 'http://127.0.0.1:4002';
 
 export const LLM_GATEWAY = Symbol('LLM_GATEWAY');
 export const RETRIEVAL_GATEWAY = Symbol('RETRIEVAL_GATEWAY');
+
+/**
+ * core-api → llm-service generate stream. llm-service bounds the first byte and the gaps between
+ * chunks itself; this only caps a stream that keeps trickling forever.
+ */
+export const LLM_STREAM_TIMEOUT_MS = 120_000;
+
+/** core-api → llm-service for summary, memory extraction, and resume parsing (llm budget 55 s). */
+export const LLM_BACKGROUND_TIMEOUT_MS = 60_000;
+
+/** A degraded-intent message this short with no job words is small talk. */
+export const GREETING_MAX_WORDS = 4;
+
+/** Stems that make a short message a job request, in the languages Hira serves. */
+export const JOB_KEYWORDS: readonly string[] = [
+  'job', 'vacanc', 'work', 'role', 'position', 'develop', 'engineer', 'salary', 'remote', 'hiring', 'career',
+  'python', 'java', 'react', 'senior', 'junior', 'intern', 'resume', 'cv',
+  'ваканс', 'работ', 'должн', 'разраб', 'инженер', 'зарплат', 'удален', 'удалён', 'карьер', 'резюме', 'стаж',
+  'праца', 'заробак',
+];

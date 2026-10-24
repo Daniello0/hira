@@ -1,7 +1,18 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, ParseIntPipe, ParseUUIDPipe, Post, Put, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { EmploymentType, SeniorityLevel, SkillLevel, WorkFormat } from '@hira/contracts';
-import { IsArray, IsEnum, IsInt, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { ArrayMaxSize, IsArray, IsEnum, IsInt, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import {
+  CURRENCY_PATTERN,
+  PROFILE_HEADLINE_MAX,
+  PROFILE_LOCATIONS_MAX,
+  PROFILE_ROLES_MAX,
+  PROFILE_ROLE_MAX_CHARS,
+  PROFILE_SALARY_MAX,
+  PROFILE_TEXT_MAX,
+  SKILL_YEARS_MAX,
+} from './profile.constants';
 import type { Request } from 'express';
 import { validatedBody } from '../auth/validation-exception';
 import { OptionalAccessGuard } from '../auth/optional-access.guard';
@@ -11,23 +22,52 @@ import { actorHint } from '../chat/actor-hint';
 import { ChatService } from '../chat/chat.service';
 import { ProfileService, SkillMissingError } from './profile.service';
 
+const upperCase = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toUpperCase() : value);
+
 class ProfileBody {
-  @IsOptional() @IsString() @MaxLength(256) headline?: string | null;
-  @IsOptional() @IsString() about?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: PROFILE_HEADLINE_MAX })
+  @IsOptional() @IsString() @MaxLength(PROFILE_HEADLINE_MAX) headline?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: PROFILE_TEXT_MAX })
+  @IsOptional() @IsString() @MaxLength(PROFILE_TEXT_MAX) about?: string | null;
+
+  @ApiPropertyOptional({ enum: SeniorityLevel, nullable: true })
   @IsOptional() @IsEnum(SeniorityLevel) seniority?: SeniorityLevel | null;
-  @IsOptional() @IsArray() desiredRoles?: string[];
+
+  @ApiPropertyOptional({ type: [String], maxItems: PROFILE_ROLES_MAX })
+  @IsOptional() @IsArray() @ArrayMaxSize(PROFILE_ROLES_MAX) @IsString({ each: true }) @MaxLength(PROFILE_ROLE_MAX_CHARS, { each: true })
+  desiredRoles?: string[];
+
+  @ApiPropertyOptional({ enum: WorkFormat, isArray: true })
   @IsOptional() @IsArray() @IsEnum(WorkFormat, { each: true }) preferredWorkFormat?: WorkFormat[];
+
+  @ApiPropertyOptional({ enum: EmploymentType, isArray: true })
   @IsOptional() @IsArray() @IsEnum(EmploymentType, { each: true }) preferredEmployment?: EmploymentType[];
-  @IsOptional() @IsArray() preferredLocations?: number[];
-  @IsOptional() @IsNumber() salaryExpectationMin?: number | null;
-  @IsOptional() @IsString() @MaxLength(3) currency?: string | null;
-  @IsOptional() @IsString() education?: string | null;
+
+  @ApiPropertyOptional({ type: [Number], description: 'Ids from GET /locations', maxItems: PROFILE_LOCATIONS_MAX })
+  @IsOptional() @IsArray() @ArrayMaxSize(PROFILE_LOCATIONS_MAX) @IsInt({ each: true }) @Min(1, { each: true })
+  preferredLocations?: number[];
+
+  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 0 })
+  @IsOptional() @IsNumber() @Min(0) @Max(PROFILE_SALARY_MAX) salaryExpectationMin?: number | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'BYN', description: 'ISO 4217, three letters' })
+  @Transform(upperCase)
+  @IsOptional() @IsString() @Matches(CURRENCY_PATTERN) currency?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: PROFILE_TEXT_MAX })
+  @IsOptional() @IsString() @MaxLength(PROFILE_TEXT_MAX) education?: string | null;
 }
 
 class SkillBody {
+  @ApiProperty({ type: Number })
   @IsInt() skillId!: number;
+
+  @ApiProperty({ enum: SkillLevel })
   @IsEnum(SkillLevel) level!: SkillLevel;
-  @IsOptional() @IsInt() years?: number | null;
+
+  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 0, maximum: SKILL_YEARS_MAX })
+  @IsOptional() @IsInt() @Min(0) @Max(SKILL_YEARS_MAX) years?: number | null;
 }
 
 /** Profile, skills, and suggestions. Nothing is written from a chat until accept. */

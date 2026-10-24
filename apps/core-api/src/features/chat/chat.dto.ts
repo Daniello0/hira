@@ -22,6 +22,11 @@ export class CreateMessageBodyDto implements CreateMessageRequest {
   @IsOptional()
   @IsBoolean()
   useMemory?: boolean;
+
+  @ApiPropertyOptional({ type: Boolean, description: '`false` hides foreign remote vacancies for this turn' })
+  @IsOptional()
+  @IsBoolean()
+  includeForeignRemote?: boolean;
 }
 
 /** Body of `PATCH /api/v1/chats/{chatId}`. */

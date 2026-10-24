@@ -2,6 +2,7 @@ import {
   SkillImportance,
   SkillType,
   type ExtractedSkill,
+  type ExtractedSkills,
   type ExtractSkillsRequest,
 } from '@hira/contracts';
 import { z } from 'zod';
@@ -39,6 +40,19 @@ const modelSkillsSchema = z
   })
   .strict();
 
+const modelBatchSchema = z
+  .object({
+    results: z.array(
+      z
+        .object({
+          id: z.string().min(1),
+          skills: z.array(modelSkillSchema),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
 /** Parses an extract-skills body. Throws `ZodError` when the list is empty or a field is blank. */
 export function parseExtractSkillsRequest(value: unknown): ExtractSkillsRequest {
   return requestSchema.parse(value);
@@ -49,9 +63,14 @@ export function parseModelSkills(value: unknown): { skills: ExtractedSkill[] } {
   return modelSkillsSchema.parse(value);
 }
 
-/** JSON Schema sent to OpenRouter for skill extraction. */
+/** Parses a batch payload: one `{ id, skills }` per vacancy. */
+export function parseModelSkillBatch(value: unknown): ExtractedSkills[] {
+  return modelBatchSchema.parse(value).results;
+}
+
+/** JSON Schema sent to OpenRouter for one batch of vacancies. */
 export function buildExtractSkillsJsonSchema(): Record<string, unknown> {
-  return enforceProviderSchema(z.toJSONSchema(modelSkillsSchema));
+  return enforceProviderSchema(z.toJSONSchema(modelBatchSchema));
 }
 
 function stringEnum<T extends string>(values: readonly T[]) {

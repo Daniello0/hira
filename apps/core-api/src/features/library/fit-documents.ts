@@ -1,6 +1,5 @@
-import { DocumentKind, type PromptDocument } from '@hira/contracts';
-import { cosineSimilarity } from '../memory/cosine';
-import { DOCUMENT_CONTEXT_CHARS, DOCUMENT_NEIGHBOR_LIMIT } from '../memory/memory.constants';
+import type { DocumentKind, PromptDocument } from '@hira/contracts';
+import { DOCUMENT_CONTEXT_CHARS } from '../memory/memory.constants';
 
 /** A library file reduced to what prompt selection needs. */
 export interface PromptSourceDocument {
@@ -8,30 +7,23 @@ export interface PromptSourceDocument {
   kind: DocumentKind;
   content: string;
   isPinned: boolean;
-  embedding: number[] | null;
 }
 
-/** Pinned files first, then a few nearest unpinned files, trimmed to the character budget. */
-export function selectPromptDocuments(
-  documents: readonly PromptSourceDocument[],
-  query: readonly number[] | null,
-): PromptDocument[] {
+/**
+ * Pinned files first, then the unpinned ones in the order the store ranked them,
+ * trimmed to the character budget.
+ */
+export function selectPromptDocuments(documents: readonly PromptSourceDocument[]): PromptDocument[] {
   const pinned = documents.filter((document) => document.isPinned);
-  const nearest = nearestDocuments(documents, query);
-  return fitBudget([...pinned, ...nearest]);
+  const ranked = documents.filter((document) => !document.isPinned);
+  return fitBudget([...pinned, ...ranked]);
 }
 
-function nearestDocuments(
-  documents: readonly PromptSourceDocument[],
-  query: readonly number[] | null,
-): PromptSourceDocument[] {
-  if (query === null) return [];
-  return documents
-    .filter((document) => !document.isPinned && document.embedding !== null)
-    .map((document) => ({ document, score: cosineSimilarity(document.embedding ?? [], query) }))
-    .sort((left, right) => right.score - left.score || left.document.title.localeCompare(right.document.title))
-    .slice(0, DOCUMENT_NEIGHBOR_LIMIT)
-    .map((row) => row.document);
+/** Puts `target` first with its full budget share, dropping any older copy of the same title. */
+export function withTargetDocument(documents: readonly PromptDocument[], target: PromptDocument | null): PromptDocument[] {
+  if (target === null) return [...documents];
+  const rest = documents.filter((document) => document.title !== target.title);
+  return fitBudget([{ ...target, isPinned: true }, ...rest.map((document) => ({ ...document, isPinned: false }))]);
 }
 
 function fitBudget(documents: readonly PromptSourceDocument[]): PromptDocument[] {

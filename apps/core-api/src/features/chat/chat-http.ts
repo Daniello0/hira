@@ -41,6 +41,26 @@ export function writeSse(response: Response, event: string, data: unknown): void
   response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+/** SSE sink over the response. Writes after the client left are dropped. */
+export function responseSink(response: Response): { open(): void; write(event: string, data: unknown): void } {
+  return {
+    open: () => openSse(response),
+    write: (event, data) => {
+      if (response.destroyed || response.writableEnded) return;
+      writeSse(response, event, data);
+    },
+  };
+}
+
+/** Aborts when the client closes the connection before the stream finished. */
+export function abortOnClose(response: Response): AbortSignal {
+  const controller = new AbortController();
+  response.on('close', () => {
+    if (!response.writableFinished) controller.abort();
+  });
+  return controller.signal;
+}
+
 /** Maps dialogue failures onto the shared error body. Unknown errors return null. */
 export function mapChatError(error: unknown, request: Request): ApiHttpException | null {
   if (error instanceof ChatNotFoundError) return apiError(HttpStatus.NOT_FOUND, CHAT_NOT_FOUND, error.message, request);
@@ -54,11 +74,16 @@ export function mapChatError(error: unknown, request: Request): ApiHttpException
   return null;
 }
 
+/** Dialogue and account failures in one map, for JSON routes that can hit either. */
+export function mapRouteError(error: unknown, request: Request): ApiHttpException | null {
+  return mapChatError(error, request) ?? mapAccountError(error, request);
+}
+
 /** Writes a JSON error, or an SSE error when the stream is already open. */
 export function failStream(error: unknown, request: Request, response: Response): void {
   const http = mapChatError(error, request) ?? mapAccountError(error, request) ?? unexpected(request);
   if (response.headersSent) {
-    writeSse(response, SSE_EVENT.error, http.getResponse());
+    if (!response.destroyed && !response.writableEnded) writeSse(response, SSE_EVENT.error, http.getResponse());
     response.end();
     return;
   }

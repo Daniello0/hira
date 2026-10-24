@@ -1,27 +1,38 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiProduces, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import type { Request, Response } from 'express';
+import { readRequestId } from '../../common/interceptors/request-id.interceptor';
+import { MAX_MESSAGE_LENGTH } from '../chat/chat.constants';
 import { validatedBody } from '../auth/validation-exception';
 import { OptionalAccessGuard } from '../auth/optional-access.guard';
 import { mapAccountError } from '../auth/account-http';
 import { requireUserId } from '../auth/require-user-id';
 import { actorHint } from '../chat/actor-hint';
-import { failStream, openSse, writeSse } from '../chat/chat-http';
+import { abortOnClose, failStream, responseSink } from '../chat/chat-http';
 import { ChatService } from '../chat/chat.service';
 import { CallMissingError } from './call.errors';
 import { CALL_STORE, type CallStore } from './call.store';
 import { SearchOrchestratorService } from '../search-orchestrator/search-orchestrator.service';
 
 class CallTurnBody {
+  @ApiProperty({ type: String, minLength: 1, maxLength: MAX_MESSAGE_LENGTH })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MinLength(1)
-  @MaxLength(4000)
+  @MaxLength(MAX_MESSAGE_LENGTH)
   content!: string;
 
+  @ApiPropertyOptional({ type: Boolean })
   @IsOptional()
   @IsBoolean()
   useMemory?: boolean;
+
+  @ApiPropertyOptional({ type: Boolean, description: '`false` hides foreign remote vacancies for this turn' })
+  @IsOptional()
+  @IsBoolean()
+  includeForeignRemote?: boolean;
 }
 
 /** Voice-call transcripts. A call never appears in the chat list. */
@@ -50,6 +61,7 @@ export class CallController {
   @Post(':id/turns')
   @HttpCode(HttpStatus.OK)
   @ApiProduces('text/event-stream')
+  @ApiBody({ type: CallTurnBody })
   @ApiOperation({ summary: 'Send a call turn' })
   async turn(
     @Param('id', ParseUUIDPipe) id: string,
@@ -62,8 +74,16 @@ export class CallController {
       const session = await this.calls.findSession(id);
       if (session === null || session.userId !== userId) throw new CallMissingError();
       await this.search.postCall(
-        { caller: { kind: 'user', userId }, session, content: body.content, requestId: request.header('x-request-id') ?? 'call', useMemory: body.useMemory },
-        { open: () => openSse(response), write: (event, data) => writeSse(response, event, data) },
+        {
+          caller: { kind: 'user', userId },
+          session,
+          content: body.content,
+          requestId: readRequestId(request),
+          useMemory: body.useMemory,
+          includeForeignRemote: body.includeForeignRemote,
+          signal: abortOnClose(response),
+        },
+        responseSink(response),
       );
       response.end();
     } catch (error) {

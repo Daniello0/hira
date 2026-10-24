@@ -6,6 +6,7 @@ import {
   WorkFormat,
 } from '@hira/contracts';
 import { z } from 'zod';
+import { INTENT_TYPE_DESCRIPTION } from '../llm/llm.constants';
 import { enforceProviderSchema } from '../llm/provider-schema';
 
 const modelSkillSchema = z
@@ -40,7 +41,7 @@ const modelIntentSchema = z
     hardConstraints: hardConstraintsSchema,
     softConstraints: z.array(softConstraintSchema),
     complexity: stringEnum(Object.values(QueryComplexity)),
-    intentType: stringEnum(Object.values(IntentType)),
+    intentType: stringEnum(Object.values(IntentType)).describe(INTENT_TYPE_DESCRIPTION),
   })
   .strict();
 
