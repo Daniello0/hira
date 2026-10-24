@@ -1,6 +1,7 @@
 import type { CollectionDto, CreateFavoriteRequest, FavoriteDto, UpdateFavoriteRequest } from '@hira/contracts';
 import { coreFetch, jsonRequest } from '../../common/api/core-api';
 import { readApiMessage } from '../auth/read-api-message';
+import { COLLECTION_DELETE_ERROR_MESSAGE } from './favorites.constants';
 
 /** Saved vacancies. `q` filters the note. */
 export async function fetchFavorites(token: string, noteQuery?: string): Promise<FavoriteDto[] | null> {
@@ -45,7 +46,8 @@ export async function createCollection(token: string, name: string): Promise<str
 }
 
 /** Deletes a collection. Favorites stay, without that group. */
-export async function deleteCollection(token: string, id: string): Promise<boolean> {
+export async function deleteCollection(token: string, id: string): Promise<string | null> {
   const response = await coreFetch(`/api/v1/collections/${id}`, { method: 'DELETE' }, token);
-  return response.ok;
+  if (response.ok) return null;
+  return readApiMessage(response, COLLECTION_DELETE_ERROR_MESSAGE);
 }

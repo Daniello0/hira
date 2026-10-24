@@ -6,10 +6,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '../../common/components/button';
 import { TextField } from '../../common/components/text-field';
 import { useSession } from '../auth/session.store';
+import { isRemovedVacancySummary } from '@hira/contracts';
 import { CLOSED_VACANCY_LABEL } from '../vacancy/vacancy.constants';
 import { createCollection, deleteCollection, deleteFavorite, fetchCollections, fetchFavorites, patchFavorite } from './favorites-api';
 import { favoriteClosed, favoritePay } from './favorite-card';
 import { groupFavorites } from './favorite-groups';
+import { FAVORITES_LOAD_ERROR_MESSAGE, favoritesEmptyMessage } from './favorites.constants';
 import { useSavedVacancies } from './saved-vacancies.store';
 
 /** Saved vacancies, grouped, with a note search. */
@@ -22,14 +24,19 @@ export function FavoritesView() {
   const reload = useCallback(async (note?: string) => {
     if (token === null) return;
     const [saved, groups] = await Promise.all([fetchFavorites(token, note), fetchCollections(token)]);
-    if (saved !== null) {
-      setFavorites(saved);
-      if (note === undefined || note.trim().length === 0) useSavedVacancies.getState().setAll(saved);
+    if (saved === null || groups === null) {
+      setError(FAVORITES_LOAD_ERROR_MESSAGE);
+      return;
     }
-    if (groups !== null) setCollections(groups);
+    setError(null);
+    setFavorites(saved);
+    setCollections(groups);
+    if (note === undefined || note.trim().length === 0) useSavedVacancies.getState().setAll(saved);
   }, [token]);
   useEffect(() => { void reload(); }, [reload]);
   if (token === null) return null;
+  const groups = groupFavorites(favorites, collections);
+  const emptyMessage = favoritesEmptyMessage(query, favorites.length);
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <h1 className="text-2xl font-semibold">Favorites</h1>
@@ -39,8 +46,9 @@ export function FavoritesView() {
       </form>
       <NewCollection token={token} onDone={() => reload(query)} onError={setError} />
       {error !== null ? <p role="alert">{error}</p> : null}
-      {groupFavorites(favorites, collections).map((group) => (
-        <Group key={group.id ?? 'none'} name={group.name} collectionId={group.id} items={group.items} collections={collections} token={token} onDone={() => reload(query)} onError={setError} />
+      {emptyMessage !== null ? <p className="text-sm text-hira-muted">{emptyMessage}</p> : null}
+      {groups.map((group) => (
+        <Group key={group.id ?? 'none'} name={group.name} collectionId={group.id} isDefault={group.isDefault} items={group.items} collections={collections} token={token} onDone={() => reload(query)} onError={setError} />
       ))}
     </div>
   );
@@ -58,6 +66,7 @@ function NewCollection({ token, onDone, onError }: { token: string; onDone: () =
 function Group({
   name,
   collectionId,
+  isDefault,
   items,
   collections,
   token,
@@ -66,6 +75,7 @@ function Group({
 }: {
   name: string;
   collectionId: string | null;
+  isDefault: boolean;
   items: readonly FavoriteDto[];
   collections: readonly CollectionDto[];
   token: string;
@@ -76,7 +86,7 @@ function Group({
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-medium">{name}</h2>
-        {collectionId !== null ? <button type="button" className="text-sm text-hira-muted" onClick={() => void removeCollection(token, collectionId, onDone, onError)}>Delete collection</button> : null}
+        {collectionId !== null && !isDefault ? <button type="button" className="text-sm text-hira-muted" onClick={() => void removeCollection(token, collectionId, onDone, onError)}>Delete collection</button> : null}
       </div>
       {items.length === 0 ? <p className="text-sm text-hira-muted">No saved vacancies.</p> : null}
       {items.map((favorite) => (
@@ -105,7 +115,7 @@ function FavoriteCard({
       <h3 className="font-medium">{vacancy.title}</h3>
       <p className="text-sm text-hira-muted">{vacancy.companyName}{vacancy.locationLabel !== null ? ` · ${vacancy.locationLabel}` : ''}</p>
       <p className="text-sm text-hira-muted">{favoritePay(vacancy)}{vacancy.workFormat !== null ? ` · ${vacancy.workFormat}` : ''}</p>
-      {favoriteClosed(vacancy) ? <a className="text-sm underline" href={vacancy.url}>{CLOSED_VACANCY_LABEL}</a> : null}
+      {favoriteClosed(vacancy) && !isRemovedVacancySummary(vacancy) ? <a className="text-sm underline" href={vacancy.url}>{CLOSED_VACANCY_LABEL}</a> : null}
       <NoteField token={token} favorite={favorite} onDone={onDone} onError={onError} />
       <CollectionSelect token={token} favorite={favorite} collections={collections} onDone={onDone} onError={onError} />
       <button type="button" className="text-sm text-hira-muted" onClick={() => void removeFavorite(token, favorite, onDone, onError)}>Remove</button>
@@ -140,7 +150,7 @@ function CollectionSelect({
         value={favorite.collectionId ?? ''}
         onChange={(event) => void move(token, favorite.id, event.target.value, onDone, onError)}
       >
-        <option value="">No collection</option>
+        <option value="">Uncategorized</option>
         {collections.map((collection) => <option key={collection.id} value={collection.id}>{collection.name}</option>)}
       </select>
     </label>
@@ -179,7 +189,7 @@ async function removeFavorite(token: string, favorite: FavoriteDto, onDone: () =
 }
 
 async function removeCollection(token: string, id: string, onDone: () => Promise<void>, onError: (value: string | null) => void): Promise<void> {
-  const ok = await deleteCollection(token, id);
-  onError(ok ? null : 'Could not delete the collection');
-  if (ok) await onDone();
+  const message = await deleteCollection(token, id);
+  onError(message);
+  if (message === null) await onDone();
 }
