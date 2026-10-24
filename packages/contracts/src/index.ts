@@ -88,6 +88,11 @@ export {
   type UpdateFavoriteRequest,
 } from './common/dto/favorite/favorite.dto';
 export { type VacancyCardSummary } from './common/dto/favorite/vacancy-card-summary.dto';
+export {
+  REMOVED_VACANCY_TITLE,
+  isRemovedVacancySummary,
+  removedVacancySummary,
+} from './common/dto/favorite/removed-vacancy-summary';
 export { type SkillSearchHitDto } from './common/dto/skill/skill-search-hit.dto';
 export { type GenerateRequest } from './common/dto/llm/generate-request.dto';
 export { type PromptDocument } from './common/dto/llm/prompt-document.dto';
