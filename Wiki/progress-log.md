@@ -1,12 +1,12 @@
 # Progress Log
 
-Статус: активен · Последнее обновление: 2026-10-24
+Статус: активен · Последнее обновление: 2026-10-24 (этапы 15–17, код)
 
 Журнал этапов разработки продукта. Обновляется по мере выполнения — меняй **%** в последней колонке и дату в шапке.
 
 **Ориентир защиты:** через 2–3 месяца (декабрь 2026 – январь 2027).  
 **Политика (ADR-022):** качество и новизна > скорость; мощные модели; индексация overnight; latency на CPU — не блокер.  
-**Общий прогресс (среднее по этапам):** ~74%
+**Общий прогресс (среднее по этапам):** ~81%
 
 | # | Этап | Ключевые deliverables | % |
 |---|---|---|---|
@@ -17,16 +17,16 @@
 | 5 | **llm-service** | OpenRouter, `/understand` + json_schema, `/generate` (SSE), Redis cache, ретраи | **100** |
 | 6 | **embedding-runtime + CPU benchmark** | FP32 benchmark ✅ [`cpu-tei-benchmark/`](../cpu-tei-benchmark/); prod: TEI + **BGE-M3 + bge-reranker-v2-m3** в обычном Compose, без профиля ([ADR-033](10-decision-log.md)); арена 8192. Реранкер становится healthy раньше энкодера. 2026-10-17 оба живы вместе: `/embed` 1024 FP32, `/rerank` с оценкой ([ADR-034](10-decision-log.md)), `retrieval-service` `GET /health/ready` — 200 | **100** |
 | 7 | **Ingestion: источники 1–3** | rabota.by (публичные страницы, [ADR-035](10-decision-log.md)), ГСЗ, Хабр Карьера; normalize, курс НБ РБ на календарные сутки Минска, dedupe simhash, BullMQ, cron, `POST/GET /internal/v1/runs`. Навыки и эмбеддинги — этап 8. Живой снимок по 5 вакансий с каждого источника записан | **100** |
-| 8 | **Ingestion: навыки и граф** | extract-skills, ESCO, `vacancy_skills`, PMI/IDF nightly, embed → pgvector (**overnight**) | **75** |
-| 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | **75** |
-| 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | **90** |
-| 11 | **Оркестрация поиска (core-api)** | Search orchestrator, SSE (intent → results → tokens), чаты, `POST /search` для eval | **90** |
-| 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions. Живой `core-api` после миграции `Stage12Memory1764000000000` (ADR-040) | **90** |
-| 13 | **Frontend: чат, стриминг, вызов** | Next.js, dark EN UI, SSE, vacancy cards, match explanation, экран Call, spinner «Searching…» | **80** |
-| 14 | **Frontend: профиль, библиотека, избранное, billing** | Profile, library, favorites, memory, mock `/billing` | **80** |
-| 15 | **Ingestion: источники 4–6** | praca.by, LinkedIn, Indeed; `is_foreign_remote` + filter | 0 |
+| 8 | **Ingestion: навыки и граф** | extract-skills, ESCO, `vacancy_skills`, PMI/IDF nightly, embed → pgvector (**overnight**) | **85** |
+| 9 | **Retrieval: lexical + dense** | BM25 (`pg_textsearch`), HNSW (BGE-M3), чанкинг, parallel top-100 | **80** |
+| 10 | **Retrieval: graph + fusion + rerank** | Graph CTE ≤2 hop, RRF, **`bge-reranker-v2-m3`** top-20, explain; light reranker — абляции | **95** |
+| 11 | **Оркестрация поиска (core-api)** | Search orchestrator, SSE (intent → results → tokens), чаты, `POST /search` для eval | **95** |
+| 12 | **Память, библиотека, вызов (backend)** | 3-tier memory, выключатель межчатовой памяти, библиотека PDF/md/txt, call sessions, profile suggestions. Живой `core-api` после миграции `Stage12Memory1764000000000` (ADR-040) | **95** |
+| 13 | **Frontend: чат, стриминг, вызов** | Next.js, dark EN UI, SSE, vacancy cards, match explanation, экран Call, spinner «Searching…» | **90** |
+| 14 | **Frontend: профиль, библиотека, избранное, billing** | Profile, library, favorites, memory, mock `/billing` | **90** |
+| 15 | **Ingestion: источники 4–6** | praca.by, LinkedIn, Indeed; `is_foreign_remote` + filter | **60** |
 | 16 | **Экспериментальная оценка** | 30 queries (+16 из 2026), qrels, абляции, latency **фиксируется честно** (не SLA) | 0 |
-| 17 | **Интеграция и подготовка к защите** | Vitest ≥70%, `docker compose up`, runbook, smoke E2E | 0 |
+| 17 | **Интеграция и подготовка к защите** | Vitest ≥70%, `docker compose up`, runbook, smoke E2E | **20** |
 
 ---
 
@@ -70,6 +70,17 @@
 Подробно: [`cpu-tei-benchmark/report.md`](../cpu-tei-benchmark/report.md), [`llm-lexical-graph-summary.md`](llm-lexical-graph-summary.md) §8.
 
 ## Следующий шаг
+
+**Этапы 15–17, код (2026-10-24, ветка `plan/finish-logic`, [план](../docs/stage-15-17-plan.md)).** Дописана логика без прогонов сбора и оценки:
+
+- **Источники 4–6.** Реестр коннекторов вместо ветвлений. praca.by включён (обход `/rabota-minsk/?page=N`, разбор проверен на сохранённых страницах). LinkedIn и Indeed написаны, но выключены: их `robots.txt` запрещает страницы вакансий. Normalize определяет язык, ставит `is_foreign_remote`, разбирает ставки фриланса. Пагинация до `INGEST_LIMIT`.
+- **Экономия LLM** ([ADR-041](10-decision-log.md)). 429 не повторяется; квота проверяется до `understand`; память извлекается только после ответа с поиском; навыки — пачкой по 5 под `LLM_DAILY_BUDGET`; выключатель `SKILL_EXTRACTION_ENABLED`.
+- **Поиск.** Фильтр зарубежной удалёнки, релаксация мягких условий, персонализация по профилю, `similar` и `skill-gap`.
+- **core-api.** `GET /vacancies/{id}`, `/similar`, `/skill-gap`, `POST /feedback`, `GET /locations`, `GET /admin/ingestion/runs`, Swagger, акт `DRAFT_DOCUMENT` с событием `document-draft`. Миграция `Stage15FeedbackAndSkillFailures1766000000000`.
+- **web.** Обновление токена во всех запросах, догрузка и восстановление чатов, Markdown, переключатели памяти и зарубежной удалёнки, отзывы, карточка вакансии со skill-gap и похожими, черновик файла от Hira, выбор городов, починка вызова.
+- **Чинка.** Ответ больше не обрывается на 12 с, сводка чата не останавливается после сбойного хода, карьерные вопросы получают свой промпт, нарезка описаний идёт по абзацам, `robots.txt` с `*` соблюдается.
+
+Lint, `tsc` всех шести пакетов и unit-тесты зелёные. **Живого стенда не было:** на диске Mac осталось 154 МБ, сборка Docker-образов упала с `input/output error`. Миграцию 1766 и новые экраны на стенде не смотрели. Остались этап 16 (оценка, sparse BGE-M3, база MiniLM) и этап 17 (покрытие тестами, smoke E2E).
 
 **Этап 14.** Экраны профиля, библиотеки, памяти, избранного и mock `/billing` есть в `apps/web`. Демо с этих маршрутов уходит на вход и не вызывает API. `/billing` открывается без аккаунта: monthly/yearly меняет только цены, Upgrade не берёт оплату. В боковой колонке ссылки ведут на эти экраны, в том числе в мобильной шторке. Живой `core-api` в этой сессии не был запущен, поэтому сохранение профиля, файла, факта и вакансии на стенде не смотрели. `GET /api/v1/skills?q=` и REST избранного закрыты тестами на памяти, без Postgres.
 
