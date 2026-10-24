@@ -107,6 +107,8 @@ export class TurnContextService {
       userId,
       sourceMessageId: job.sourceMessageId,
       sourceCallTurnId: job.sourceCallTurnId,
+      sourceChatId: job.chatId,
+      sourceCallSessionId: job.sourceCallSessionId,
       nextId: () => randomUUID(),
       embed: (content) => this.embed(content),
     });

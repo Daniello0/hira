@@ -9,6 +9,10 @@ export interface MemoryFactDto {
   isPinned: boolean;
   sourceMessageId: string | null;
   sourceCallTurnId: string | null;
+  /** Chat that owns `sourceMessageId`, when the message still exists. */
+  sourceChatId: string | null;
+  /** Call session that owns `sourceCallTurnId`, when the turn still exists. */
+  sourceCallSessionId: string | null;
   expiresAt: string | null;
   createdAt: string;
 }

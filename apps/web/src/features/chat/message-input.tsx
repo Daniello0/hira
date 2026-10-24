@@ -1,5 +1,5 @@
-import { SIGN_UP_BANNER } from './chat.constants';
 import { Button } from '../../common/components/button';
+import { SignUpLinks } from './sign-up-links';
 
 interface MessageInputProps {
   draft: string;
@@ -36,7 +36,7 @@ export function MessageInput({ draft, disabled, banner, notice, account, onDraft
 function StatusLine({ banner, notice, account }: { banner: string | null; notice: string | null; account: boolean }) {
   return (
     <div className="mb-2 text-sm">
-      {banner !== null && !account ? <a className="text-hira-accent underline" href="/register">{SIGN_UP_BANNER}</a> : null}
+      {banner !== null && !account ? <SignUpLinks /> : null}
       {banner !== null && account ? <p>Search quota exceeded</p> : null}
       {notice !== null ? <p>{notice}</p> : null}
     </div>

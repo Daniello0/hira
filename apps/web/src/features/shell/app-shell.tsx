@@ -6,6 +6,10 @@ import { Drawer } from '../../common/components/drawer';
 import { refreshAccess, loadMe } from '../auth/session';
 import { useSession } from '../auth/session.store';
 import { SessionStatus } from '../auth/session-status';
+import { fetchFavorites } from '../favorites/favorites-api';
+import { useSavedVacancies } from '../favorites/saved-vacancies.store';
+import { SuggestionModal } from '../suggestions/suggestion-modal';
+import { useSuggestions } from '../suggestions/suggestion.store';
 import { ChatSidebar, refreshChatList } from '../chat/chat-sidebar';
 import { useShell } from './shell.store';
 
@@ -24,8 +28,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (status === SessionStatus.Unknown) return;
     void refreshChatList(token);
   }, [status, token]);
+  useEffect(() => {
+    if (status === SessionStatus.Anonymous) {
+      useSuggestions.getState().clear();
+      useSavedVacancies.getState().clear();
+      return;
+    }
+    if (status !== SessionStatus.Account || token === null) return;
+    void useSuggestions.getState().reload(token);
+    void fetchFavorites(token).then((rows) => {
+      if (rows !== null) useSavedVacancies.getState().setAll(rows);
+    });
+  }, [status, token]);
   return (
     <div className="min-h-screen bg-hira-bg text-hira-text">
+      {status === SessionStatus.Account && token !== null ? <SuggestionModal token={token} /> : null}
       <MobileBar />
       <div className="md:grid md:min-h-screen md:grid-cols-[16rem_1fr]">
         <aside className="hidden border-r border-white/10 bg-hira-panel/30 p-4 md:block">

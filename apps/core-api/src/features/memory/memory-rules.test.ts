@@ -86,6 +86,12 @@ describe('memory candidates', () => {
     const stored = await applyMemoryCandidates([], [candidate(0.8, 'quiet')], applyContext(async () => null));
     expect(stored[0]?.embedding).toBeNull();
   });
+
+  it('stores chat provenance on a new fact', async () => {
+    const stored = await applyMemoryCandidates([], [candidate(0.9)], applyContext(async () => [1, 0]));
+    expect(stored[0]?.sourceChatId).toBe('chat-1');
+    expect(stored[0]?.sourceCallSessionId).toBeNull();
+  });
 });
 
 describe('summary timing', () => {
@@ -161,6 +167,8 @@ function fact(
     confidence: 0.9,
     sourceMessageId: null,
     sourceCallTurnId: null,
+    sourceChatId: null,
+    sourceCallSessionId: null,
     isPinned: false,
     expiresAt: null,
     revokedAt: null,
@@ -185,6 +193,8 @@ function applyContext(embed: ApplyContext['embed']): ApplyContext {
     userId: USER,
     sourceMessageId: 'message-1',
     sourceCallTurnId: 'turn-1',
+    sourceChatId: 'chat-1',
+    sourceCallSessionId: null,
     nextId: () => `new-${next++}`,
     embed,
   };

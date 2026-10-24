@@ -53,6 +53,8 @@ function toDto(fact: MemoryFact): MemoryFactDto {
     isPinned: fact.isPinned,
     sourceMessageId: fact.sourceMessageId,
     sourceCallTurnId: fact.sourceCallTurnId,
+    sourceChatId: fact.sourceChatId,
+    sourceCallSessionId: fact.sourceCallSessionId,
     expiresAt: fact.expiresAt?.toISOString() ?? null,
     createdAt: fact.createdAt.toISOString(),
   };
