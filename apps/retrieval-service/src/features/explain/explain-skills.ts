@@ -164,7 +164,8 @@ function label(names: ReadonlyMap<number, string>, skillId: number): string {
   return names.get(skillId) ?? String(skillId);
 }
 
-async function loadVacancySkills(
+/** Skills attached to each vacancy, grouped by vacancy id. */
+export async function loadVacancySkills(
   client: SqlClient,
   vacancyIds: readonly string[],
 ): Promise<Map<string, VacancySkillRow[]>> {
@@ -191,7 +192,8 @@ function pushSkill(grouped: Map<string, VacancySkillRow[]>, row: Record<string, 
   grouped.set(vacancyId, list);
 }
 
-async function loadEdges(client: SqlClient, seeds: readonly number[]): Promise<GraphEdge[]> {
+/** Edges reachable from the seeds within two hops, of the walked edge types. */
+export async function loadEdges(client: SqlClient, seeds: readonly number[]): Promise<GraphEdge[]> {
   if (seeds.length === 0) return [];
   const allowed = [SkillEdgeType.AlternativeOf, SkillEdgeType.Narrower, SkillEdgeType.RelatedTo];
   const result = await client.query(EDGE_SQL, [seeds, allowed]);
@@ -207,7 +209,11 @@ function readEdge(row: Record<string, unknown>): GraphEdge {
   };
 }
 
-async function loadNames(client: SqlClient, ids: readonly number[]): Promise<Map<number, string>> {
+/** Canonical skill names by id. */
+export async function loadNames(
+  client: SqlClient,
+  ids: readonly number[],
+): Promise<Map<number, string>> {
   if (ids.length === 0) return new Map();
   const result = await client.query(
     'SELECT id, canonical_name AS name FROM skills WHERE id = ANY($1::int[])',
@@ -216,7 +222,8 @@ async function loadNames(client: SqlClient, ids: readonly number[]): Promise<Map
   return new Map(result.rows.map((row) => [Number(row.id), String(row.name)]));
 }
 
-async function loadProfile(
+/** Profile skill ids of a user; null when no user is given. */
+export async function loadProfile(
   client: SqlClient,
   userId: string | undefined,
 ): Promise<ReadonlySet<number> | null> {

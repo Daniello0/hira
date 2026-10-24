@@ -2,20 +2,20 @@ import {
   IntentType,
   QueryComplexity,
   RetrievalBranch,
-  type HardConstraints,
   type RetrievalOptions,
   type SearchIntent,
   type SkillMention,
 } from '@hira/contracts';
 import { seedIds, type LinkedSkill } from '../graph/link-query-skill';
 import type { BranchHit } from './branch-hit';
+import type { SearchFilters } from './hard-filters';
 
 export interface BranchSearch {
-  searchBm25(query: string, filters: HardConstraints): Promise<BranchHit[]>;
+  searchBm25(query: string, filters: SearchFilters): Promise<BranchHit[]>;
   embedQuery(text: string): Promise<number[]>;
-  searchDense(vector: readonly number[], filters: HardConstraints): Promise<BranchHit[]>;
+  searchDense(vector: readonly number[], filters: SearchFilters): Promise<BranchHit[]>;
   resolveSkills(mentions: readonly SkillMention[]): Promise<LinkedSkill[]>;
-  searchGraph(skillIds: readonly number[], filters: HardConstraints): Promise<BranchHit[]>;
+  searchGraph(skillIds: readonly number[], filters: SearchFilters): Promise<BranchHit[]>;
 }
 
 export interface BranchRun {
@@ -31,23 +31,27 @@ interface Timed<T> {
   ms: number;
 }
 
-/** Runs the lexical, dense, and graph branches selected for this request. */
+/**
+ * Runs the lexical, dense, and graph branches selected for this request.
+ * `filters` defaults to the intent's hard constraints; relaxation passes soft terms on top.
+ */
 export async function runBranches(
   intent: SearchIntent,
   options: RetrievalOptions | undefined,
   search: BranchSearch,
+  filters: SearchFilters = intent.hardConstraints,
 ): Promise<BranchRun> {
   if (intent.rewrittenQuery.trim().length === 0) return emptyRun();
   const selected = selectedBranches(options);
-  const started = startTasks(intent, selected, search);
+  const started = startTasks(intent, filters, selected, search);
   const [lexical, embedded, linked] = await Promise.all([
     started.lexical,
     started.embed,
     started.link,
   ]);
   const [dense, graph] = await Promise.all([
-    finishDense(search, intent.hardConstraints, selected.dense, embedded),
-    finishGraph(search, intent.hardConstraints, selected.graph, linked),
+    finishDense(search, filters, selected.dense, embedded),
+    finishGraph(search, filters, selected.graph, linked),
   ]);
   return assembled(lexical, embedded, dense, graph, linked, selected.graph);
 }
@@ -83,8 +87,12 @@ export function emptyIntent(query: string): SearchIntent {
   };
 }
 
-function startTasks(intent: SearchIntent, selected: BranchChoice, search: BranchSearch) {
-  const filters = intent.hardConstraints;
+function startTasks(
+  intent: SearchIntent,
+  filters: SearchFilters,
+  selected: BranchChoice,
+  search: BranchSearch,
+) {
   const query = intent.rewrittenQuery;
   return {
     lexical: selected.lexical
@@ -99,7 +107,7 @@ function startTasks(intent: SearchIntent, selected: BranchChoice, search: Branch
 
 async function finishDense(
   search: BranchSearch,
-  filters: HardConstraints,
+  filters: SearchFilters,
   enabled: boolean,
   embedded: Timed<number[] | null>,
 ): Promise<Timed<BranchHit[]>> {
@@ -109,7 +117,7 @@ async function finishDense(
 
 async function finishGraph(
   search: BranchSearch,
-  filters: HardConstraints,
+  filters: SearchFilters,
   enabled: boolean,
   linked: Timed<LinkedSkill[]>,
 ): Promise<Timed<BranchHit[]>> {

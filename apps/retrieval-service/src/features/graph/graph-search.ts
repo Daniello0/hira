@@ -1,6 +1,6 @@
-import { SkillEdgeType, type HardConstraints } from '@hira/contracts';
+import { SkillEdgeType } from '@hira/contracts';
 import type { BranchHit } from '../search/branch-hit';
-import { hardFilterSql } from '../search/hard-filters';
+import { hardFilterSql, type SearchFilters } from '../search/hard-filters';
 import {
   BRANCH_LIMIT,
   EDGE_DECAY,
@@ -20,7 +20,7 @@ interface CoverageRow {
 export async function searchGraph(
   client: SqlClient,
   skillIds: readonly number[],
-  filters: HardConstraints,
+  filters: SearchFilters,
 ): Promise<BranchHit[]> {
   const rows = await coverageRows(client, skillIds, filters, null);
   return rows.map((row, index) => ({ vacancyId: row.id, rank: index + 1, score: row.coverage }));
@@ -39,7 +39,7 @@ export async function coverageFor(
 async function coverageRows(
   client: SqlClient,
   skillIds: readonly number[],
-  filters: HardConstraints,
+  filters: SearchFilters,
   vacancyIds: readonly string[] | null,
 ): Promise<CoverageRow[]> {
   if (skillIds.length === 0) return [];

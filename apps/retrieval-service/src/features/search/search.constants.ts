@@ -1,4 +1,5 @@
 import { QueryComplexity, RetrievalBranch, SkillEdgeType } from '@hira/contracts';
+import { UUID_PATTERN } from '../../common/constants/app.constants';
 
 /** How many vacancies one branch may return. */
 export const BRANCH_LIMIT = 100;
@@ -13,8 +14,7 @@ export const BM25_INDEX_RU = 'idx_vac_bm25_ru';
 export const BM25_INDEX_EN = 'idx_vac_bm25_en';
 
 /** `users.id` is a uuid. Anything else must not reach `user_profile_skills.user_id`. */
-export const USER_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const USER_ID_PATTERN = UUID_PATTERN;
 
 export const VALIDATION_FAILED_CODE = 'VALIDATION_FAILED';
 export const VALIDATION_FAILED_MESSAGE = 'Search request is invalid';
@@ -25,6 +25,12 @@ export const EMBEDDING_WIDTH = 1024;
 
 /** RRF constant from Cormack et al. The rank is 1-based, so the denominator is 61 on the first hit. */
 export const RRF_K = 60;
+
+/** S3: below this many fused candidates the search drops a soft constraint and runs again. */
+export const MIN_FUSED_CANDIDATES = 20;
+
+/** S3: extra runs after the first one. The second retry drops every soft constraint left. */
+export const MAX_RELAXATION_RETRIES = 2;
 
 /** How many fused hits the production reranker scores. */
 export const RERANK_WINDOW = 20;

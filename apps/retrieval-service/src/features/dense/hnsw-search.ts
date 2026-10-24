@@ -1,6 +1,6 @@
-import type { HardConstraints } from '@hira/contracts';
 import type { BranchHit } from '../search/branch-hit';
-import { hardFilterSql } from '../search/hard-filters';
+import { hardFilterSql, type SearchFilters } from '../search/hard-filters';
+import { inTransaction } from '../search/in-transaction';
 import { BRANCH_LIMIT, DENSE_PAGE_CAP } from '../search/search.constants';
 import type { SqlClient } from '../search/sql-client';
 import { vectorLiteral } from './embed-query';
@@ -25,7 +25,8 @@ export function nextPageLimit(
   rowCount: number,
   distinctVacancies: number,
 ): number | null {
-  if (distinctVacancies >= BRANCH_LIMIT || rowCount < current || current >= DENSE_PAGE_CAP) return null;
+  if (distinctVacancies >= BRANCH_LIMIT || rowCount < current || current >= DENSE_PAGE_CAP)
+    return null;
   return Math.min(current * 2, DENSE_PAGE_CAP);
 }
 
@@ -33,24 +34,17 @@ export function nextPageLimit(
 export async function searchDense(
   client: SqlClient,
   vector: readonly number[],
-  filters: HardConstraints,
+  filters: SearchFilters,
 ): Promise<BranchHit[]> {
   const literal = vectorLiteral(vector);
-  await client.query('BEGIN');
-  try {
-    const pooled = await scanPages(client, literal, filters);
-    await client.query('COMMIT');
-    return rankDistances(pooled);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  }
+  const pooled = await inTransaction(client, () => scanPages(client, literal, filters));
+  return rankDistances(pooled);
 }
 
 async function scanPages(
   client: SqlClient,
   literal: string,
-  filters: HardConstraints,
+  filters: SearchFilters,
 ): Promise<ChunkDistance[]> {
   await client.query('SET LOCAL hnsw.iterative_scan = relaxed_order');
   let limit: number | null = BRANCH_LIMIT;
@@ -66,7 +60,7 @@ async function scanPages(
 async function readPage(
   client: SqlClient,
   literal: string,
-  filters: HardConstraints,
+  filters: SearchFilters,
   limit: number,
 ): Promise<ChunkDistance[]> {
   const filter = hardFilterSql(filters, 3);
@@ -84,7 +78,11 @@ function pageSql(filterSql: string): string {
 }
 
 function rankDistances(rows: readonly ChunkDistance[]): BranchHit[] {
-  return rows.map((row, index) => ({ vacancyId: row.vacancyId, rank: index + 1, score: row.distance }));
+  return rows.map((row, index) => ({
+    vacancyId: row.vacancyId,
+    rank: index + 1,
+    score: row.distance,
+  }));
 }
 
 function keepNearer(best: Map<string, number>, row: ChunkDistance): void {

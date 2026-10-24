@@ -10,15 +10,17 @@ import { healthRouter } from './features/health/health.router';
 import type { DependencyProbe } from './features/health/health.types';
 import type { SearchPorts } from './features/search/run-search';
 import { createSearchRouter } from './features/search/search.router';
+import { createVacancyRouter, type VacancyPorts } from './features/vacancy/vacancy.router';
 
 export interface AppOptions {
   logger: Logger;
   internalToken: string;
   probes: readonly DependencyProbe[];
   search?: SearchPorts;
+  vacancy?: VacancyPorts;
 }
 
-/** Express application: request id, internal token, health, and the shared error body. */
+/** Express application: request id, internal token, health, search, vacancy reads, and the shared error body. */
 export function createApp(options: AppOptions): Express {
   const app = express();
   app.disable('x-powered-by');
@@ -28,6 +30,7 @@ export function createApp(options: AppOptions): Express {
   app.use(internalTokenMiddleware(options.internalToken));
   app.use('/health', healthRouter(options.probes));
   mountSearch(app, options.search);
+  mountVacancy(app, options.vacancy);
   app.use(notFoundMiddleware);
   app.use(errorMiddleware(options.logger));
   return app;
@@ -36,4 +39,9 @@ export function createApp(options: AppOptions): Express {
 function mountSearch(app: Express, search: SearchPorts | undefined): void {
   if (search === undefined) return;
   app.use('/internal/v1', createSearchRouter(search));
+}
+
+function mountVacancy(app: Express, vacancy: VacancyPorts | undefined): void {
+  if (vacancy === undefined) return;
+  app.use('/internal/v1', createVacancyRouter(vacancy));
 }

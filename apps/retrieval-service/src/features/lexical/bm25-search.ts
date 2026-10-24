@@ -1,6 +1,5 @@
-import type { HardConstraints } from '@hira/contracts';
 import type { BranchHit, ScoredVacancy } from '../search/branch-hit';
-import { hardFilterSql } from '../search/hard-filters';
+import { hardFilterSql, type SearchFilters } from '../search/hard-filters';
 import { BM25_INDEX_EN, BM25_INDEX_RU, BRANCH_LIMIT } from '../search/search.constants';
 import type { SqlClient } from '../search/sql-client';
 
@@ -16,26 +15,36 @@ export function mergeBm25(
     .map((row, index) => ({ vacancyId: row.vacancyId, rank: index + 1, score: row.score }));
 }
 
-/** BM25 over the Russian index and the English index. */
+/**
+ * BM25 over the Russian index and the English index, both started at once.
+ * Pass a second connection as `englishClient` to run them truly in parallel;
+ * one `pg` client queues its queries.
+ */
 export async function searchBm25(
   client: SqlClient,
   query: string,
-  filters: HardConstraints,
+  filters: SearchFilters,
+  englishClient: SqlClient = client,
 ): Promise<BranchHit[]> {
-  const russian = await readIndex(client, query, filters, BM25_INDEX_RU, 'ru');
-  const english = await readIndex(client, query, filters, BM25_INDEX_EN, 'en');
+  const [russian, english] = await Promise.all([
+    readIndex(client, query, filters, BM25_INDEX_RU, 'ru'),
+    readIndex(englishClient, query, filters, BM25_INDEX_EN, 'en'),
+  ]);
   return mergeBm25(russian, english);
 }
 
 async function readIndex(
   client: SqlClient,
   query: string,
-  filters: HardConstraints,
+  filters: SearchFilters,
   indexName: string,
   language: 'ru' | 'en',
 ): Promise<ScoredVacancy[]> {
   const filter = hardFilterSql(filters, 2);
-  const result = await client.query(bm25Sql(indexName, language, filter.sql), [query, ...filter.params]);
+  const result = await client.query(bm25Sql(indexName, language, filter.sql), [
+    query,
+    ...filter.params,
+  ]);
   return result.rows.map(readScore);
 }
 

@@ -6,6 +6,7 @@ import { explainVacancies } from '../explain/explain-skills';
 import { coverageFor, searchGraph } from '../graph/graph-search';
 import { loadKnownIds, loadLinkHits, resolveQuerySkills } from '../graph/load-link-hits';
 import { searchBm25 } from '../lexical/bm25-search';
+import { loadPersonalContext } from '../personalize/load-profile';
 import { rerankTexts, type RerankPost } from '../rerank/rerank-client';
 import { loadVacancies } from './load-vacancy';
 import type { BranchSearch } from './run-branches';
@@ -22,7 +23,9 @@ export function openSearch(pool: Pool, env: NodeJS.ProcessEnv): SearchPorts {
 function branchPorts(pool: Pool, embedUrl: string): BranchSearch {
   return {
     searchBm25: (query, filters) =>
-      withClient(pool, (client) => searchBm25(client, query, filters)),
+      withClient(pool, (russian) =>
+        withClient(pool, (english) => searchBm25(russian, query, filters, english)),
+      ),
     searchDense: (vector, filters) =>
       withClient(pool, (client) => searchDense(client, vector, filters)),
     embedQuery: (text) => embedLive(embedUrl, text),
@@ -38,6 +41,8 @@ function cardPorts(pool: Pool, rerankUrl: string): Omit<SearchPorts, keyof Branc
     coverageFor: (skillIds, vacancyIds) =>
       withClient(pool, (client) => coverageFor(client, skillIds, vacancyIds)),
     explainVacancies: (query) => withClient(pool, (client) => explainVacancies(client, query)),
+    personalContext: (userId, vacancyIds) =>
+      withClient(pool, (client) => loadPersonalContext(client, userId, vacancyIds)),
     rerank: (query, documents) => rerankLive(rerankUrl, query, documents),
   };
 }
