@@ -77,6 +77,18 @@ export {
   type UpdateProfileRequest,
 } from './common/dto/profile/profile.dto';
 export { type CallSessionDto, type CreateCallTurnRequest } from './common/dto/call/call.dto';
+export {
+  type CollectionDto,
+  type CreateCollectionRequest,
+  type UpdateCollectionRequest,
+} from './common/dto/favorite/collection.dto';
+export {
+  type CreateFavoriteRequest,
+  type FavoriteDto,
+  type UpdateFavoriteRequest,
+} from './common/dto/favorite/favorite.dto';
+export { type VacancyCardSummary } from './common/dto/favorite/vacancy-card-summary.dto';
+export { type SkillSearchHitDto } from './common/dto/skill/skill-search-hit.dto';
 export { type GenerateRequest } from './common/dto/llm/generate-request.dto';
 export { type PromptDocument } from './common/dto/llm/prompt-document.dto';
 export { type SummarizeChatRequest, type SummarizeChatResponse } from './common/dto/llm/summarize-chat.dto';

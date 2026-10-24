@@ -12,13 +12,15 @@ import { ChatModule } from './features/chat/chat.module';
 import { CallModule } from './features/call/call.module';
 import { LibraryModule } from './features/library/library.module';
 import { MemoryModule } from './features/memory/memory.module';
+import { FavoriteModule } from './features/favorite/favorite.module';
 import { ProfileModule } from './features/profile/profile.module';
+import { SkillModule } from './features/skill/skill.module';
 import { RedisModule } from './features/redis/redis.module';
 import { SearchOrchestratorModule } from './features/search-orchestrator/search-orchestrator.module';
 
 /** Root module: health, auth, and the cross-cutting request id and error shape. */
 @Module({
-  imports: [DatabaseModule, RedisModule, HealthModule, AuthModule, ChatModule, CallModule, MemoryModule, LibraryModule, ProfileModule, SearchOrchestratorModule],
+  imports: [DatabaseModule, RedisModule, HealthModule, AuthModule, ChatModule, CallModule, MemoryModule, LibraryModule, ProfileModule, FavoriteModule, SkillModule, SearchOrchestratorModule],
   providers: [
     {
       provide: LOGGER,

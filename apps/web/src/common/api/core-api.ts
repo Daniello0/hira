@@ -4,6 +4,11 @@ export function coreApiUrl(): string {
   return configured.replace(/\/$/, '');
 }
 
+/** JSON request init. The browser still sends the refresh cookie. */
+export function jsonRequest(method: string, body: unknown): RequestInit {
+  return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+}
+
 /** `fetch` with the refresh cookie and, after login, the bearer token. */
 export function coreFetch(path: string, init: RequestInit, token: string | null): Promise<Response> {
   const headers = new Headers(init.headers);

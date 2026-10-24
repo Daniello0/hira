@@ -8,7 +8,7 @@ import type { ChatSummary, CurrentUserDto } from '@hira/contracts';
 import { coreFetch } from '../../common/api/core-api';
 import { Button } from '../../common/components/button';
 import { useSession } from '../auth/session.store';
-import { SIGN_UP_BANNER } from './chat.constants';
+import { SignUpLinks } from './sign-up-links';
 import { createChat, deleteChat, fetchChats, patchChat } from './chat-api';
 import { useChatList } from './chat-list.store';
 
@@ -17,9 +17,15 @@ interface ChatSidebarProps {
   user: CurrentUserDto | null;
 }
 
-const LATER = ['Profile', 'Library', 'Memory', 'Favorites'] as const;
+const ACCOUNT_LINKS = [
+  { href: '/profile', label: 'Profile' },
+  { href: '/library', label: 'Library' },
+  { href: '/memory', label: 'Memory' },
+  { href: '/favorites', label: 'Favorites' },
+  { href: '/billing', label: 'Billing' },
+] as const;
 
-/** Chat list, Call, and the stage-14 labels that do not navigate. */
+/** Chat list, account pages, and Call. */
 export function ChatSidebar({ token, user }: ChatSidebarProps) {
   const chats = useChatList((state) => state.chats);
   const active = chats.filter((chat) => !chat.isArchived);
@@ -29,7 +35,7 @@ export function ChatSidebar({ token, user }: ChatSidebarProps) {
       <NewChat token={token} user={user} />
       <ChatRows chats={active} token={token} />
       <ArchivedRows chats={archived} token={token} />
-      <LaterLabels />
+      <AccountLinks />
       <CallLink />
       <AccountLink token={token} user={user} />
       <QuotaLine user={user} />
@@ -46,7 +52,7 @@ function NewChat({ token, user }: ChatSidebarProps) {
       <Button type="button" className="flex w-full items-center justify-center gap-2" onClick={() => void add(token, router, upsert, setBanner)}>
         <Plus size={16} /> New chat
       </Button>
-      {banner && user === null ? <a className="mt-2 block text-sm text-hira-accent underline" href="/register">{SIGN_UP_BANNER}</a> : null}
+      {banner && user === null ? <SignUpLinks className="mt-2 text-sm" /> : null}
     </div>
   );
 }
@@ -134,10 +140,15 @@ async function removeChat(
   }
 }
 
-function LaterLabels() {
+function AccountLinks() {
+  const pathname = usePathname();
   return (
-    <ul className="space-y-1 text-sm text-hira-muted">
-      {LATER.map((label) => <li key={label}>{label}</li>)}
+    <ul className="space-y-1 text-sm">
+      {ACCOUNT_LINKS.map((link) => (
+        <li key={link.href}>
+          <Link className={pathname === link.href ? 'text-hira-text' : 'text-hira-muted'} href={link.href}>{link.label}</Link>
+        </li>
+      ))}
     </ul>
   );
 }

@@ -1,4 +1,5 @@
 import type { VacancyResult } from '@hira/contracts';
+import { FavoriteToggle } from './favorite-toggle';
 import { CLOSED_VACANCY_LABEL } from './vacancy.constants';
 import { MatchExplanationView } from './match-explanation';
 import { toVacancyCardModel } from './vacancy-card-model';
@@ -14,19 +15,20 @@ export function VacancyCard({ result, open, onToggle }: VacancyCardProps) {
   const model = toVacancyCardModel(result);
   return (
     <article className="rounded-lg border border-white/10 bg-hira-bg/60 p-3">
-      <CardSummary model={model} onToggle={onToggle} open={open} />
+      <CardSummary model={model} vacancyId={result.vacancy.id} onToggle={onToggle} open={open} />
       {open ? <MatchExplanationView result={result} /> : null}
     </article>
   );
 }
 
-function CardSummary({ model, onToggle, open }: { model: ReturnType<typeof toVacancyCardModel>; onToggle: () => void; open: boolean }) {
+function CardSummary({ model, vacancyId, onToggle, open }: { model: ReturnType<typeof toVacancyCardModel>; vacancyId: string; onToggle: () => void; open: boolean }) {
   return (
     <div>
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-medium">{model.title}</h3>
         <span className="rounded bg-hira-accent px-2 py-1 text-sm">{model.score}</span>
       </div>
+      <FavoriteToggle vacancyId={vacancyId} />
       <CardMeta model={model} />
       <button type="button" className="mt-2 text-sm text-hira-accent" aria-expanded={open} onClick={onToggle}>
         {open ? 'Hide explanation' : 'Explain match'}
