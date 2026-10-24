@@ -10,6 +10,8 @@ export interface MemoryFact {
   confidence: number;
   sourceMessageId: string | null;
   sourceCallTurnId: string | null;
+  sourceChatId: string | null;
+  sourceCallSessionId: string | null;
   isPinned: boolean;
   expiresAt: Date | null;
   revokedAt: Date | null;

@@ -52,6 +52,7 @@ export interface FollowUpJob {
   chatId: string | null;
   sourceMessageId: string | null;
   sourceCallTurnId: string | null;
+  sourceCallSessionId: string | null;
   messageCount: number;
   previousSummary: string | null;
   exchange: { role: MessageRole; content: string }[];
@@ -125,6 +126,7 @@ export async function postChatMessage(deps: OrchestratorDeps, input: PostMessage
     chatId: input.chat.id,
     sourceMessageId: user.id,
     sourceCallTurnId: null,
+    sourceCallSessionId: null,
     messageCount: priorCount + 2,
     previousSummary: input.chat.summary,
     exchange: [
@@ -448,6 +450,7 @@ function callFollowUp(input: CallTurnInput, sourceCallTurnId: string, extract: b
     chatId: null,
     sourceMessageId: null,
     sourceCallTurnId,
+    sourceCallSessionId: input.session.id,
     messageCount: 0,
     previousSummary: null,
     exchange: [

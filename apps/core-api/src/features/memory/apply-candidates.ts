@@ -9,6 +9,8 @@ export interface ApplyContext {
   userId: string;
   sourceMessageId: string | null;
   sourceCallTurnId: string | null;
+  sourceChatId: string | null;
+  sourceCallSessionId: string | null;
   nextId: () => string;
   embed: (content: string) => Promise<number[] | null>;
 }
@@ -101,6 +103,8 @@ function newFact(candidate: MemoryCandidate, embedding: number[] | null, context
     confidence: candidate.confidence,
     sourceMessageId: context.sourceMessageId,
     sourceCallTurnId: context.sourceMessageId === null ? context.sourceCallTurnId : null,
+    sourceChatId: context.sourceMessageId !== null ? context.sourceChatId : null,
+    sourceCallSessionId: context.sourceMessageId === null ? context.sourceCallSessionId : null,
     isPinned: false,
     expiresAt: expiry(candidate.kind, context.now),
     revokedAt: null,

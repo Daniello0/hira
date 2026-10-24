@@ -55,6 +55,7 @@ function job(): FollowUpJob {
     chatId: 'chat-1',
     sourceMessageId: 'message-1',
     sourceCallTurnId: null,
+    sourceCallSessionId: null,
     messageCount: 16,
     previousSummary: 'Цель поиска: python',
     exchange: [{ role: MessageRole.User, content: 'remote' }],
