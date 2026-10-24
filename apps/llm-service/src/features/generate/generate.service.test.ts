@@ -24,7 +24,7 @@ describe('generateAnswer', () => {
       { name: 'token', data: { delta: 'Hello' } },
       { name: 'done', data: { meta: { tokenUsage: usage } } },
     ]);
-    expect(provider.calls[0]?.timeoutMs).toBe(12_000);
+    expect(provider.calls[0]?.timeoutMs).toBe(20_000);
     expect(JSON.stringify(provider.calls[0]?.messages)).toContain('No vacancies were retrieved.');
   });
 
@@ -42,7 +42,7 @@ describe('generateAnswer', () => {
     const events: LlmStreamEvent[] = [];
     await generateAnswer(deps(provider, () => clock, 1_000), request, (event) => events.push(event));
     expect(events[0]).toEqual({ name: 'token', data: { delta: 'ok' } });
-    expect(provider.calls.map((call) => call.timeoutMs)).toEqual([12_000, 5_000]);
+    expect(provider.calls.map((call) => call.timeoutMs)).toEqual([20_000, 5_000]);
     expect(provider.sleeps).toEqual([200]);
   });
 

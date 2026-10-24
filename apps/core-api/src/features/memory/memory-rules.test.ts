@@ -95,10 +95,12 @@ describe('memory candidates', () => {
 });
 
 describe('summary timing', () => {
-  it('waits until the window is full and the count is a multiple of 8', () => {
-    expect(shouldSummarize(8)).toBe(false);
-    expect(shouldSummarize(10)).toBe(false);
-    expect(shouldSummarize(16)).toBe(true);
+  it('waits until the window is full and the count crosses a multiple of 8', () => {
+    expect(shouldSummarize(6, 8)).toBe(false);
+    expect(shouldSummarize(8, 10)).toBe(false);
+    expect(shouldSummarize(14, 16)).toBe(true);
+    expect(shouldSummarize(15, 17)).toBe(true);
+    expect(shouldSummarize(16, 18)).toBe(false);
     expect(outsideWindow(['a', 'b', 'c'])).toEqual([]);
     expect(outsideWindow(Array.from({ length: 16 }, (_, index) => index))).toEqual([0, 1, 2, 3, 4, 5]);
   });
@@ -109,20 +111,19 @@ describe('document budget', () => {
     const pinned = 'p'.repeat(DOCUMENT_CONTEXT_CHARS);
     const selected = selectPromptDocuments(
       [
-        { title: 'Pin', kind: DocumentKind.Preferences, content: pinned, isPinned: true, embedding: null },
-        { title: 'Near', kind: DocumentKind.Note, content: 'more', isPinned: false, embedding: [1, 0] },
+        { title: 'Near', kind: DocumentKind.Note, content: 'more', isPinned: false },
+        { title: 'Pin', kind: DocumentKind.Preferences, content: pinned, isPinned: true },
       ],
-      [1, 0],
     );
     expect(selected).toEqual([{ title: 'Pin', kind: DocumentKind.Preferences, content: pinned }]);
   });
 
-  it('skips nearest files when the query has no vector', () => {
-    const selected = selectPromptDocuments(
-      [{ title: 'Near', kind: DocumentKind.Note, content: 'more', isPinned: false, embedding: [1, 0] }],
-      null,
-    );
-    expect(selected).toEqual([]);
+  it('keeps the unpinned files in the order the store ranked them', () => {
+    const selected = selectPromptDocuments([
+      { title: 'First', kind: DocumentKind.Note, content: 'one', isPinned: false },
+      { title: 'Second', kind: DocumentKind.Note, content: 'two', isPinned: false },
+    ]);
+    expect(selected.map((document) => document.title)).toEqual(['First', 'Second']);
   });
 });
 

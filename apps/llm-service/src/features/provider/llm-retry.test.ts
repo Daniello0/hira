@@ -4,10 +4,10 @@ import { classifyLlmFailure, runLlmAttempts } from './llm-retry';
 import { nextAttemptTimeout } from '../llm/attempt-timeout';
 
 describe('classifyLlmFailure', () => {
-  it('retries invalid output and transient provider failures, and stops on a rejected request', () => {
+  it('retries invalid output and transient provider failures, and stops on a rejected or rate-limited request', () => {
     expect(classifyLlmFailure(new LlmOutputError('bad'))).toBe('invalid');
     expect(classifyLlmFailure(new ProviderTransportError(null, 'reset'))).toBe('transport');
-    expect(classifyLlmFailure(new ProviderTransportError(429, 'slow'))).toBe('transport');
+    expect(classifyLlmFailure(new ProviderTransportError(429, 'slow'))).toBe('fatal');
     expect(classifyLlmFailure(new ProviderTransportError(500, 'down'))).toBe('transport');
     expect(classifyLlmFailure(new ProviderTransportError(502, 'down'))).toBe('transport');
     expect(classifyLlmFailure(new ProviderTransportError(503, 'down'))).toBe('transport');

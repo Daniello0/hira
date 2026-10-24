@@ -47,7 +47,7 @@ describe('search turn', () => {
     expect(second?.memory).toEqual([]);
     expect(second?.history.map((turn) => turn.content)).toEqual(['remote python', 'Hi']);
     const generated = rig.llm.generateCalls[1] as GenerateRequest;
-    expect(generated.history.map((turn) => turn.content)).toEqual(['remote python', 'Hi']);
+    expect(generated.history.map((turn) => turn.content)).toEqual(['remote python', 'Hi', 'only minsk']);
     expect(rig.chat.title).toBe('remote python');
   });
 
