@@ -70,6 +70,7 @@ describe('schema constants', () => {
     expect(sql).toContain('UNIQUE (id, user_id)');
     expect(sql).toContain('favorites_collection_same_user');
     expect(sql).toContain('ON DELETE SET NULL (collection_id)');
+    expect(sql).toContain('uq_collections_default_per_user');
   });
 
   it('creates extensions, partial BM25 indexes, HNSW, and trigram indexes in SQL', () => {
@@ -118,6 +119,7 @@ describe('data source', () => {
       'RefreshTokenHashIndex1762000000000',
       'DemoChat1763000000000',
       'Stage12Memory1764000000000',
+      'DefaultCollectionIndex1765000000000',
     ]);
   });
 

@@ -665,6 +665,7 @@ function lookupIndexes(): string[] {
     'CREATE UNIQUE INDEX uq_chats_demo_session ON chats (demo_session_id)',
     'CREATE INDEX idx_messages_chat ON messages (chat_id)',
     `CREATE UNIQUE INDEX uq_profile_suggestions_pending ON profile_suggestions (user_id, kind, payload) WHERE status = 'PENDING'`,
+    'CREATE UNIQUE INDEX uq_collections_default_per_user ON collections (user_id) WHERE is_default',
   ];
 }
 

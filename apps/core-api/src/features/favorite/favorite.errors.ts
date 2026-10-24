@@ -1,6 +1,7 @@
 import {
   COLLECTION_NAME_MESSAGE,
   COLLECTION_NOT_FOUND_MESSAGE,
+  DEFAULT_COLLECTION_PROTECTED_MESSAGE,
   FAVORITE_NOT_FOUND_MESSAGE,
   VACANCY_NOT_FOUND_MESSAGE,
 } from './favorite.constants';
@@ -42,5 +43,13 @@ export class CollectionNameError extends FavoriteInputError {
   constructor() {
     super(COLLECTION_NAME_MESSAGE);
     this.name = 'CollectionNameError';
+  }
+}
+
+/** The default Saved list stays until the account is removed. */
+export class DefaultCollectionProtectedError extends FavoriteInputError {
+  constructor() {
+    super(DEFAULT_COLLECTION_PROTECTED_MESSAGE);
+    this.name = 'DefaultCollectionProtectedError';
   }
 }

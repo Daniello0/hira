@@ -127,6 +127,27 @@ describe('stage 14 favorites and skills', () => {
     expect(upper.body[0].vacancyId).toBe(remoteId);
   });
 
+  it('rejects deleting the default collection and lists a removed vacancy placeholder', async () => {
+    const state = stores();
+    const vacancyId = randomUUID();
+    state.favorites.vacancies.set(vacancyId, summary(vacancyId));
+    app = await createApp(state);
+    const token = await register(app);
+    const saved = await request(app.getHttpServer()).post('/api/v1/favorites').set('Authorization', `Bearer ${token}`).send({ vacancyId });
+    const collections = await request(app.getHttpServer()).get('/api/v1/collections').set('Authorization', `Bearer ${token}`);
+    const blocked = await request(app.getHttpServer())
+      .delete(`/api/v1/collections/${collections.body[0].id}`)
+      .set('Authorization', `Bearer ${token}`);
+    state.favorites.vacancies.delete(vacancyId);
+    const listed = await request(app.getHttpServer()).get('/api/v1/favorites').set('Authorization', `Bearer ${token}`);
+    expect(saved.status).toBe(200);
+    expect(blocked.status).toBe(400);
+    expect(blocked.body.errorCode).toBe('DEFAULT_COLLECTION_PROTECTED');
+    expect(listed.body).toHaveLength(1);
+    expect(listed.body[0].id).toBe(saved.body.id);
+    expect(listed.body[0].vacancy.title).toBe('Vacancy removed');
+  });
+
   it('hides another account favorite and a short skill query', async () => {
     const state = stores();
     const vacancyId = randomUUID();

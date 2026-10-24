@@ -19,6 +19,9 @@ export const VACANCY_NOT_FOUND_MESSAGE = 'Vacancy was not found';
 export const COLLECTION_ID_MESSAGE = 'collectionId must be a uuid';
 export const COLLECTION_NAME_MESSAGE = 'Collection name is required';
 
+export const DEFAULT_COLLECTION_PROTECTED = 'DEFAULT_COLLECTION_PROTECTED';
+export const DEFAULT_COLLECTION_PROTECTED_MESSAGE = 'The default collection cannot be deleted';
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** True when the string is a UUID. Query strings are not parsed by the body pipe. */

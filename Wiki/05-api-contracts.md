@@ -91,7 +91,7 @@ event: error             data: ApiErrorResponse
 | `GET` / `POST` | `/api/v1/collections` |
 | `PATCH` / `DELETE` | `/api/v1/collections/{id}` |
 
-`GET /favorites` принимает `collectionId` и `q` (подстрока заметки, без учёта регистра) и возвращает сохранённые вакансии с краткой карточкой. `POST` с тем же `vacancyId` отвечает `200` уже существующей строкой; `addedBy` ставит сервер (`USER`). Первое сохранение кладёт вакансию в коллекцию по умолчанию `Saved`. Чужой `collectionId` и отсутствующая вакансия — `404`. `DELETE /collections/{id}` оставляет избранное, а `collectionId` у него становится пустым. Демо-сессия на этих маршрутах получает `403`.
+`GET /favorites` принимает `collectionId` и `q` (подстрока заметки, без учёта регистра) и возвращает сохранённые вакансии с краткой карточкой. Если строка вакансии в корпусе удалена, карточка в ответе — placeholder «Vacancy removed», строка избранного остаётся. `POST` с тем же `vacancyId` отвечает `200` уже существующей строкой; `addedBy` ставит сервер (`USER`). Первое сохранение кладёт вакансию в коллекцию по умолчанию `Saved`. Чужой `collectionId` и отсутствующая вакансия — `404`. `DELETE /collections/{id}` оставляет избранное, а `collectionId` у него становится пустым; коллекцию `Saved` (`isDefault`) удалить нельзя — `400` `DEFAULT_COLLECTION_PROTECTED`. Демо-сессия на этих маршрутах получает `403`.
 
 ### 1.5 Профиль и память
 
@@ -100,7 +100,7 @@ event: error             data: ApiErrorResponse
 | `GET` / `PUT` | `/api/v1/profile` | Профиль соискателя |
 | `GET` / `POST` / `DELETE` | `/api/v1/profile/skills` | Навыки пользователя |
 | `GET` | `/api/v1/skills?q=` | Автодополнение каталога (`skills` + `skill_aliases`). Короче 2 символов — пустой список, иначе до 20 совпадений, порог trigram 0.8. Только аккаунт |
-| `GET` | `/api/v1/memory` | Что система запомнила, с провенансом |
+| `GET` | `/api/v1/memory` | Что система запомнила, с провенансом (`sourceChatId` / `sourceCallSessionId` для ссылки на чат или вызов) |
 | `PATCH` | `/api/v1/memory/{id}` | Закрепить / отредактировать |
 | `DELETE` | `/api/v1/memory/{id}` | Забыть конкретный факт |
 | `DELETE` | `/api/v1/memory` | Забыть всё |

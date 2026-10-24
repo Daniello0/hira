@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuthorKind, type CollectionDto, type CreateCollectionRequest, type CreateFavoriteRequest, type FavoriteDto, type UpdateCollectionRequest, type UpdateFavoriteRequest } from '@hira/contracts';
 import { DEFAULT_COLLECTION_NAME } from './favorite.constants';
-import { CollectionMissingError, CollectionNameError, FavoriteMissingError, VacancyMissingError } from './favorite.errors';
+import { CollectionMissingError, CollectionNameError, DefaultCollectionProtectedError, FavoriteMissingError, VacancyMissingError } from './favorite.errors';
+import { isUniqueViolation } from './is-unique-violation';
 import { FAVORITE_STORE, type FavoriteListQuery, type FavoriteStore } from './favorite.store';
 
 /** Account favorites. A second save of the same vacancy returns the existing row. */
@@ -66,6 +67,9 @@ export class FavoriteService {
 
   /** Deletes a collection. Saved vacancies stay, without that collection. */
   async deleteCollection(userId: string, id: string): Promise<void> {
+    const collection = await this.store.findCollection(userId, id);
+    if (collection === null) throw new CollectionMissingError();
+    if (collection.isDefault) throw new DefaultCollectionProtectedError();
     if (!(await this.store.deleteCollection(userId, id))) throw new CollectionMissingError();
   }
 
@@ -83,15 +87,26 @@ export class FavoriteService {
 
   private async collectionFor(userId: string, collectionId: string | null): Promise<string> {
     if (collectionId !== null) return (await this.ownedCollection(userId, collectionId)).id;
+    return this.ensureDefaultCollection(userId);
+  }
+
+  private async ensureDefaultCollection(userId: string): Promise<string> {
     const current = await this.store.findDefaultCollection(userId);
     if (current !== null) return current.id;
-    const created = await this.store.insertCollection({
-      userId,
-      name: DEFAULT_COLLECTION_NAME,
-      description: null,
-      isDefault: true,
-    });
-    return created.id;
+    try {
+      const created = await this.store.insertCollection({
+        userId,
+        name: DEFAULT_COLLECTION_NAME,
+        description: null,
+        isDefault: true,
+      });
+      return created.id;
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      const again = await this.store.findDefaultCollection(userId);
+      if (again === null) throw error;
+      return again.id;
+    }
   }
 
   private async requireCollection(userId: string, collectionId: string | undefined): Promise<void> {

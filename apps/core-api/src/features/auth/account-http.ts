@@ -19,11 +19,13 @@ import {
 import { CallEndedError } from '../search-orchestrator/orchestrate-search';
 import {
   COLLECTION_NOT_FOUND,
+  DEFAULT_COLLECTION_PROTECTED,
   FAVORITE_NOT_FOUND,
   VACANCY_NOT_FOUND,
 } from '../favorite/favorite.constants';
 import {
   CollectionMissingError,
+  DefaultCollectionProtectedError,
   FavoriteInputError,
   FavoriteMissingError,
   VacancyMissingError,
@@ -44,6 +46,9 @@ export function mapAccountError(error: unknown, request: Request): ApiHttpExcept
   if (error instanceof SuggestionClosedError) return apiError(HttpStatus.NOT_FOUND, SUGGESTION_NOT_FOUND, error.message, request);
   if (error instanceof CallEndedError) return apiError(HttpStatus.BAD_REQUEST, CALL_ENDED, error.message, request);
   if (error instanceof CallMissingError) return apiError(HttpStatus.NOT_FOUND, CALL_NOT_FOUND, error.message, request);
+  if (error instanceof DefaultCollectionProtectedError) {
+    return apiError(HttpStatus.BAD_REQUEST, DEFAULT_COLLECTION_PROTECTED, error.message, request);
+  }
   if (error instanceof FavoriteInputError) return apiError(HttpStatus.BAD_REQUEST, VALIDATION_ERROR_CODE, error.message, request);
   if (error instanceof FavoriteMissingError) return apiError(HttpStatus.NOT_FOUND, FAVORITE_NOT_FOUND, error.message, request);
   if (error instanceof CollectionMissingError) return apiError(HttpStatus.NOT_FOUND, COLLECTION_NOT_FOUND, error.message, request);

@@ -1,14 +1,24 @@
-import { AuthorKind, formatLocationLabel, type CollectionDto, type FavoriteDto, type VacancyCardSummary, type VacancyStatus, type WorkFormat } from '@hira/contracts';
+import {
+  AuthorKind,
+  formatLocationLabel,
+  removedVacancySummary,
+  type CollectionDto,
+  type FavoriteDto,
+  type VacancyCardSummary,
+  type VacancyStatus,
+  type WorkFormat,
+} from '@hira/contracts';
 import type { Sql } from '../chat/typeorm-chat.sql';
+import { isUniqueViolation } from './is-unique-violation';
 import type { CollectionPatch, FavoriteListQuery, FavoritePatch, NewCollection, NewFavorite } from './favorite.store';
 
 const FAVORITE_FROM = `FROM favorites f
-  JOIN vacancies v ON v.id = f.vacancy_id
+  LEFT JOIN vacancies v ON v.id = f.vacancy_id
   LEFT JOIN locations l ON l.id = v.location_id`;
 
 const FAVORITE_COLUMNS = `f.id::text AS id, f.vacancy_id::text AS "vacancyId", f.collection_id::text AS "collectionId",
   f.note, f.added_by::text AS "addedBy", f.created_at AS "createdAt",
-  v.title, v.company_name AS "companyName", v.status::text AS status, v.url,
+  (v.id IS NULL) AS "vacancyMissing", v.title, v.company_name AS "companyName", v.status::text AS status, v.url,
   v.salary_min AS "salaryMin", v.salary_max AS "salaryMax", v.salary_currency AS "salaryCurrency",
   v.work_format::text AS "workFormat", l.city AS "locationCity", l.region AS "locationRegion"`;
 
@@ -37,7 +47,7 @@ export async function insertFavorite(sql: Sql, input: NewFavorite): Promise<Favo
       [input.userId, input.vacancyId, input.collectionId, input.note, input.addedBy],
     );
   } catch (error) {
-    if (!isUnique(error)) throw error;
+    if (!isUniqueViolation(error)) throw error;
   }
   return findFavoriteByVacancy(sql, input.userId, input.vacancyId);
 }
@@ -134,8 +144,13 @@ function toFavorite(row: Record<string, unknown> | undefined): FavoriteDto {
     note: textOrNull(row.note),
     addedBy: String(row.addedBy) as AuthorKind,
     createdAt: new Date(String(row.createdAt)).toISOString(),
-    vacancy: toSummary(row),
+    vacancy: vacancyFromRow(row),
   };
+}
+
+function vacancyFromRow(row: Record<string, unknown>): VacancyCardSummary {
+  if (row.vacancyMissing === true) return removedVacancySummary(String(row.vacancyId));
+  return toSummary(row);
 }
 
 function toSummary(row: Record<string, unknown>): VacancyCardSummary {
@@ -179,12 +194,6 @@ function asNumber(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
-}
-
-function isUnique(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false;
-  const row = error as { code?: string; driverError?: { code?: string } };
-  return row.code === '23505' || row.driverError?.code === '23505';
 }
 
 async function rowsOf(sql: Sql, statement: string, params: unknown[]): Promise<Record<string, unknown>[]> {

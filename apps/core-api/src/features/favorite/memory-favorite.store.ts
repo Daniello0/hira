@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import type { CollectionDto, FavoriteDto, VacancyCardSummary } from '@hira/contracts';
+import { removedVacancySummary, type CollectionDto, type FavoriteDto, type VacancyCardSummary } from '@hira/contracts';
 import type {
   CollectionPatch,
   FavoriteListQuery,
@@ -39,8 +39,7 @@ export class MemoryFavoriteStore implements FavoriteStore {
   async list(userId: string, query: FavoriteListQuery): Promise<FavoriteDto[]> {
     return this.favorites
       .filter((row) => row.userId === userId && matches(row, query))
-      .map((row) => this.toDto(row))
-      .filter((row): row is FavoriteDto => row !== null);
+      .map((row) => this.toDto(row));
   }
 
   /** @inheritdoc */
@@ -94,8 +93,13 @@ export class MemoryFavoriteStore implements FavoriteStore {
 
   /** @inheritdoc */
   async insertCollection(input: NewCollection): Promise<CollectionDto> {
+    if (input.isDefault) {
+      const existing = await this.findDefaultCollection(input.userId);
+      if (existing !== null) return existing;
+    }
     const row: CollectionRow = { ...input, id: randomUUID() };
     this.collections.push(row);
+    if (input.isDefault) return this.coalesceDefault(input.userId);
     return toCollection(row);
   }
 
@@ -122,6 +126,17 @@ export class MemoryFavoriteStore implements FavoriteStore {
     return this.vacancies.get(vacancyId) ?? null;
   }
 
+  private coalesceDefault(userId: string): CollectionDto {
+    const defaults = this.collections.filter((item) => item.userId === userId && item.isDefault);
+    const keep = defaults[0];
+    if (keep === undefined) throw new Error('Default collection is missing');
+    for (const extra of defaults.slice(1)) {
+      const index = this.collections.indexOf(extra);
+      if (index >= 0) this.collections.splice(index, 1);
+    }
+    return toCollection(keep);
+  }
+
   private owned(userId: string, id: string): FavoriteRow | null {
     return this.favorites.find((row) => row.userId === userId && row.id === id) ?? null;
   }
@@ -132,9 +147,8 @@ export class MemoryFavoriteStore implements FavoriteStore {
     }
   }
 
-  private toDto(row: FavoriteRow): FavoriteDto | null {
-    const vacancy = this.vacancies.get(row.vacancyId);
-    if (vacancy === undefined) return null;
+  private toDto(row: FavoriteRow): FavoriteDto {
+    const vacancy = this.vacancies.get(row.vacancyId) ?? removedVacancySummary(row.vacancyId);
     return {
       id: row.id,
       vacancyId: row.vacancyId,
