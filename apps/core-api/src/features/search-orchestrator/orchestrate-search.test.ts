@@ -6,7 +6,14 @@ import { MemoryChatStore } from '../chat/memory-chat.store';
 import type { ChatRecord } from '../chat/chat.store';
 import type { Caller } from '../chat/resolve-actor';
 import { heuristicIntent } from './heuristic-intent';
-import { postChatMessage, runDirectSearch, type OrchestratorDeps, type QuotaGate, type SseSink } from './orchestrate-search';
+import {
+  postChatMessage,
+  runDirectSearch,
+  type FollowUpJob,
+  type OrchestratorDeps,
+  type QuotaGate,
+  type SseSink,
+} from './orchestrate-search';
 import { TOKEN_USAGE, retrievalResponse } from './search-fixture';
 import type { LlmGateway, LlmGenerateEvent, RetrievalGateway } from './upstream-gateway';
 
@@ -121,6 +128,29 @@ describe('search turn', () => {
     expect(rig.chats.searchLogs[0]).toMatchObject({ messageId: null, userId: null, rawQuery: 'cached' });
   });
 
+  it('does not spend a memory call on career advice or a broken answer', async () => {
+    const advice = await createRig();
+    advice.llm.intentType = IntentType.CareerAdvice;
+    const adviceJobs = captureFollowUp(advice.deps);
+    await postChatMessage(advice.deps, message(advice.chat, 'how do I grow'), new MemorySink());
+    expect(adviceJobs).toEqual([false]);
+
+    const broken = await createRig();
+    broken.llm.failAfterToken = true;
+    const brokenJobs = captureFollowUp(broken.deps);
+    await postChatMessage(broken.deps, message(broken.chat, 'remote python'), new MemorySink());
+    expect(brokenJobs).toEqual([false]);
+  });
+
+  it('does not offer a file draft when generation breaks', async () => {
+    const rig = await createRig();
+    rig.llm.intentType = IntentType.DraftDocument;
+    rig.llm.failAfterToken = true;
+    const sink = new MemorySink();
+    await postChatMessage(rig.deps, message(rig.chat, 'write a cover letter'), sink);
+    expect(sink.events.map((event) => event.event)).not.toContain(SSE_EVENT.documentDraft);
+  });
+
   it('rejects a direct search before retrieval when the quota is spent', async () => {
     const rig = await createRig();
     rig.quota.allowed = false;
@@ -141,6 +171,21 @@ function user(): Caller {
 
 function message(chat: ChatRecord, content: string) {
   return { caller: user(), chat, content, requestId: REQUEST_ID };
+}
+
+/** Turns memory extraction on and records whether each follow-up asked for it. */
+function captureFollowUp(deps: OrchestratorDeps): boolean[] {
+  const flags: boolean[] = [];
+  deps.context = {
+    load: () => Promise.resolve({ summary: null, memory: [], documents: [], extract: true }),
+  };
+  deps.followUp = {
+    after: (job: FollowUpJob) => {
+      flags.push(job.extract);
+      return Promise.resolve();
+    },
+  };
+  return flags;
 }
 
 async function createRig() {
@@ -195,6 +240,7 @@ class FakeQuota implements QuotaGate {
 class FakeLlm implements LlmGateway {
   understandError: Error | null = null;
   generateError: Error | null = null;
+  failAfterToken = false;
   intentType = IntentType.Search;
   understandCalls: UnderstandRequest[] = [];
   generateCalls: GenerateRequest[] = [];
@@ -212,6 +258,10 @@ class FakeLlm implements LlmGateway {
   /** @inheritdoc */
   async *generate(request: GenerateRequest): AsyncGenerator<LlmGenerateEvent> {
     this.generateCalls.push(request);
+    if (this.failAfterToken) {
+      yield { kind: 'token', delta: 'Hi' };
+      throw new Error('stream broke');
+    }
     if (this.generateError !== null) throw this.generateError;
     yield { kind: 'token', delta: 'Hi' };
     yield { kind: 'done', tokenUsage: TOKEN_USAGE };

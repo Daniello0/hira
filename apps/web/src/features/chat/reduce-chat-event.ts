@@ -73,7 +73,7 @@ function onUser(state: LiveTurn, data: unknown): LiveTurn {
   const message = asMessage(data);
   if (message === null) return state;
   const messages = state.messages.some((item) => item.id === message.id) ? state.messages : [...state.messages, message];
-  return { ...state, phase: StreamPhase.Searching, messages, pendingText: '', pendingResults: [] };
+  return { ...state, phase: StreamPhase.Searching, messages, pendingText: '', pendingResults: [], pendingDraft: null };
 }
 
 function onIntent(state: LiveTurn, data: unknown): LiveTurn {
@@ -121,6 +121,7 @@ function onError(state: LiveTurn, data: unknown): LiveTurn {
     phase: StreamPhase.Idle,
     pendingText: '',
     pendingResults: [],
+    pendingDraft: null,
     banner: code === RATE_LIMIT_ERROR_CODE ? SIGN_UP_BANNER : state.banner,
     notice: code === RATE_LIMIT_ERROR_CODE ? null : text(data, 'message') || 'Something went wrong',
   };

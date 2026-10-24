@@ -20,6 +20,11 @@ export function useForeignRemotePreference(): [boolean, (value: boolean) => void
   ];
 }
 
+/** Stored switch, read at send time so a call uses the same choice as chat (Q30). */
+export function readForeignRemotePreference(): boolean {
+  return readPreference();
+}
+
 function readPreference(): boolean {
   try {
     return window.localStorage.getItem(STORAGE_KEY) !== 'false';

@@ -91,6 +91,8 @@ export interface Understood {
 export interface Answer {
   text: string;
   usage: TokenUsage | null;
+  /** The model stream threw. A partial text is still stored; memory is not extracted. */
+  failed: boolean;
 }
 
 /** Everything a finished turn produced, before the caller stores it. */

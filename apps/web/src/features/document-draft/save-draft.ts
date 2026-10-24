@@ -22,11 +22,24 @@ export async function saveDraftAsNew(draft: DocumentDraftDto, edits: DraftEdits)
   }
 }
 
-/** Replaces the text of the file the request named. Its title stays. `null` on success. */
-export async function replaceWithDraft(draft: DocumentDraftDto): Promise<string | null> {
+/** Title and text written over the named file. A string is the reason it cannot be saved. */
+export function replacementPatch(
+  draft: DocumentDraftDto,
+  title: string,
+): { title: string; content: string } | string {
+  if (draft.targetDocumentId === null) return 'There is no file to replace';
+  const nextTitle = title.trim();
+  if (nextTitle.length === 0) return NO_TITLE;
+  return { title: nextTitle, content: draft.content };
+}
+
+/** Replaces the named file with the draft, including a title the user edited. `null` on success. */
+export async function replaceWithDraft(draft: DocumentDraftDto, title: string): Promise<string | null> {
+  const patch = replacementPatch(draft, title);
+  if (typeof patch === 'string') return patch;
   if (draft.targetDocumentId === null) return 'There is no file to replace';
   try {
-    return await patchDocument(draft.targetDocumentId, { content: draft.content });
+    return await patchDocument(draft.targetDocumentId, patch);
   } catch {
     return COULD_NOT_REACH;
   }

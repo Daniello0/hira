@@ -43,6 +43,22 @@ describe('reduceChatEvent', () => {
     expect(turn.notice).toBe('Search is temporarily unavailable');
   });
 
+  it('does not glue a draft from a failed turn onto the next answer', () => {
+    let turn = reduceChatEvent(emptyTurn(), { event: 'document-draft', data: draft() });
+    turn = reduceChatEvent(turn, { event: 'error', data: { errorCode: 'UPSTREAM', message: 'Hira stopped' } });
+    turn = reduceChatEvent(turn, { event: 'user-message', data: user('2', 'hello') });
+    turn = reduceChatEvent(turn, { event: 'assistant-message', data: assistant('a', 'Hello') });
+    expect(turn.pendingDraft).toBeNull();
+    expect(turn.drafts).toEqual({});
+  });
+
+  it('keeps a draft on the assistant message of the same turn', () => {
+    let turn = reduceChatEvent(emptyTurn(), { event: 'document-draft', data: draft() });
+    turn = reduceChatEvent(turn, { event: 'assistant-message', data: assistant('a', 'Here is the file') });
+    expect(turn.pendingDraft).toBeNull();
+    expect(turn.drafts.a?.title).toBe('Cover letter');
+  });
+
   it('blocks a second submit while the turn is open', () => {
     const searching = reduceChatEvent(emptyTurn(), { event: 'user-message', data: user('1', 'python') });
     expect(canSubmit(searching.phase)).toBe(false);
@@ -52,6 +68,14 @@ describe('reduceChatEvent', () => {
 
 function user(id: string, content: string) {
   return { id, role: MessageRole.User, content, createdAt: '2026-10-18T00:00:00.000Z' };
+}
+
+function assistant(id: string, content: string) {
+  return { id, role: MessageRole.Assistant, content, createdAt: '2026-10-18T00:00:01.000Z' };
+}
+
+function draft() {
+  return { title: 'Cover letter', format: 'md', content: 'Hello', targetDocumentId: 'doc-1', targetTitle: 'Cover letter' };
 }
 
 function intent(intentType: IntentType) {

@@ -106,7 +106,7 @@ async function save(
 ): Promise<void> {
   setPhase({ kind: 'saving' });
   setError(null);
-  const message = replace ? await replaceWithDraft(draft) : await saveDraftAsNew(draft, edits);
+  const message = replace ? await replaceWithDraft(draft, edits.title) : await saveDraftAsNew(draft, edits);
   setError(message);
   setPhase(message === null ? { kind: 'saved', replaced: replace } : { kind: 'editing' });
 }

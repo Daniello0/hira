@@ -68,7 +68,7 @@ event: error             data: ApiErrorResponse
 
 `GET` чата и истории кладут `intent` и `diagnostics` на сообщение пользователя, когда ход их уже записал. У ассистента по-прежнему `results`. `VacancyDto` в потоке и в истории включает `companyName` и `locationLabel` (город и регион). `GET /profile/skills` включает `canonicalName`.
 
-Поток открывается после записи user-сообщения. Сбой `understand` не даёт `error`: намерение строится эвристически, `rewrittenQuery` равен тексту реплики. Квота списывается после `intent` и только для `SEARCH`, `REFINE`, `COMPARE`; отказ — `event: error` с `RATE_LIMIT_EXCEEDED`, без `done`. `SMALL_TALK` и `CAREER_ADVICE` не ищут и квоту не тратят. Сбой retrieval — `event: error` с `SEARCH_UPSTREAM_UNAVAILABLE`, снимок не пишется. Сбой `generate` оставляет карточки и пустой или частичный текст, затем `assistant-message` и `done`, без `error`.
+Поток открывается после записи user-сообщения. Сбой `understand` не даёт `error`: намерение строится эвристически, `rewrittenQuery` равен тексту реплики. Квота списывается после `intent`. У аккаунта — только `SEARCH`, `REFINE`, `COMPARE`; у демо — каждый отвеченный ход (лимит 3), кроме приветствия, которое эвристика поставила после сбоя `understand`. Отказ — `event: error` с `RATE_LIMIT_EXCEEDED`, без `done`. `SMALL_TALK` и `CAREER_ADVICE` не ищут. У аккаунта они квоту не тратят. Сбой retrieval — `event: error` с `SEARCH_UPSTREAM_UNAVAILABLE`, снимок не пишется. Сбой `generate` оставляет карточки и пустой или частичный текст, затем `assistant-message` и `done`, без `error`. Память после хода извлекается только если это был поиск с непустым ответом и генерация не оборвалась (ADR-041).
 
 ### 1.3 Вакансии
 
@@ -141,7 +141,7 @@ Demo-чат создаётся автоматически при первом з
 | `GET` / `PATCH` / `DELETE` | `/api/v1/documents/{id}` | Текст, правка md/txt, закрепление, удаление |
 | `PATCH` | `/api/v1/settings/memory` | `{ "crossChatMemory": boolean }` |
 | `POST` | `/api/v1/calls` | Начать вызов |
-| `POST` | `/api/v1/calls/{id}/turns` | Реплика транскрипта; ответ SSE, тот же набор событий, что у сообщения чата, если нужен поиск |
+| `POST` | `/api/v1/calls/{id}/turns` | Реплика транскрипта; ответ SSE, тот же набор событий, что у сообщения чата, если нужен поиск. Тело принимает `includeForeignRemote`, как сообщение чата: переключатель один и лежит в браузере |
 | `POST` | `/api/v1/calls/{id}/end` | Завершить |
 
 Сохранение файла, который предложила Hira, — обычный `POST`/`PATCH` документов после подтверждения в UI, не отдельный «тихий» эндпоинт.

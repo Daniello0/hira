@@ -13,6 +13,7 @@ import { postStream } from '../chat/chat-stream';
 import { DocumentDraftCard } from '../document-draft/document-draft-card';
 import { scheduleSuggestionRefresh } from '../suggestions/suggestion.store';
 import { VacancyCard } from '../vacancy/vacancy-card';
+import { callTurnRequest } from './call-turn';
 import { CALL_START_FAILED, LISTENING_LABEL, MIC_DENIED_MESSAGE, RELISTEN_DELAY_MS, SPEAKING_LABEL } from './call.constants';
 import { CaptionList, LanguageSelect, TypeInstead } from './call-parts';
 import { CallPhase } from './call-phase';
@@ -267,7 +268,7 @@ function busy(phase: CallPhase): boolean {
 }
 
 async function streamTurn(sessionId: string, text: string, stamp: number, refs: CallRefs, commit: Commit): Promise<boolean> {
-  const result = await postStream(`/api/v1/calls/${sessionId}/turns`, { content: text }, (event) => {
+  const result = await postStream(`/api/v1/calls/${sessionId}/turns`, callTurnRequest(text), (event) => {
     if (stamp !== refs.life.current) return;
     commit((current) => reduceCallEvent(current, event));
     if (event.event === 'done') scheduleSuggestionRefresh();

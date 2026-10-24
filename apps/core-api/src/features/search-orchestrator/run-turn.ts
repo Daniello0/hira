@@ -1,5 +1,4 @@
 import {
-  IntentType,
   MessageRole,
   RetrievalBranch,
   createApiErrorResponse,
@@ -68,16 +67,22 @@ async function answerTurn(
 ): Promise<TurnOutcome> {
   const target = await loadDraftTarget(deps, input.caller, turn.understood, input.content);
   const answer = await readAnswer(deps, generateBody(input, turn, target), input, sink);
-  if (isDraftTurn(input.caller, turn.understood) && answer.text.trim().length > 0 && !isAborted(input)) {
+  const draftReady = answer.text.trim().length > 0 && !answer.failed && !isAborted(input);
+  if (isDraftTurn(input.caller, turn.understood) && draftReady) {
     sink.write(SSE_EVENT.documentDraft, draftEvent(input.content, answer.text, target));
   }
   return { ...turn, answer, extract: worthExtracting(input, turn, answer) };
 }
 
-/** Memory extraction only after a real answer: not small talk, not a degraded intent, not a dropped client. */
+/**
+ * Memory extraction only after a search that produced a real answer (ADR-041).
+ * Career advice, drafts, small talk, a degraded intent, a dropped client, and a failed
+ * generate do not spend another model call.
+ */
 function worthExtracting(input: TurnInput, turn: Pick<TurnOutcome, 'understood' | 'context'>, answer: Answer): boolean {
-  if (!turn.context.extract || turn.understood.degraded || isAborted(input)) return false;
-  return turn.understood.intent.intentType !== IntentType.SmallTalk && answer.text.trim().length > 0;
+  if (!turn.context.extract || turn.understood.degraded || answer.failed || isAborted(input)) return false;
+  const searched = SEARCHING_INTENTS.has(turn.understood.intent.intentType);
+  return searched && answer.text.trim().length > 0;
 }
 
 async function loadContext(deps: OrchestratorDeps, input: TurnInput): Promise<TurnContext> {
@@ -122,10 +127,11 @@ async function ranked(deps: OrchestratorDeps, input: TurnInput, intent: SearchIn
 }
 
 async function readAnswer(deps: OrchestratorDeps, request: GenerateRequest, input: TurnInput, sink: SseSink): Promise<Answer> {
-  const draft: Answer = { text: '', usage: null };
+  const draft: Answer = { text: '', usage: null, failed: false };
   try {
     for await (const event of deps.llm.generate(request, input.requestId, input.signal)) applyToken(draft, event, sink);
   } catch (error) {
+    draft.failed = true;
     if (!isAborted(input)) deps.logger.warn({ err: error, requestId: input.requestId }, 'generate returned cards without prose');
   }
   return draft;
