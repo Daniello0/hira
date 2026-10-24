@@ -2,31 +2,41 @@
 
 import type { ProfileDto, ProfileSkillDto, UpdateProfileRequest } from '@hira/contracts';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from '../auth/session.store';
+import { LocationPicker } from './location-picker';
 import { fetchProfile, fetchProfileSkills, saveProfile } from './profile-api';
 import { ProfileForm } from './profile-form';
 import { ProfileSkills } from './profile-skills';
 import { profileFormValues } from './profile.schema';
 import { useSuggestions } from '../suggestions/suggestion.store';
 
-/** Profile form and skill editor. A resume is uploaded from the library. */
+/** Profile form, preferred cities, and the skill editor. A resume is uploaded from the library. */
 export function ProfileView() {
   const token = useSession((state) => state.accessToken);
   const pending = useSuggestions((state) => state.items.length);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
+  const [locations, setLocations] = useState<number[]>([]);
   const [skills, setSkills] = useState<ProfileSkillDto[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const reloadSkills = useCallback(async () => {
-    if (token === null) return;
-    const next = await fetchProfileSkills(token);
+    const next = await fetchProfileSkills().catch(() => null);
     if (next !== null) setSkills(next);
-  }, [token]);
+  }, []);
+  const reloadProfile = useCallback(async () => {
+    const next = await fetchProfile().catch(() => null);
+    setLoadError(next === null);
+    if (next === null) return;
+    setProfile(next);
+    setLocations(next.preferredLocations);
+  }, []);
   useEffect(() => {
     if (token === null) return;
-    void fetchProfile(token).then((next) => { if (next !== null) setProfile(next); });
+    void reloadProfile();
     void reloadSkills();
-  }, [token, reloadSkills, pending]);
+  }, [token, reloadProfile, reloadSkills, pending]);
+  const formValues = useMemo(() => (profile === null ? null : profileFormValues(profile)), [profile]);
   if (token === null) return null;
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-6">
@@ -35,22 +45,17 @@ export function ProfileView() {
         <p className="mt-2 text-sm text-hira-muted">
           Upload a resume from the <Link className="text-hira-accent underline" href="/library">library</Link>. Skills found there are offered for confirmation.
         </p>
+        {loadError ? <p role="alert" className="mt-2 text-sm">Could not load the profile.</p> : null}
       </header>
-      <ProfileForm values={profile === null ? null : profileFormValues(profile)} notice={notice} onSave={(body) => save(token, body, setProfile, setNotice)} />
-      <ProfileSkills token={token} skills={skills} onChange={reloadSkills} />
+      <ProfileForm values={formValues} notice={notice} onSave={(body) => save(body, setNotice, reloadProfile)} />
+      <LocationPicker selected={locations} onSaved={setLocations} />
+      <ProfileSkills skills={skills} onChange={reloadSkills} />
     </div>
   );
 }
 
-async function save(
-  token: string,
-  body: UpdateProfileRequest,
-  setProfile: (profile: ProfileDto) => void,
-  setNotice: (notice: string) => void,
-): Promise<void> {
-  const message = await saveProfile(token, body);
+async function save(body: UpdateProfileRequest, setNotice: (notice: string) => void, reload: () => Promise<void>): Promise<void> {
+  const message = await saveProfile(body).catch(() => 'Could not reach Hira');
   setNotice(message ?? 'Profile saved');
-  if (message !== null) return;
-  const next = await fetchProfile(token);
-  if (next !== null) setProfile(next);
+  if (message === null) await reload();
 }

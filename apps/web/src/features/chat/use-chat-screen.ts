@@ -1,15 +1,20 @@
 'use client';
 
+import type { CreateMessageRequest } from '@hira/contracts';
 import { useEffect, useRef, useState } from 'react';
 import { SIGN_IN_AGAIN } from '../auth/auth.constants';
-import { loadMe, refreshAccess, shouldRepeatPost, tokenForRequest } from '../auth/session';
+import { loadMe } from '../auth/session';
+import { accessToken } from '../auth/session-access';
 import { useSession } from '../auth/session.store';
 import { SessionStatus } from '../auth/session-status';
-import { fetchChat, fetchOlder } from './chat-api';
+import { scheduleSuggestionRefresh } from '../suggestions/suggestion.store';
+import { fetchOlder, loadChat } from './chat-api';
 import { useChatDraft } from './chat-draft.store';
+import { useChatList } from './chat-list.store';
 import { MESSAGE_TOO_LONG, RELOAD_FAILED } from './chat.constants';
 import { refreshChatList } from './chat-sidebar';
 import { postStream, type StreamResult } from './chat-stream';
+import { useForeignRemotePreference } from './foreign-remote-preference';
 import {
   afterFailedSend,
   prependMessages,
@@ -22,9 +27,14 @@ import { emptyTurn, reduceChatEvent, type LiveTurn } from './reduce-chat-event';
 import type { ParsedSse } from './sse-parser';
 import { StreamPhase } from './stream-phase';
 
-/** One open chat: history, draft, and the live stream. */
+/** Whether the open chat could be read. */
+export type ChatLoadState = 'loading' | 'ready' | 'not-found' | 'failed';
+
+type Latest = { current: LiveTurn };
+type SetTurn = (turn: LiveTurn) => void;
+
+/** One open chat: history, draft, composer switches, and the live stream. */
 export function useChatScreen(chatId: string) {
-  const token = useSession((state) => state.accessToken);
   const status = useSession((state) => state.status);
   const [turn, setTurn] = useState<LiveTurn>(emptyTurn());
   const storedDraft = useChatDraft((state) => state.draftFor(chatId));
@@ -32,12 +42,21 @@ export function useChatScreen(chatId: string) {
   const [draft, setDraftState] = useState(storedDraft);
   const [openIds, setOpenIds] = useState<string[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
+  const [load, setLoad] = useState<ChatLoadState>('loading');
+  const [loadedArchived, setLoadedArchived] = useState(false);
+  const [useMemory, setUseMemory] = useState(true);
+  const [includeForeignRemote, setIncludeForeignRemote] = useForeignRemotePreference();
+  const [finishedTurns, setFinishedTurns] = useState(0);
+  const [attempt, setAttempt] = useState(0);
+  const listed = useChatList((state) => state.chats.find((chat) => chat.id === chatId)?.isArchived);
   const latest = useRef(turn);
-  const tokenRef = useRef(token);
   const loadingOlder = useRef(false);
   latest.current = turn;
-  tokenRef.current = token;
+  const ready = load === 'ready';
+  const updateDraft = (value: string) => {
+    setDraftState(value);
+    saveDraft(chatId, value);
+  };
 
   useEffect(() => {
     setDraftState(storedDraft);
@@ -46,227 +65,142 @@ export function useChatScreen(chatId: string) {
   useEffect(() => {
     if (status === SessionStatus.Unknown) return;
     let cancelled = false;
-    void loadHistory(
-      tokenRef.current,
-      chatId,
-      () => cancelled,
-      latest,
-      setTurn,
-      setCursor,
-      setReady,
-    );
+    setLoad('loading');
+    void loadHistory(chatId, () => cancelled, latest, setTurn, setCursor, setLoad, setLoadedArchived);
     return () => {
       cancelled = true;
     };
-  }, [chatId, status]);
+  }, [chatId, status, attempt]);
 
   async function send(): Promise<void> {
     const decision = rejectDraft(draft, latest.current.phase);
-    if (decision === 'too-long') {
-      publish({ ...latest.current, notice: MESSAGE_TOO_LONG }, latest, setTurn);
-      return;
-    }
+    if (decision === 'too-long') return publish({ ...latest.current, notice: MESSAGE_TOO_LONG }, latest, setTurn);
     if (decision !== 'ok' || !ready) return;
-    const text = draft.trim();
-    publish(
-      { ...latest.current, phase: StreamPhase.Searching, banner: null, notice: null },
-      latest,
-      setTurn,
+    const body = messageBody(draft.trim(), status === SessionStatus.Account, useMemory, includeForeignRemote);
+    publish({ ...latest.current, phase: StreamPhase.Searching, banner: null, notice: null }, latest, setTurn);
+    if (!(await sessionStillOpen(status))) return publish(releaseTurn(latest.current, SIGN_IN_AGAIN), latest, setTurn);
+    const result = await postStream(messagePath(chatId), body, (event) =>
+      applyEvent(event, latest, setTurn, updateDraft, () => setFinishedTurns((count) => count + 1)),
     );
-    const access = await bearerForSend();
-    if (access.stop) {
-      publish(releaseTurn(latest.current, SIGN_IN_AGAIN), latest, setTurn);
-      return;
-    }
-    const result = await sendWithRetry(chatId, text, access.token, (event) =>
-      applyEvent(event, latest, setTurn, (value) => {
-        setDraftState(value);
-        saveDraft(chatId, value);
-      }),
-    );
-    await finishSend(result, text, chatId, useSession.getState().accessToken, latest, setTurn);
-  }
-
-  function loadOlder(): void {
-    void loadOlderMessages(chatId, token, cursor, latest, setTurn, setCursor, loadingOlder);
+    await finishSend(result, body.content, chatId, latest, setTurn);
   }
 
   return {
     turn,
     draft,
-    setDraft: (value: string) => {
-      setDraftState(value);
-      saveDraft(chatId, value);
-    },
+    setDraft: updateDraft,
     openIds,
     ready,
+    load,
+    archived: listed ?? loadedArchived,
+    useMemory,
+    setUseMemory,
+    includeForeignRemote,
+    setIncludeForeignRemote,
+    finishedTurns,
+    retry: () => setAttempt((count) => count + 1),
     toggle: (id: string) => setOpenIds((current) => toggleId(current, id)),
     send,
     hasOlder: cursor !== null,
-    loadOlder,
+    loadOlder: () => void loadOlderMessages(chatId, cursor, latest, setTurn, setCursor, loadingOlder),
   };
 }
 
-function publish(
-  next: LiveTurn,
-  latest: { current: LiveTurn },
-  setTurn: (turn: LiveTurn) => void,
-): void {
+function messageBody(content: string, account: boolean, useMemory: boolean, includeForeignRemote: boolean): CreateMessageRequest {
+  const body: CreateMessageRequest = { content, includeForeignRemote };
+  if (account) body.useMemory = useMemory;
+  return body;
+}
+
+/** An account whose refresh failed must sign in again; a demo tab always continues. */
+async function sessionStillOpen(status: SessionStatus): Promise<boolean> {
+  if (status !== SessionStatus.Account) return true;
+  await accessToken();
+  return useSession.getState().status === SessionStatus.Account;
+}
+
+function publish(next: LiveTurn, latest: Latest, setTurn: SetTurn): void {
   latest.current = next;
   setTurn(next);
 }
 
-function applyEvent(
-  event: ParsedSse,
-  latest: { current: LiveTurn },
-  setTurn: (turn: LiveTurn) => void,
-  setDraft: (draft: string) => void,
-): void {
+function applyEvent(event: ParsedSse, latest: Latest, setTurn: SetTurn, setDraft: (draft: string) => void, onDone: () => void): void {
   if (event.event === 'user-message') setDraft('');
   publish(reduceChatEvent(latest.current, event), latest, setTurn);
-  if (event.event === 'done' || event.event === 'error')
-    void refreshChatList(useSession.getState().accessToken);
-  if (event.event === 'done') void refreshQuota();
+  if (event.event !== 'done' && event.event !== 'error') return;
+  void refreshChatList();
+  void refreshQuota();
+  if (event.event !== 'done') return;
+  onDone();
+  if (useSession.getState().status === SessionStatus.Account) scheduleSuggestionRefresh();
 }
 
 async function loadHistory(
-  token: string | null,
   chatId: string,
   cancelled: () => boolean,
-  latest: { current: LiveTurn },
-  setTurn: (turn: LiveTurn) => void,
+  latest: Latest,
+  setTurn: SetTurn,
   setCursor: (cursor: string | null) => void,
-  setReady: (ready: boolean) => void,
+  setLoad: (load: ChatLoadState) => void,
+  setArchived: (archived: boolean) => void,
 ): Promise<void> {
-  try {
-    const detail = await fetchChat(token, chatId);
-    if (cancelled()) return;
-    if (detail !== null && shouldApplyHistory(latest.current.phase)) {
-      publish(emptyTurn(detail.messages), latest, setTurn);
-      setCursor(detail.nextCursor);
-    }
-    setReady(true);
-  } catch {
-    if (!cancelled()) setReady(true);
+  const loaded = await loadChat(chatId);
+  if (cancelled()) return;
+  if (loaded.kind !== 'ok') return setLoad(loaded.kind);
+  if (shouldApplyHistory(latest.current.phase)) {
+    publish(emptyTurn(loaded.detail.messages), latest, setTurn);
+    setCursor(loaded.detail.nextCursor);
   }
+  setArchived(loaded.detail.chat.isArchived);
+  setLoad('ready');
 }
 
-async function bearerForSend(): Promise<{ stop: true } | { stop: false; token: string | null }> {
-  const session = useSession.getState();
-  const decision = await tokenForRequest({
-    status: session.status,
-    accessToken: session.accessToken,
-    expiresAt: session.expiresAt,
-    now: Date.now(),
-    refresh: () => refreshAccess(fetch, Date.now()),
-    loadUser: loadMe,
-  });
-  if (decision.kind === 'stop') {
-    session.setAnonymous();
-    return { stop: true };
-  }
-  if (decision.kind === 'refreshed') {
-    session.setAccount(decision.grant, decision.user);
-    return { stop: false, token: decision.grant.accessToken };
-  }
-  return { stop: false, token: decision.token };
-}
-
-async function sendWithRetry(
-  chatId: string,
-  text: string,
-  token: string | null,
-  onEvent: (event: ParsedSse) => void,
-): Promise<StreamResult> {
-  const first = await postStream(messagePath(chatId), text, token, onEvent);
-  if (!shouldRepeatPost(first.status, first.opened)) return first;
-  const grant = await refreshAccess(fetch, Date.now());
-  if (grant === null) return first;
-  const user = await loadMe(grant.accessToken);
-  if (user === null) return first;
-  useSession.getState().setAccount(grant, user);
-  return postStream(messagePath(chatId), text, grant.accessToken, onEvent);
-}
-
-async function finishSend(
-  result: StreamResult,
-  text: string,
-  chatId: string,
-  token: string | null,
-  latest: { current: LiveTurn },
-  setTurn: (turn: LiveTurn) => void,
-): Promise<void> {
-  const dropped =
-    result.interrupted || (result.opened && latest.current.phase !== StreamPhase.Idle);
-  if (dropped || needsReload(result, text, latest.current)) {
-    await replaceFromServer(chatId, token, latest, setTurn);
-    return;
-  }
+async function finishSend(result: StreamResult, text: string, chatId: string, latest: Latest, setTurn: SetTurn): Promise<void> {
+  const dropped = result.interrupted || (result.opened && latest.current.phase !== StreamPhase.Idle);
+  if (dropped || needsReload(result, text, latest.current)) return replaceFromServer(chatId, latest, setTurn);
   if (result.opened) return;
-  publish(
-    {
-      ...latest.current,
-      phase: StreamPhase.Idle,
-      notice: result.error?.message ?? 'Message was not sent',
-    },
-    latest,
-    setTurn,
-  );
+  if (result.status === 429) void refreshQuota();
+  publish({ ...latest.current, phase: StreamPhase.Idle, notice: result.error?.message ?? 'Message was not sent' }, latest, setTurn);
 }
 
 function needsReload(result: StreamResult, text: string, turn: LiveTurn): boolean {
   if (result.opened) return false;
-  return (
-    afterFailedSend({ streamOpened: false, draft: text, messages: turn.messages }) === 'reload'
-  );
+  return afterFailedSend({ streamOpened: false, draft: text, messages: turn.messages }) === 'reload';
 }
 
-async function replaceFromServer(
-  chatId: string,
-  token: string | null,
-  latest: { current: LiveTurn },
-  setTurn: (turn: LiveTurn) => void,
-): Promise<void> {
-  try {
-    const detail = await fetchChat(token, chatId);
-    if (detail === null) {
-      publish(releaseTurn(latest.current, RELOAD_FAILED), latest, setTurn);
-      return;
-    }
-    publish(reloadedTurn(detail.messages), latest, setTurn);
-  } catch {
-    publish(releaseTurn(latest.current, RELOAD_FAILED), latest, setTurn);
-  }
+async function replaceFromServer(chatId: string, latest: Latest, setTurn: SetTurn): Promise<void> {
+  const loaded = await loadChat(chatId);
+  if (loaded.kind !== 'ok') return publish(releaseTurn(latest.current, RELOAD_FAILED), latest, setTurn);
+  publish(reloadedTurn(loaded.detail.messages), latest, setTurn);
 }
 
+/** Re-reads the account so the sidebar counter matches the server after any turn. */
 async function refreshQuota(): Promise<void> {
   const session = useSession.getState();
-  if (session.accessToken === null || session.expiresAt === null) return;
-  const user = await loadMe(session.accessToken);
-  if (user !== null)
-    session.setAccount({ accessToken: session.accessToken, expiresAt: session.expiresAt }, user);
+  if (session.status !== SessionStatus.Account) return;
+  const token = await accessToken();
+  if (token === null) return;
+  const user = await loadMe(token).catch(() => null);
+  if (user !== null) useSession.getState().patchUser(user);
 }
 
 async function loadOlderMessages(
   chatId: string,
-  token: string | null,
   cursor: string | null,
-  latest: { current: LiveTurn },
-  setTurn: (turn: LiveTurn) => void,
+  latest: Latest,
+  setTurn: SetTurn,
   setCursor: (cursor: string | null) => void,
   loading: { current: boolean },
 ): Promise<void> {
   if (cursor === null || loading.current) return;
   loading.current = true;
   try {
-    const page = await fetchOlder(token, chatId, cursor);
+    const page = await fetchOlder(chatId, cursor);
     if (page === null) return;
-    publish(
-      { ...latest.current, messages: prependMessages(latest.current.messages, page.items) },
-      latest,
-      setTurn,
-    );
+    publish({ ...latest.current, messages: prependMessages(latest.current.messages, page.items) }, latest, setTurn);
     setCursor(page.nextCursor);
+  } catch {
+    publish({ ...latest.current, notice: 'Could not load older messages' }, latest, setTurn);
   } finally {
     loading.current = false;
   }

@@ -11,16 +11,32 @@ interface RecognitionEvent {
   results: ArrayLike<RecognitionResult>;
 }
 
+interface RecognitionErrorEvent {
+  error: string;
+}
+
 interface Recognition {
   lang: string;
   interimResults: boolean;
   onresult: ((event: RecognitionEvent) => void) | null;
   onend: (() => void) | null;
+  onerror: ((event: RecognitionErrorEvent) => void) | null;
   start(): void;
   stop(): void;
 }
 
 type RecognitionCtor = new () => Recognition;
+
+/** What the page hears from one recognition session. */
+export interface ListenHandlers {
+  onFinal: (text: string) => void;
+  /** The browser ended the session on its own (silence, network). The page may listen again. */
+  onEnd: () => void;
+  /** The microphone is blocked; listening again would fail the same way. */
+  onDenied: () => void;
+}
+
+const DENIED_ERRORS = new Set(['not-allowed', 'service-not-allowed', 'audio-capture']);
 
 /** True when this browser can turn speech into text. */
 export function speechRecognitionAvailable(): boolean {
@@ -28,25 +44,42 @@ export function speechRecognitionAvailable(): boolean {
 }
 
 /** Starts one recognition session. `null` when the API is missing. */
-export function listen(onFinal: (text: string) => void): { stop: () => void } | null {
+export function listen(lang: string, handlers: ListenHandlers): { stop: () => void } | null {
   const Ctor = recognitionConstructor();
   if (Ctor === null) return null;
   const recognition = new Ctor();
-  recognition.lang = navigator.language;
+  let stopped = false;
+  let denied = false;
+  recognition.lang = lang;
   recognition.interimResults = true;
-  recognition.onresult = (event) => deliverFinal(event, onFinal);
-  recognition.start();
-  return { stop: () => recognition.stop() };
+  recognition.onresult = (event) => deliverFinal(event, handlers.onFinal);
+  recognition.onerror = (event) => {
+    if (!DENIED_ERRORS.has(event.error)) return;
+    denied = true;
+    handlers.onDenied();
+  };
+  recognition.onend = () => {
+    if (!stopped && !denied) handlers.onEnd();
+  };
+  startSafely(recognition, handlers);
+  return {
+    stop: () => {
+      stopped = true;
+      recognition.stop();
+    },
+  };
 }
 
-/** Speaks assistant text, then continues the call. */
-export function speak(text: string, onEnd: () => void): void {
+/** Speaks assistant text in `lang`, then continues the call. */
+export function speak(text: string, lang: string, onEnd: () => void): void {
   if (typeof window === 'undefined' || text.trim().length === 0) {
     onEnd();
     return;
   }
   const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang;
   utterance.onend = onEnd;
+  utterance.onerror = onEnd;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utterance);
 }
@@ -55,6 +88,14 @@ export function speak(text: string, onEnd: () => void): void {
 export function silence(): void {
   if (typeof window === 'undefined') return;
   window.speechSynthesis.cancel();
+}
+
+function startSafely(recognition: Recognition, handlers: ListenHandlers): void {
+  try {
+    recognition.start();
+  } catch {
+    handlers.onDenied();
+  }
 }
 
 function recognitionConstructor(): RecognitionCtor | null {

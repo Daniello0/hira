@@ -1,5 +1,6 @@
-import { IntentType, MessageRole, type VacancyResult } from '@hira/contracts';
+import { IntentType, MessageRole, type DocumentDraftDto, type VacancyResult } from '@hira/contracts';
 import { SessionStatus } from '../auth/session-status';
+import { asDraft } from '../chat/reduce-chat-event';
 import { CallPhase } from './call-phase';
 import { LAST_CALL_CAPTIONS } from './call.constants';
 
@@ -16,11 +17,15 @@ export interface CallViewState {
   captions: Caption[];
   cards: VacancyResult[];
   searching: boolean;
+  /** Latest file draft Hira proposed in this call. */
+  draft: DocumentDraftDto | null;
+  /** Error text from the last turn, shown until the next phrase. */
+  notice: string | null;
 }
 
 /** Call screen before Start. */
 export function emptyCall(): CallViewState {
-  return { phase: CallPhase.Idle, captions: [], cards: [], searching: false };
+  return { phase: CallPhase.Idle, captions: [], cards: [], searching: false, draft: null, notice: null };
 }
 
 /** Microphone is open. */
@@ -35,6 +40,7 @@ export function onFinalTranscript(state: CallViewState, id: string, text: string
     phase: CallPhase.Thinking,
     searching: false,
     cards: [],
+    notice: null,
     captions: pushCaption(state.captions, { id, role: MessageRole.User, content: text }),
   };
 }
@@ -47,10 +53,16 @@ export function reduceCallEvent(
   if (raw.event === 'intent') return onIntent(state, raw.data);
   if (raw.event === 'results') return { ...state, searching: false, cards: asResults(raw.data) };
   if (raw.event === 'token') return appendAssistant(state, delta(raw.data));
+  if (raw.event === 'document-draft') return { ...state, draft: asDraft(raw.data) ?? state.draft };
   if (raw.event === 'done') return { ...state, phase: CallPhase.Speaking, searching: false };
   if (raw.event === 'error')
-    return { ...state, phase: CallPhase.Listening, searching: false, cards: [] };
+    return { ...state, phase: CallPhase.Listening, searching: false, cards: [], notice: errorText(raw.data) };
   return state;
+}
+
+/** Drops the draft card after Save or Dismiss. */
+export function clearCallDraft(state: CallViewState): CallViewState {
+  return { ...state, draft: null };
 }
 
 /** End returns the screen to idle. */
@@ -70,9 +82,14 @@ export function canStartCall(status: SessionStatus): boolean {
   return status === SessionStatus.Account;
 }
 
-/** The typed fallback is only there when the browser has no recognizer. */
-export function showTypeInstead(speechAvailable: boolean): boolean {
-  return !speechAvailable;
+/** The typed fallback is there when the browser has no recognizer or the microphone is blocked. */
+export function showTypeInstead(speechAvailable: boolean, micDenied = false): boolean {
+  return !speechAvailable || micDenied;
+}
+
+/** Caption speaker as the user reads it. */
+export function speakerLabel(role: string): string {
+  return role === MessageRole.User ? 'You' : 'Hira';
 }
 
 function onIntent(state: CallViewState, data: unknown): CallViewState {
@@ -101,6 +118,11 @@ function pushCaption(captions: readonly Caption[], caption: Caption): Caption[] 
 function asResults(data: unknown): VacancyResult[] {
   if (!isRecord(data) || !Array.isArray(data.results)) return [];
   return data.results as VacancyResult[];
+}
+
+function errorText(data: unknown): string {
+  if (isRecord(data) && typeof data.message === 'string' && data.message.trim().length > 0) return data.message;
+  return 'Something went wrong. Try again.';
 }
 
 function delta(data: unknown): string {

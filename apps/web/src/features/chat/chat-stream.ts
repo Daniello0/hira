@@ -1,5 +1,5 @@
 import type { ApiErrorResponse } from '@hira/contracts';
-import { coreFetch } from '../../common/api/core-api';
+import { authedFetch } from '../../common/api/authed-fetch';
 import { createSseParser, type ParsedSse } from './sse-parser';
 
 export interface StreamResult {
@@ -9,27 +9,30 @@ export interface StreamResult {
   interrupted: boolean;
 }
 
-/** Posts one turn and reads SSE. A network failure before headers is not an open stream. */
-export async function postStream(path: string, content: string, token: string | null, onEvent: (event: ParsedSse) => void): Promise<StreamResult> {
-  const response = await post(path, content, token);
+/**
+ * Posts one turn and reads SSE. A network failure before headers is not an open stream.
+ * A 401 is refreshed and repeated once by `authedFetch`; the server stored nothing then.
+ */
+export async function postStream(path: string, body: object, onEvent: (event: ParsedSse) => void): Promise<StreamResult> {
+  const response = await post(path, body);
   if (response === null) return { opened: false, status: 0, error: null, interrupted: false };
   if (!response.ok) return { opened: false, status: response.status, error: await readError(response), interrupted: false };
   return readOpenStream(response, onEvent);
 }
 
-async function post(path: string, content: string, token: string | null): Promise<Response | null> {
+async function post(path: string, body: object): Promise<Response | null> {
   try {
-    return await coreFetch(path, jsonPost(content), token);
+    return await authedFetch(path, jsonPost(body));
   } catch {
     return null;
   }
 }
 
-function jsonPost(content: string): RequestInit {
+function jsonPost(body: object): RequestInit {
   return {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(body),
   };
 }
 

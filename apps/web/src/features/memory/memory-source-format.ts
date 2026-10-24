@@ -5,19 +5,25 @@ export interface MemorySourcePresentation {
   label: string;
 }
 
-/** Chat links when resolvable; call provenance stays text until deep routes exist. */
+/** Chat links when resolvable; a call is named by the date the fact was stored, since calls have no page. */
 export function formatMemorySource(fact: MemoryFactDto): MemorySourcePresentation {
   if (fact.sourceChatId !== null && fact.sourceMessageId !== null) {
     return { href: `/chat/${fact.sourceChatId}`, label: 'Open source chat' };
   }
   if (fact.sourceCallSessionId !== null && fact.sourceCallTurnId !== null) {
-    return { href: null, label: `Call session ${fact.sourceCallSessionId}` };
+    return { href: null, label: `Call · ${callDate(fact.createdAt)}` };
   }
   if (fact.sourceMessageId !== null) {
-    return { href: null, label: `Message ${fact.sourceMessageId} (chat unavailable)` };
+    return { href: null, label: 'Chat message (chat deleted)' };
   }
   if (fact.sourceCallTurnId !== null) {
-    return { href: null, label: `Call turn ${fact.sourceCallTurnId}` };
+    return { href: null, label: `Call · ${callDate(fact.createdAt)}` };
   }
   return { href: null, label: 'No source recorded' };
+}
+
+function callDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'date unknown';
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }

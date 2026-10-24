@@ -1,39 +1,52 @@
 import type { RetrievalDiagnostics, SearchIntent } from '@hira/contracts';
+import { seniorityLabel } from '../../common/utils/enum-labels';
 import { constraintLines, intentSkills } from './context-lines';
+import type { AccountContext } from './panel-context';
 
-interface ContextPanelProps {
+/** Everything the context column shows. */
+export interface PanelData {
   intent: SearchIntent | null;
   diagnostics: RetrievalDiagnostics | null;
-  skills: readonly string[];
-  facts: readonly string[];
+  context: AccountContext;
   account: boolean;
+  /** Cross-chat memory switch. Off: facts are not used, so they are not listed here. */
+  crossChat: boolean;
 }
 
+const MEMORY_PREVIEW = 5;
+
 /** Right column: intent, filters, profile skills, and memory. */
-export function ContextPanel({ intent, diagnostics, skills, facts, account }: ContextPanelProps) {
+export function ContextPanel({ data }: { data: PanelData }) {
   return (
     <aside className="hidden h-screen overflow-y-auto border-l border-white/10 bg-hira-panel/40 p-4 md:block">
-      <PanelBody intent={intent} diagnostics={diagnostics} skills={skills} facts={facts} account={account} />
+      <PanelBody data={data} />
     </aside>
   );
 }
 
 /** Same body inside the mobile drawer. */
-export function PanelBody({ intent, diagnostics, skills, facts, account }: ContextPanelProps) {
-  const lines = constraintLines(intent, diagnostics);
+export function PanelBody({ data }: { data: PanelData }) {
+  const lines = constraintLines(data.intent, data.diagnostics);
   return (
     <div className="space-y-4 text-sm">
-      <Section title="Intent" lines={intent === null ? ['Waiting for a message'] : [intent.rewrittenQuery, ...intentSkills(intent)]} />
+      <Section title="Intent" lines={data.intent === null ? ['Waiting for a message'] : [data.intent.rewrittenQuery, ...intentSkills(data.intent)]} />
       <Section title="Filters" lines={lines.length === 0 ? ['None yet'] : lines} />
-      {account ? <Section title="Profile" lines={skills.length === 0 ? ['No skills on your profile yet'] : skills} /> : null}
-      {account ? <Section title="Memory" lines={memoryLines(facts)} /> : null}
+      {data.account ? <Section title="Profile" lines={profileLines(data.context)} /> : null}
+      {data.account ? <Section title="Memory" lines={memoryLines(data.context.facts, data.crossChat)} /> : null}
     </div>
   );
 }
 
-function memoryLines(facts: readonly string[]): string[] {
+function profileLines(context: AccountContext): string[] {
+  const seniority = context.seniority === null ? [] : [`Seniority: ${seniorityLabel(context.seniority)}`];
+  const skills = context.skills.length === 0 ? ['No skills on your profile yet'] : context.skills;
+  return [...seniority, ...skills];
+}
+
+function memoryLines(facts: readonly string[], crossChat: boolean): string[] {
+  if (!crossChat) return ['Cross-chat memory is off'];
   if (facts.length === 0) return ['No facts yet'];
-  return [`${facts.length} facts`, ...facts.slice(0, 5)];
+  return [`${facts.length} facts`, ...facts.slice(0, MEMORY_PREVIEW)];
 }
 
 function Section({ title, lines }: { title: string; lines: readonly string[] }) {
@@ -41,7 +54,7 @@ function Section({ title, lines }: { title: string; lines: readonly string[] }) 
     <section>
       <h2 className="font-medium">{title}</h2>
       <ul className="mt-1 space-y-1 text-hira-muted">
-        {lines.map((line) => <li key={`${title}-${line}`}>{line}</li>)}
+        {lines.map((line, index) => <li key={`${title}-${index}`}>{line}</li>)}
       </ul>
     </section>
   );

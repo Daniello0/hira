@@ -3,7 +3,7 @@ import type { CollectionDto, FavoriteDto } from '@hira/contracts';
 import { groupFavorites } from './favorite-groups';
 
 describe('groupFavorites', () => {
-  it('hides empty collection sections and groups detached rows as Uncategorized', () => {
+  it('keeps empty collections and groups detached rows as Uncategorized', () => {
     const collections: CollectionDto[] = [
       { id: 'c1', name: 'Saved', description: null, isDefault: true },
       { id: 'c2', name: 'Later', description: null, isDefault: false },
@@ -13,9 +13,10 @@ describe('groupFavorites', () => {
       favorite('f2', 'v2', null),
     ];
     const groups = groupFavorites(favorites, collections);
-    expect(groups).toHaveLength(2);
+    expect(groups).toHaveLength(3);
     expect(groups[0]).toMatchObject({ name: 'Saved', isDefault: true, items: [favorites[0]] });
-    expect(groups[1]).toMatchObject({ name: 'Uncategorized', isDefault: false, items: [favorites[1]] });
+    expect(groups[1]).toMatchObject({ name: 'Later', isDefault: false, items: [] });
+    expect(groups[2]).toMatchObject({ name: 'Uncategorized', isDefault: false, items: [favorites[1]] });
   });
 });
 
@@ -38,6 +39,7 @@ function favorite(id: string, vacancyId: string, collectionId: string | null): F
       salaryMax: null,
       salaryCurrency: null,
       workFormat: null,
+      isForeignRemote: false,
     },
   };
 }

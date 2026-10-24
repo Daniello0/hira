@@ -1,53 +1,57 @@
-import type { ChatDetail, ChatMessageView, ChatPage, ChatSummary } from '@hira/contracts';
-import { coreFetch } from '../../common/api/core-api';
+import type { ChatDetail, ChatMessageView, ChatPage, ChatSummary, UpdateChatRequest } from '@hira/contracts';
+import { authedFetch, readJson } from '../../common/api/authed-fetch';
+import { jsonRequest } from '../../common/api/core-api';
+
+/** A chat that could not be opened: gone, or the request failed. */
+export type ChatLoad = { kind: 'ok'; detail: ChatDetail } | { kind: 'not-found' } | { kind: 'failed' };
 
 /** Lists chats. A demo cookie receives its one chat. */
-export async function fetchChats(token: string | null, cursor?: string): Promise<ChatPage<ChatSummary> | null> {
-  const response = await coreFetch(`/api/v1/chats${query(cursor)}`, { method: 'GET' }, token);
-  if (!response.ok) return null;
-  return (await response.json()) as ChatPage<ChatSummary>;
+export async function fetchChats(cursor?: string): Promise<ChatPage<ChatSummary> | null> {
+  return readJson<ChatPage<ChatSummary>>(await authedFetch(`/api/v1/chats${query(cursor)}`));
 }
 
 /** Creates an empty chat. `limited` is the demo one-chat cap. */
-export async function createChat(token: string | null): Promise<{ chat: ChatSummary | null; limited: boolean }> {
-  const response = await coreFetch('/api/v1/chats', { method: 'POST' }, token);
+export async function createChat(): Promise<{ chat: ChatSummary | null; limited: boolean }> {
+  const response = await authedFetch('/api/v1/chats', { method: 'POST' });
   if (response.status === 429) return { chat: null, limited: true };
-  if (!response.ok) return { chat: null, limited: false };
-  return { chat: (await response.json()) as ChatSummary, limited: false };
+  return { chat: await readJson<ChatSummary>(response), limited: false };
+}
+
+/** Chat plus the newest page of messages, or why it could not be opened. */
+export async function loadChat(chatId: string): Promise<ChatLoad> {
+  try {
+    const response = await authedFetch(`/api/v1/chats/${chatId}`);
+    if (response.status === 404 || response.status === 403) return { kind: 'not-found' };
+    const detail = await readJson<ChatDetail>(response);
+    return detail === null ? { kind: 'failed' } : { kind: 'ok', detail };
+  } catch {
+    return { kind: 'failed' };
+  }
 }
 
 /** Chat plus the newest page of messages. */
-export async function fetchChat(token: string | null, chatId: string): Promise<ChatDetail | null> {
-  const response = await coreFetch(`/api/v1/chats/${chatId}`, { method: 'GET' }, token);
-  if (!response.ok) return null;
-  return (await response.json()) as ChatDetail;
+export async function fetchChat(chatId: string): Promise<ChatDetail | null> {
+  const loaded = await loadChat(chatId);
+  return loaded.kind === 'ok' ? loaded.detail : null;
 }
 
 /** Older messages, oldest first inside the page. */
-export async function fetchOlder(token: string | null, chatId: string, cursor: string): Promise<ChatPage<ChatMessageView> | null> {
-  const response = await coreFetch(`/api/v1/chats/${chatId}/messages${query(cursor)}`, { method: 'GET' }, token);
-  if (!response.ok) return null;
-  return (await response.json()) as ChatPage<ChatMessageView>;
+export async function fetchOlder(chatId: string, cursor: string): Promise<ChatPage<ChatMessageView> | null> {
+  return readJson<ChatPage<ChatMessageView>>(await authedFetch(`/api/v1/chats/${chatId}/messages${query(cursor)}`));
 }
 
-/** Renames or archives. */
-export async function patchChat(token: string | null, chatId: string, body: { title?: string; isArchived?: boolean }): Promise<ChatSummary | null> {
-  const response = await coreFetch(`/api/v1/chats/${chatId}`, json('PATCH', body), token);
-  if (!response.ok) return null;
-  return (await response.json()) as ChatSummary;
+/** Renames, archives, or restores. */
+export async function patchChat(chatId: string, body: UpdateChatRequest): Promise<ChatSummary | null> {
+  return readJson<ChatSummary>(await authedFetch(`/api/v1/chats/${chatId}`, jsonRequest('PATCH', body)));
 }
 
 /** Deletes a chat. */
-export async function deleteChat(token: string | null, chatId: string): Promise<boolean> {
-  const response = await coreFetch(`/api/v1/chats/${chatId}`, { method: 'DELETE' }, token);
+export async function deleteChat(chatId: string): Promise<boolean> {
+  const response = await authedFetch(`/api/v1/chats/${chatId}`, { method: 'DELETE' });
   return response.ok;
 }
 
 function query(cursor?: string): string {
   if (cursor === undefined) return '';
   return `?cursor=${encodeURIComponent(cursor)}`;
-}
-
-function json(method: string, body: unknown): RequestInit {
-  return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
 }
