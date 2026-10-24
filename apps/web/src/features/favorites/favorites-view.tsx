@@ -41,7 +41,7 @@ export function FavoritesView() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <h1 className="text-2xl font-semibold">Favorites</h1>
-      <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); void reload(query); }}>
+      <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); void reload(query); }}>
         <TextField label="Search notes" value={query} onChange={(event) => setQuery(event.target.value)} />
         <Button type="submit">Search</Button>
       </form>

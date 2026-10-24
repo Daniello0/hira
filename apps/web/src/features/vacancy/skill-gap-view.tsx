@@ -4,6 +4,7 @@ import { skillImportanceLabel } from '../../common/utils/enum-labels';
 /** US-6: which vacancy skills the profile covers, and which owned skills lead to the missing ones. */
 export function SkillGapView({ gap, failed }: { gap: SkillGapDto | null; failed: boolean }) {
   if (gap === null) return failed ? <p className="text-sm text-hira-muted">Could not compare with your profile.</p> : null;
+  if (gap.matched.length === 0 && gap.missing.length === 0) return <NoSkillsYet />;
   const percent = Math.round(Math.min(1, Math.max(0, gap.coverage)) * 100);
   return (
     <section className="space-y-3 text-sm">
@@ -16,6 +17,16 @@ export function SkillGapView({ gap, failed }: { gap: SkillGapDto | null; failed:
       </div>
       <Chips title="You have" names={gap.matched.map((skill) => skill.name)} />
       <MissingList gap={gap} />
+    </section>
+  );
+}
+
+/** Skills are extracted overnight; until then there is nothing to compare. */
+function NoSkillsYet() {
+  return (
+    <section className="space-y-1 text-sm">
+      <h3 className="font-medium">Your fit</h3>
+      <p className="text-hira-muted">Skills for this vacancy are not extracted yet, so there is nothing to compare with your profile.</p>
     </section>
   );
 }
