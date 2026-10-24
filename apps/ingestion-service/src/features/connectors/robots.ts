@@ -39,9 +39,12 @@ function pushRule(active: boolean, key: string, value: string, rules: Rule[]): v
   if (key === 'disallow') rules.push({ allow: false, pattern: value });
 }
 
+/** RFC 9309: `*` matches any run of characters, a trailing `$` anchors the end of the path. */
 function ruleMatches(pattern: string, path: string): boolean {
-  const body = pattern.split('*').map(escapeRegExp).join('[^/]*');
-  return new RegExp(`^${body}`).test(path);
+  const anchored = pattern.endsWith('$');
+  const raw = anchored ? pattern.slice(0, -1) : pattern;
+  const body = raw.split('*').map(escapeRegExp).join('.*');
+  return new RegExp(`^${body}${anchored ? '$' : ''}`).test(path);
 }
 
 function escapeRegExp(value: string): string {

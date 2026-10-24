@@ -3,12 +3,14 @@ import { Router, type Request, type Response } from 'express';
 import { readRequestId } from '../../common/middleware/request-id.middleware';
 import { NOT_FOUND_ERROR_CODE, NOT_FOUND_MESSAGE } from '../../common/constants/app.constants';
 import {
+  JOB_GRAPH,
   JOB_TYPES,
   STAGE_SOURCES,
   VALIDATION_FAILED_CODE,
   VALIDATION_FAILED_MESSAGE,
 } from '../ingestion.constants';
 import { isRecord } from '../connectors/record';
+import { disabledMessage, isSourceEnabled } from '../connectors/registry';
 import type { IngestJob, IngestQueue } from '../scheduler/schedules';
 import type { RunWriter } from '../store/run-writer';
 
@@ -22,9 +24,14 @@ export interface RunsDeps {
   queue: IngestQueue;
   now: () => Date;
   reindex?: (command: ReindexCommand) => Promise<number>;
+  /** Source switches; defaults to `process.env`. */
+  env?: NodeJS.ProcessEnv;
 }
 
-/** `POST/GET /internal/v1/runs`. Reindex stays on stage 8. */
+/**
+ * `POST/GET /internal/v1/runs`. Body `{ source, jobType }`; a disabled source is refused with
+ * 400 and the switch to flip. `GRAPH` takes any source (it is recorded, not used).
+ */
 export function createRunsRouter(deps: RunsDeps): Router {
   const router = Router();
   router.post('/runs', (req, res, next) => {
@@ -49,6 +56,18 @@ async function startRun(deps: RunsDeps, req: Request, res: Response): Promise<vo
   const command = readRunCommand(req.body);
   if (command === null) {
     res.status(400).json(invalid(req));
+    return;
+  }
+  if (command.jobType !== JOB_GRAPH && !isSourceEnabled(command.source, deps.env ?? process.env)) {
+    res
+      .status(400)
+      .json(
+        createApiErrorResponse(
+          VALIDATION_FAILED_CODE,
+          disabledMessage(command.source),
+          readRequestId(req),
+        ),
+      );
     return;
   }
   const run = await deps.runs.start(command.source, command.jobType, deps.now());

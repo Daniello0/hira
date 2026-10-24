@@ -10,6 +10,19 @@ export interface ExtractHttp {
   post(url: string, token: string, body: unknown): Promise<{ status: number; body: unknown }>;
 }
 
+/** A non-200 answer of llm-service; `status` 429 means the free key is rate limited. */
+export class ExtractHttpError extends Error {
+  constructor(
+    readonly status: number,
+    code: string,
+  ) {
+    super(code);
+  }
+}
+
+/** Skills per vacancy id, or the reason that vacancy's answer was unusable. */
+export type ExtractBatchResult = Map<string, ExtractedSkill[] | Error>;
+
 /** Asks llm-service for skills of one vacancy. A non-200 status throws. */
 export async function requestExtractedSkills(
   http: ExtractHttp,
@@ -17,9 +30,42 @@ export async function requestExtractedSkills(
   token: string,
   vacancy: ExtractSkillsVacancy,
 ): Promise<ExtractedSkill[]> {
-  const response = await http.post(endpoint(baseUrl), token, { vacancies: [vacancy] });
-  if (response.status !== 200) throw new Error(errorCode(response.body));
-  return readSkills(response.body, vacancy.id);
+  const result = (await requestExtractedSkillsBatch(http, baseUrl, token, [vacancy])).get(
+    vacancy.id,
+  );
+  if (result === undefined || result instanceof Error) {
+    throw result ?? new Error('invalid extract-skills response');
+  }
+  return result;
+}
+
+/**
+ * One extract-skills call for several vacancies (one model call on llm-service).
+ * A non-200 status throws `ExtractHttpError`; a bad entry fails only its own vacancy.
+ */
+export async function requestExtractedSkillsBatch(
+  http: ExtractHttp,
+  baseUrl: string,
+  token: string,
+  vacancies: readonly ExtractSkillsVacancy[],
+): Promise<ExtractBatchResult> {
+  const response = await http.post(endpoint(baseUrl), token, { vacancies });
+  if (response.status !== 200) {
+    throw new ExtractHttpError(response.status, errorCode(response.body));
+  }
+  if (!isRecord(response.body) || !Array.isArray(response.body.results)) {
+    throw new Error('invalid extract-skills response');
+  }
+  const rows = response.body.results;
+  return new Map(vacancies.map((vacancy) => [vacancy.id, readOne(rows, vacancy.id)]));
+}
+
+function readOne(rows: unknown[], id: string): ExtractedSkill[] | Error {
+  try {
+    return readSkills(rows, id);
+  } catch (error) {
+    return error instanceof Error ? error : new Error('invalid extract-skills response');
+  }
 }
 
 function endpoint(baseUrl: string): string {
@@ -31,10 +77,8 @@ function errorCode(body: unknown): string {
   return 'extract-skills failed';
 }
 
-function readSkills(body: unknown, id: string): ExtractedSkill[] {
-  if (!isRecord(body) || !Array.isArray(body.results))
-    throw new Error('invalid extract-skills response');
-  const row = body.results.find((item) => isRecord(item) && item.id === id);
+function readSkills(rows: unknown[], id: string): ExtractedSkill[] {
+  const row = rows.find((item) => isRecord(item) && item.id === id);
   if (!isRecord(row) || !Array.isArray(row.skills))
     throw new Error('invalid extract-skills response');
   return row.skills.map(readSkill);

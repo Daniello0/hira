@@ -64,6 +64,9 @@ function canonical(patch: Partial<CanonicalVacancy> = {}): CanonicalVacancy {
     salaryMinByn: null,
     salaryMaxByn: null,
     isGross: null,
+    rateAmount: null,
+    rateUnit: null,
+    projectDurationDays: null,
     isForeignRemote: false,
     status: VacancyStatus.Active,
     publishedAt: null,
@@ -182,14 +185,14 @@ describe('skill graph store', () => {
     ).rejects.toThrow();
   });
 
-  it('lists skill work before embed work and rejects a short vector', async () => {
+  it('lists a new vacancy for skill and embed work and rejects a short vector', async () => {
     const store = createPgVacancyStore(client);
     const seen = new Date('2026-10-17T13:00:00Z');
     const saved = await store.save(canonical({ externalId: 'pending-1', unp: '100000778' }), seen);
     const skills = await listPendingSkills(client, VacancySource.RabotaBy, 20);
     expect(skills.map((row) => row.id)).toContain(saved.id);
     const early = await listPendingEmbeddings(client, VacancySource.RabotaBy, 32);
-    expect(early.map((row) => row.id)).not.toContain(saved.id);
+    expect(early.map((row) => row.id)).toContain(saved.id);
     const skillId = await insertSkill(client, 'Go');
     await writeVacancySkills(
       client,

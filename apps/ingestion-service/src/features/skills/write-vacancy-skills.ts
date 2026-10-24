@@ -12,7 +12,10 @@ export interface VacancySkillWrite {
   evidenceSpan: string | null;
 }
 
-/** Replaces a vacancy's skills, refreshes the hash, and clears the stale vector. */
+/**
+ * Replaces a vacancy's skills and refreshes the hash. The vacancy vector is embedded from
+ * title and description only, so it stays: embedding does not wait for or redo after skills.
+ */
 export async function writeVacancySkills(
   client: SqlClient,
   vacancyId: string,
@@ -110,5 +113,5 @@ interface VacancyText {
 }
 
 const UPDATE_SKILLS = `UPDATE vacancies SET
-  skills_text = $2, content_hash = $3, skills_extracted_at = $4, embedding = NULL
+  skills_text = $2, content_hash = $3, skills_extracted_at = $4
   WHERE id = $1`;

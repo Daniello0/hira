@@ -1,6 +1,6 @@
 import { VacancySource } from '@hira/contracts';
 import { describe, expect, it } from 'vitest';
-import { JOB_EMBED, JOB_EXTRACT_SKILLS, JOB_GRAPH } from '../ingestion.constants';
+import { JOB_EMBED, JOB_EXTRACT_SKILLS, JOB_GRAPH, STAGE_SOURCES } from '../ingestion.constants';
 import { registerSkillIndexCron, skillIndexSchedules } from './skill-schedules';
 
 describe('skill index schedules', () => {
@@ -10,13 +10,13 @@ describe('skill index schedules', () => {
         expression: '*/15 * * * *',
         queue: 'extract-skills',
         jobType: JOB_EXTRACT_SKILLS,
-        sources: [VacancySource.RabotaBy, VacancySource.Gsz, VacancySource.HabrCareer],
+        sources: STAGE_SOURCES,
       },
       {
         expression: '*/15 * * * *',
         queue: 'embed',
         jobType: JOB_EMBED,
-        sources: [VacancySource.RabotaBy, VacancySource.Gsz, VacancySource.HabrCareer],
+        sources: STAGE_SOURCES,
       },
       { expression: '0 4 * * *', queue: 'graph', jobType: JOB_GRAPH, sources: [] },
     ]);
@@ -36,8 +36,8 @@ describe('skill index schedules', () => {
         },
       },
     );
-    expect(queued.filter((job) => job.jobType === JOB_EXTRACT_SKILLS)).toHaveLength(3);
-    expect(queued.filter((job) => job.jobType === JOB_EMBED)).toHaveLength(3);
+    expect(queued.filter((job) => job.jobType === JOB_EXTRACT_SKILLS)).toHaveLength(4);
+    expect(queued.filter((job) => job.jobType === JOB_EMBED)).toHaveLength(4);
     expect(queued.filter((job) => job.jobType === JOB_GRAPH)).toEqual([
       { queue: 'graph', jobType: JOB_GRAPH },
     ]);

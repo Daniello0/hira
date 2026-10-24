@@ -1,18 +1,10 @@
-import { VacancySource } from '@hira/contracts';
-import { HH_USER_AGENT } from '../ingestion.constants';
-import type { RawVacancy } from './raw-vacancy';
-import { parseRabotaList, parseRabotaVacancy } from './rabota/parse-rabota';
+import type { VacancySource } from '@hira/contracts';
+import { HH_USER_AGENT, MAX_LIST_PAGES, SOURCE_PAUSE_MS } from '../ingestion.constants';
+import type { RawVacancy, RawVacancyRef } from './raw-vacancy';
 import { isRecord } from './record';
+import { connectorFor, disabledMessage, isSourceEnabled } from './registry';
 import { isFetchAllowed } from './robots';
-import { gszVacancyPath, parseGszList, parseGszVacancy } from './gsz/parse-gsz';
-import { parseHabrList, parseHabrVacancy } from './habr/parse-habr';
-
-const RABOTA_ORIGIN = 'https://rabota.by';
-const RABOTA_LIST_PATH = '/search/vacancy';
-const GSZ_ORIGIN = 'https://gsz.gov.by';
-const HABR_ORIGIN = 'https://career.habr.com';
-const GSZ_LIST_PATH = '/registration/vacancy-search/';
-const HABR_LIST_PATH = '/vacancies?type=all';
+import type { PauseRange, VacancyConnector } from './vacancy-connector';
 
 export interface HttpGet {
   get(url: string, headers: Record<string, string>): Promise<{ status: number; body: string }>;
@@ -21,7 +13,12 @@ export interface HttpGet {
 export interface CollectInput {
   http: HttpGet;
   limit: number;
+  /** Overrides the connector's pause (tests pass a no-op). */
   pause?: () => Promise<void>;
+  /** Asked before every request of a capped source; false stops the run early. */
+  requestBudget?: () => Promise<boolean>;
+  /** Source switches; defaults to `process.env`. */
+  env?: NodeJS.ProcessEnv;
 }
 
 export interface CollectFailure {
@@ -35,16 +32,48 @@ export interface CollectResult {
   failures: CollectFailure[];
 }
 
-/** Fetches one stage-7 source. HTML sources stop when robots.txt forbids the path. */
+/** Thrown when a capped source used up its daily request budget. */
+export class RequestCapReached extends Error {
+  constructor() {
+    super('daily request cap of the source is reached');
+  }
+}
+
+/**
+ * Reads list pages of every query until `limit` cards or no new cards, then each detail page.
+ * Refuses a disabled source and a first list page that robots.txt forbids.
+ */
 export async function collectSource(
   source: VacancySource,
   input: CollectInput,
 ): Promise<CollectResult> {
-  const paced = paceRequests(input);
-  if (source === VacancySource.RabotaBy) return collectRabota(paced);
-  if (source === VacancySource.Gsz) return collectGsz(paced);
-  if (source === VacancySource.HabrCareer) return collectHabr(paced);
-  throw new Error(`source ${source} is outside stage 7`);
+  if (!isSourceEnabled(source, input.env ?? process.env)) {
+    throw new Error(disabledMessage(source));
+  }
+  const connector = connectorFor(source);
+  const paced = pacedFor(connector, input);
+  const robots = await readRobots(paced, connector.origin);
+  assertDetailPathAllowed(connector, robots);
+  const listed = await collectRefs(connector, paced, robots);
+  const details = await readDetails(connector, paced, listed.refs);
+  return {
+    raws: details.raws,
+    failures: details.failures,
+    truncated: listed.truncated || details.capped,
+  };
+}
+
+/** Detail pages are read for every card, so a source whose robots.txt forbids them stops here. */
+function assertDetailPathAllowed(connector: VacancyConnector, robots: string | null): void {
+  const path = connector.detailPath(DETAIL_PROBE_ID);
+  if (!isFetchAllowed(robots, path)) throw new Error(`robots.txt blocks ${path}`);
+}
+
+const DETAIL_PROBE_ID = '1';
+
+/** Request pacing for one source: the connector's random pause unless the caller sets one. */
+export function pacedFor(connector: VacancyConnector, input: CollectInput): CollectInput {
+  return paceRequests({ ...input, pause: input.pause ?? randomPause(connector.pause) });
 }
 
 /** Retries once on 429 and 503. Other errors are not retried. */
@@ -52,69 +81,115 @@ export function shouldRetry(status: number, attempt: number): boolean {
   return attempt === 0 && (status === 429 || status === 503);
 }
 
-async function collectRabota(input: CollectInput): Promise<CollectResult> {
-  await assertRobots(input, RABOTA_ORIGIN, RABOTA_LIST_PATH);
-  const html = await readText(input, `${RABOTA_ORIGIN}${RABOTA_LIST_PATH}`);
-  return details(input, parseRabotaList(html), RABOTA_ORIGIN, (item) => ({
-    path: item.path,
-    parse: (page) => parseRabotaVacancy(page, item.externalId),
-  }));
+interface ListedRefs {
+  refs: RawVacancyRef[];
+  truncated: boolean;
 }
 
-async function collectGsz(input: CollectInput): Promise<CollectResult> {
-  await assertRobots(input, GSZ_ORIGIN, GSZ_LIST_PATH);
-  const html = await readText(input, `${GSZ_ORIGIN}${GSZ_LIST_PATH}`);
-  return details(input, parseGszList(html), GSZ_ORIGIN, (item) => ({
-    path: item.path,
-    parse: (page) => parseGszVacancy(page, item.externalId),
-  }));
-}
-
-async function collectHabr(input: CollectInput): Promise<CollectResult> {
-  await assertRobots(input, HABR_ORIGIN, '/vacancies');
-  const html = await readText(input, `${HABR_ORIGIN}${HABR_LIST_PATH}`);
-  return details(input, parseHabrList(html), HABR_ORIGIN, (item) => ({
-    path: `/vacancies/${item.externalId}`,
-    parse: (page) => withCardCity(parseHabrVacancy(page, item.externalId), item.city),
-  }));
-}
-
-function withCardCity(raw: RawVacancy, city: string | null): RawVacancy {
-  if (raw.city !== null) return raw;
-  return { ...raw, city };
-}
-
-async function details<T extends { externalId: string }>(
+async function collectRefs(
+  connector: VacancyConnector,
   input: CollectInput,
-  items: T[],
-  origin: string,
-  toPage: (item: T) => { path: string; parse: (html: string) => RawVacancy },
-): Promise<CollectResult> {
-  const raws: RawVacancy[] = [];
-  const failures: CollectFailure[] = [];
-  for (const item of items.slice(0, input.limit)) {
-    await readDetail(input, origin, item.externalId, toPage(item), raws, failures);
+  robots: string | null,
+): Promise<ListedRefs> {
+  const refs = new Map<string, RawVacancyRef>();
+  let truncated = false;
+  for (const [index, query] of connector.queries.entries()) {
+    if (refs.size >= input.limit) return { refs: [...refs.values()], truncated: true };
+    const walk = { connector, input, robots, query, first: index === 0 };
+    truncated = (await collectQuery(walk, refs)) || truncated;
   }
-  return { raws, failures, truncated: items.length > input.limit };
+  return { refs: [...refs.values()], truncated };
 }
 
-async function readDetail(
-  input: CollectInput,
-  origin: string,
-  externalId: string,
-  page: { path: string; parse: (html: string) => RawVacancy },
-  raws: RawVacancy[],
-  failures: CollectFailure[],
-): Promise<void> {
+interface QueryWalk {
+  connector: VacancyConnector;
+  input: CollectInput;
+  robots: string | null;
+  query: string;
+  first: boolean;
+}
+
+/** Reads the pages of one query. Returns true when cards were left unread. */
+async function collectQuery(walk: QueryWalk, refs: Map<string, RawVacancyRef>): Promise<boolean> {
+  for (let page = 0; page < MAX_LIST_PAGES; page += 1) {
+    const path = allowedListPath(walk, page);
+    if (path === null) return false;
+    const html = await readListPage(walk, path, page);
+    if (html === null) return true;
+    const fresh = walk.connector
+      .parseList(html, walk.query)
+      .filter((ref) => !refs.has(ref.externalId));
+    if (fresh.length === 0) return false;
+    if (addUpToLimit(refs, fresh, walk.input.limit)) return true;
+  }
+  return true;
+}
+
+function allowedListPath(walk: QueryWalk, page: number): string | null {
+  const path = walk.connector.listPath(walk.query, page);
+  if (path === null || isFetchAllowed(walk.robots, path)) return path;
+  if (page === 0 && walk.first) throw new Error(`robots.txt blocks ${path}`);
+  return null;
+}
+
+/** The first page must load; a later page that fails or hits the cap ends the query. */
+async function readListPage(walk: QueryWalk, path: string, page: number): Promise<string | null> {
+  const url = `${walk.connector.origin}${path}`;
+  if (page === 0 && walk.first) return readText(walk.input, url);
   try {
-    raws.push(page.parse(await readText(input, `${origin}${page.path}`)));
-  } catch (error) {
-    failures.push({ externalId, message: messageOf(error) });
+    return await readText(walk.input, url);
+  } catch {
+    return null;
   }
+}
+
+/** Adds cards until the limit. Returns true when a card did not fit. */
+function addUpToLimit(
+  refs: Map<string, RawVacancyRef>,
+  fresh: readonly RawVacancyRef[],
+  limit: number,
+): boolean {
+  for (const ref of fresh) {
+    if (refs.size >= limit) return true;
+    refs.set(ref.externalId, ref);
+  }
+  return false;
+}
+
+interface DetailResult {
+  raws: RawVacancy[];
+  failures: CollectFailure[];
+  capped: boolean;
+}
+
+async function readDetails(
+  connector: VacancyConnector,
+  input: CollectInput,
+  refs: readonly RawVacancyRef[],
+): Promise<DetailResult> {
+  const result: DetailResult = { raws: [], failures: [], capped: false };
+  for (const ref of refs) {
+    try {
+      const html = await readText(
+        input,
+        `${connector.origin}${connector.detailPath(ref.externalId)}`,
+      );
+      result.raws.push(connector.parseDetail(html, ref));
+    } catch (error) {
+      if (error instanceof RequestCapReached) return { ...result, capped: true };
+      result.failures.push({ externalId: ref.externalId, message: messageOf(error) });
+    }
+  }
+  return result;
 }
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : 'vacancy failed';
+}
+
+async function readRobots(input: CollectInput, origin: string): Promise<string | null> {
+  const response = await input.http.get(`${origin}/robots.txt`, headers());
+  return response.status >= 400 ? null : response.body;
 }
 
 /** Refuses the fetch when robots.txt disallows the path. */
@@ -123,8 +198,7 @@ export async function assertRobots(
   origin: string,
   path: string,
 ): Promise<void> {
-  const response = await input.http.get(`${origin}/robots.txt`, headers());
-  const robots = response.status >= 400 ? null : response.body;
+  const robots = await readRobots(input, origin);
   if (!isFetchAllowed(robots, path)) throw new Error(`robots.txt blocks ${path}`);
 }
 
@@ -147,32 +221,23 @@ export function detailTarget(
   source: VacancySource,
   externalId: string,
 ): { origin: string; path: string } {
-  if (source === VacancySource.RabotaBy)
-    return { origin: RABOTA_ORIGIN, path: `/vacancy/${externalId}` };
-  if (source === VacancySource.Gsz) return gszTarget(externalId);
-  if (source === VacancySource.HabrCareer) {
-    return { origin: HABR_ORIGIN, path: `/vacancies/${externalId}` };
-  }
-  throw new Error(`source ${source} is outside stage 7`);
+  const connector = connectorFor(source);
+  return { origin: connector.origin, path: connector.detailPath(externalId) };
 }
 
-function gszTarget(externalId: string): { origin: string; path: string } {
-  return {
-    origin: GSZ_ORIGIN,
-    path: gszVacancyPath(externalId),
-  };
-}
-
-/** Pauses before every request except the first. */
+/** Pauses before every request except the first and spends the request budget, if any. */
 export function paceRequests(input: CollectInput): CollectInput {
   let first = true;
   return {
     ...input,
     http: {
-      get: async (url, headers) => {
+      get: async (url, requestHeaders) => {
+        if (input.requestBudget !== undefined && !(await input.requestBudget())) {
+          throw new RequestCapReached();
+        }
         if (!first) await (input.pause ?? wait)();
         first = false;
-        return input.http.get(url, headers);
+        return input.http.get(url, requestHeaders);
       },
     },
   };
@@ -195,7 +260,11 @@ function upstreamType(body: string): string | null {
   }
 }
 
-async function readWithRetry(input: CollectInput, url: string, attempt: number) {
+async function readWithRetry(
+  input: CollectInput,
+  url: string,
+  attempt: number,
+): Promise<{ status: number; body: string }> {
   const response = await input.http.get(url, headers());
   if (!shouldRetry(response.status, attempt)) return response;
   await (input.pause ?? wait)();
@@ -206,6 +275,14 @@ function headers(): Record<string, string> {
   return { 'User-Agent': HH_USER_AGENT, Accept: 'text/html' };
 }
 
+function randomPause(range: PauseRange): () => Promise<void> {
+  return () => sleep(range.minMs + Math.random() * (range.maxMs - range.minMs));
+}
+
 function wait(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 2000));
+  return sleep(SOURCE_PAUSE_MS);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
