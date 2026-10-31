@@ -86,7 +86,7 @@ function RowBody({ icon, label, description }: { icon?: ReactNode; label: string
       {icon !== undefined ? <span className="flex size-icon shrink-0 items-center justify-center">{icon}</span> : null}
       <span className="min-w-0 truncate">
         {label}
-        {description !== undefined ? <span className="ml-2 text-ink-tertiary">{description}</span> : null}
+        {description !== undefined ? <span className="ml-2 hidden text-ink-tertiary md:inline">{description}</span> : null}
       </span>
     </>
   );

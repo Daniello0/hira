@@ -57,6 +57,25 @@ describe('service worker', () => {
   });
 });
 
+describe('service worker install', () => {
+  it('keeps the scripts of the offline page, or that page breaks without a connection', async () => {
+    const stored: string[] = [];
+    const cache = { put: vi.fn().mockResolvedValue(undefined), add: vi.fn(async (url: string) => { stored.push(url); }) };
+    const html = '<script src="/_next/static/chunks/app/offline/page-1.js"></script><link href="/_next/static/css/a.css"/><script src="/_next/static/chunks/app/offline/page-1.js"></script>';
+    const listeners: Record<string, (event: { waitUntil: (work: Promise<unknown>) => void }) => void> = {};
+    const self = { location: { origin: ORIGIN }, addEventListener: (name: string, listener: (event: never) => void) => { listeners[name] = listener as never; }, skipWaiting: vi.fn() };
+    const response = { clone: () => response, text: async () => html };
+    const fetchMock = vi.fn().mockResolvedValue(response);
+    runInNewContext(readFileSync(join(WEB_DIR, 'public/sw.js'), 'utf8'), { self, caches: { open: vi.fn().mockResolvedValue(cache) }, fetch: fetchMock, URL, Promise, Set });
+    let work: Promise<unknown> = Promise.resolve();
+    listeners.install?.({ waitUntil: (promise) => { work = promise; } });
+    await work;
+    expect(fetchMock).toHaveBeenCalledWith('/offline');
+    expect(stored.sort()).toEqual(['/_next/static/chunks/app/offline/page-1.js', '/_next/static/css/a.css']);
+    expect(self.skipWaiting).toHaveBeenCalled();
+  });
+});
+
 describe('manifest', () => {
   const data = manifest();
 
