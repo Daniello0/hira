@@ -3,6 +3,7 @@ export const TYPE_INSTEAD_LABEL = 'Type instead';
 export const LISTENING_LABEL = 'Listening';
 export const SPEAKING_LABEL = 'Speaking';
 export const MIC_DENIED_MESSAGE = 'Microphone access is blocked. Allow it in the browser, or type instead.';
+export const MIC_NEEDS_HTTPS_MESSAGE = 'The browser allows the microphone only over https or on this computer. You can still hear Hira and type instead.';
 export const VOICE_DOWN_MESSAGE = 'The voice service is unavailable. You can read the answers and type instead.';
 export const CALL_PLAN_MESSAGE = 'Voice calls are part of the Pro plan. Upgrade to talk with Hira in five languages.';
 export const INTERRUPT_HINT = 'Start talking to interrupt';

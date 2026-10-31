@@ -8,7 +8,7 @@ import {
   VALIDATION_ERROR_CODE,
 } from '../../common/constants/app.constants';
 import { ApiHttpException } from '../../common/filters/api-http.exception';
-import { readWebOrigin } from './auth.config';
+import { readWebOrigins } from './auth.config';
 import {
   AUTH_EMAIL_TAKEN,
   AUTH_INVALID_CREDENTIALS,
@@ -32,9 +32,9 @@ import type { ClientMeta } from './refresh-token.store';
 import type { IssuedSession } from './auth.service';
 import type { AuthSessionDto } from '@hira/contracts';
 
-/** `Secure` follows the web origin: Safari drops a `Secure` cookie on `http://localhost`. */
+/** `Secure` follows the web origins: Safari drops a `Secure` cookie on `http://localhost`, and an http origin never gets one back. */
 function secureCookies(): boolean {
-  return readWebOrigin(process.env).startsWith('https://');
+  return readWebOrigins(process.env).every((origin) => origin.startsWith('https://'));
 }
 
 /** Cookie flags from Wiki/07: httpOnly, SameSite=Strict, and Secure on https. */

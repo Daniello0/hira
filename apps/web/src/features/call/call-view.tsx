@@ -20,7 +20,7 @@ import { scheduleSuggestionRefresh } from '../suggestions/suggestion.store';
 import { VacancyCard } from '../vacancy/vacancy-card';
 import type { LanguageChoice } from './call-language';
 import { callTurnRequest } from './call-turn';
-import { CALL_PLAN_MESSAGE, CALL_START_FAILED, INTERRUPT_HINT, LISTENING_LABEL, MIC_DENIED_MESSAGE, SPEAKING_LABEL, VOICE_DOWN_MESSAGE } from './call.constants';
+import { CALL_PLAN_MESSAGE, CALL_START_FAILED, INTERRUPT_HINT, LISTENING_LABEL, MIC_DENIED_MESSAGE, MIC_NEEDS_HTTPS_MESSAGE, SPEAKING_LABEL, VOICE_DOWN_MESSAGE } from './call.constants';
 import { CaptionList, LanguageSelect, PhaseIndicator, TypeInstead } from './call-parts';
 import { CallPhase } from './call-phase';
 import { endCall } from './end-call';
@@ -79,7 +79,7 @@ function LiveCall() {
         <PhaseIndicator phase={state.phase} label={phaseLabel(state)} />
         {state.phase === CallPhase.Speaking ? <MutedText className="text-center">{INTERRUPT_HINT}</MutedText> : null}
         {startError !== null ? <AlertText className="text-center">{startError}</AlertText> : null}
-        {micDenied && state.phase !== CallPhase.Idle ? <AlertText className="text-center">{MIC_DENIED_MESSAGE}</AlertText> : null}
+        {micDenied && state.phase !== CallPhase.Idle ? <AlertText className="text-center">{window.isSecureContext ? MIC_DENIED_MESSAGE : MIC_NEEDS_HTTPS_MESSAGE}</AlertText> : null}
         {voiceDown && state.phase !== CallPhase.Idle ? <AlertText className="text-center">{VOICE_DOWN_MESSAGE}</AlertText> : null}
         {state.notice !== null ? <AlertText className="text-center">{state.notice}</AlertText> : null}
         <CaptionList captions={state.captions} />

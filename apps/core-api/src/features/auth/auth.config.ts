@@ -15,9 +15,11 @@ export function readJwtSecret(env: NodeJS.ProcessEnv): string {
   return secret;
 }
 
-/** Browser origin allowed to send credentials. An empty value uses the local web app. */
-export function readWebOrigin(env: NodeJS.ProcessEnv): string {
-  const origin = env[ENV.webOrigin];
-  if (origin === undefined || origin.trim().length === 0) return DEFAULT_WEB_ORIGIN;
-  return origin.trim();
+/**
+ * Browser origins allowed to send credentials, comma-separated: for example this machine and its
+ * address on the local network, for a phone. An empty value uses the local web app.
+ */
+export function readWebOrigins(env: NodeJS.ProcessEnv): string[] {
+  const origins = (env[ENV.webOrigin] ?? '').split(',').map((origin) => origin.trim()).filter((origin) => origin.length > 0);
+  return origins.length === 0 ? [DEFAULT_WEB_ORIGIN] : origins;
 }

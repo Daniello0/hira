@@ -107,7 +107,7 @@ export class VoiceSession {
 
   private async runTurn(text: string, language: VoiceLanguage | null, generation: number): Promise<void> {
     this.language = language;
-    this.deps.commit((current) => onFinalTranscript(current, crypto.randomUUID(), text));
+    this.deps.commit((current) => onFinalTranscript(current, `phrase-${generation}`, text));
     const signal = this.abort?.signal as AbortSignal;
     const speech = new SpeechLine((sentence) => this.speak(sentence, generation, signal));
     const chosen = this.deps.choice();

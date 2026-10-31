@@ -21,6 +21,11 @@ describe('session cookie flags', () => {
     expect(clearSessionCookieOptions().secure).toBe(false);
   });
 
+  it('leaves Secure off when any origin is http, or a phone on http would lose its cookie', () => {
+    process.env.WEB_ORIGIN = 'https://hira.example.com,http://192.168.1.39:3000';
+    expect(sessionCookieOptions(60).secure).toBe(false);
+  });
+
   it('keeps the other flags on either origin', () => {
     process.env.WEB_ORIGIN = 'http://localhost:3000';
     expect(sessionCookieOptions(60)).toMatchObject({ httpOnly: true, sameSite: 'strict', path: '/', maxAge: 60_000 });

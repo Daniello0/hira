@@ -65,6 +65,10 @@ COMPOSE_BAKE=0 docker compose up --build postgres redis migrate core-api llm-ser
 
 `retrieval-service` сюда не входит: он зависит от здоровых `tei` и `tei-rerank` и потянет их за собой. Без TEI сбор и извлечение навыков работают, прогоны `EMBED` завершаются ошибкой `TEI_EMBED_URL`/сети до подъёма TEI.
 
+### С телефона по локальной сети
+
+В `.env` добавь адрес Mac к разрешённым: `WEB_ORIGIN=http://localhost:3000,http://192.168.1.39:3000`, затем `docker compose up -d core-api`. Сайт откроется на `http://192.168.1.39:3000`. По http браузер телефона не даёт микрофон: звонок работает, но фразы надо печатать.
+
 ### Голос
 
 Контейнер `speech` (образ Speaches) распознаёт речь и озвучивает ответы в Call. Модели лежат в томе `speech-models`, недостающие core-api докачивает при первом обращении, около 1 ГБ. `docker compose up -d speech` поднимает его отдельно. Без него звонок работает текстом: «Type instead».
