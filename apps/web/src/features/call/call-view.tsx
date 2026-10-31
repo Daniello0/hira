@@ -154,9 +154,9 @@ function useLiveCall(
   return {
     start: async (router: ReturnType<typeof useRouter>, setError: (value: string | null) => void) => {
       if (starting.current || latest.current.phase !== CallPhase.Idle) return;
-      starting.current = true;
       // Made inside the click: Safari keeps the sound off for a context made later.
       const player = new VoicePlayer(new AudioContext() as unknown as PlayerContext);
+      starting.current = true;
       audio.current = player;
       void player.unlock();
       try {
@@ -186,7 +186,8 @@ function useLiveCall(
           onMicBlocked: () => setMicDenied(true),
           onVoiceTrouble: () => setVoiceDown(true),
         });
-        await voice.current.open();
+        // Not awaited: the microphone may wait on a browser prompt, and End then Start must still work.
+        void voice.current.open();
       } finally {
         starting.current = false;
         if (voice.current === null) {
