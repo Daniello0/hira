@@ -1,10 +1,18 @@
 import { VoiceLanguage } from '@hira/contracts';
 import { describe, expect, it } from 'vitest';
-import { fallbackVoice, languageAfterHeard, languageAfterTyped } from './call-language';
+import { fallbackVoice, languageAfterHeard, languageAfterTyped, languageToRetry } from './call-language';
 
 const long = 'Найди мне работу в Минске';
 
 describe('call language', () => {
+  it('hears a phrase again only when the language has no voice', () => {
+    expect(languageToRetry('ru', null, 'en-US')).toBeNull();
+    expect(languageToRetry(null, null, 'en-US')).toBeNull();
+    expect(languageToRetry('pl', VoiceLanguage.English, 'en-US')).toBe(VoiceLanguage.Russian);
+    expect(languageToRetry('ja', VoiceLanguage.German, 'en-US')).toBe(VoiceLanguage.German);
+    expect(languageToRetry('ja', null, 'fr-FR')).toBe(VoiceLanguage.French);
+  });
+
   it('follows the language the recognizer heard, in all five', () => {
     for (const language of Object.values(VoiceLanguage)) {
       expect(languageAfterHeard('auto', null, { language, text: long })).toBe(language);

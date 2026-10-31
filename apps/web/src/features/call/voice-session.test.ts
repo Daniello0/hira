@@ -260,6 +260,33 @@ describe('voice session', () => {
     expect(deps.synthesize).toHaveBeenCalledWith(expect.anything(), VoiceLanguage.German, expect.anything());
   });
 
+  it('hears a phrase again in Russian when Auto names a language with no voice', async () => {
+    const transcribe = vi.fn().mockResolvedValueOnce({ text: 'Skolkowa Kansi w Minskie', language: 'pl' }).mockResolvedValueOnce({ text: 'Сколько вакансий в Минске', language: 'ru' });
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+      onEvent(token(SENTENCE));
+      return OPEN;
+    });
+    const { session, mic, deps } = rig({ transcribe, streamTurn });
+    await session.open();
+    void mic().onPhrase(PHRASE);
+    await flush();
+    expect(transcribe).toHaveBeenNthCalledWith(1, PHRASE, null);
+    expect(transcribe).toHaveBeenNthCalledWith(2, PHRASE, VoiceLanguage.Russian);
+    expect((streamTurn.mock.calls as unknown[][])[0]?.[0]).toBe('Сколько вакансий в Минске');
+    expect((streamTurn.mock.calls as unknown[][])[0]?.[1]).toBe(VoiceLanguage.Russian);
+    expect(deps.synthesize).toHaveBeenCalledWith(expect.anything(), VoiceLanguage.Russian, expect.anything());
+  });
+
+  it('keeps the first reading when the second one fails', async () => {
+    const transcribe = vi.fn().mockResolvedValueOnce({ text: 'Skolkowa Kansi w Minskie', language: 'pl' }).mockRejectedValueOnce(new Error('503'));
+    const streamTurn = vi.fn(async () => OPEN);
+    const { session, mic } = rig({ transcribe, streamTurn });
+    await session.open();
+    void mic().onPhrase(PHRASE);
+    await flush();
+    expect((streamTurn.mock.calls as unknown[][])[0]?.[0]).toBe('Skolkowa Kansi w Minskie');
+  });
+
   it('keeps the reply in the voice language when a short phrase does not change it', async () => {
     const transcribe = vi.fn().mockResolvedValueOnce({ text: 'Найди работу в Минске сейчас', language: 'ru' }).mockResolvedValueOnce({ text: 'Hello', language: 'en' });
     const streamTurn = vi.fn(async () => OPEN);

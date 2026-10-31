@@ -1,7 +1,7 @@
 import type { TranscriptDto, VoiceLanguage } from '@hira/contracts';
 import type { StreamResult } from '../chat/chat-stream';
 import type { ParsedSse } from '../chat/sse-parser';
-import { fallbackVoice, languageAfterHeard, languageAfterTyped, type LanguageChoice } from './call-language';
+import { fallbackVoice, languageAfterHeard, languageAfterTyped, languageToRetry, type LanguageChoice } from './call-language';
 import { CallPhase } from './call-phase';
 import { beginListening, beginSpeaking, beginThinking, cutReply, onFinalTranscript, reduceCallEvent, type CallViewState } from './reduce-call';
 import { speakableText, takeSentences } from './sentence-queue';
@@ -91,7 +91,7 @@ export class VoiceSession {
     const choice = this.deps.choice();
     let heard: TranscriptDto;
     try {
-      heard = await this.deps.transcribe(audio, choice === 'auto' ? null : choice);
+      heard = await this.hear(audio, choice);
     } catch {
       if (this.current(generation)) {
         this.deps.onVoiceTrouble();
@@ -111,6 +111,15 @@ export class VoiceSession {
     }
     const language = languageAfterHeard(choice, this.language, { language: heard.language, text });
     await this.runTurn(text, language, language, generation);
+  }
+
+  /** On Auto a language Hira cannot speak means a misheard phrase: it is read once more in the likely one. */
+  private async hear(audio: Blob, choice: LanguageChoice): Promise<TranscriptDto> {
+    if (choice !== 'auto') return this.deps.transcribe(audio, choice);
+    const first = await this.deps.transcribe(audio, null);
+    const retry = languageToRetry(first.language, this.language, this.deps.browserLanguage());
+    if (retry === null) return first;
+    return this.deps.transcribe(audio, retry).catch(() => first);
   }
 
   /** `replyIn` is what Hira is asked to answer in: a spoken phrase keeps the reply and the voice together. */

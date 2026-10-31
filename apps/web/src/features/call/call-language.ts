@@ -15,6 +15,8 @@ export const LANGUAGE_CHOICE_LABELS: Readonly<Record<LanguageChoice, string>> = 
 /** A phrase shorter than this ("да", "ok") says too little to change the language. */
 const SHORT_PHRASE_CHARS = 12;
 const CYRILLIC = /[Ѐ-ӿ]/;
+/** Whisper mistakes a short Russian phrase for these. Hira has no voice for them, so Russian is the likely speech. */
+const HEARD_AS_RUSSIAN = new Set(['pl', 'uk', 'be', 'bg', 'sr', 'hr', 'bs', 'cs', 'sk', 'sl', 'mk', 'kk']);
 
 /** Language of the reply after a spoken phrase. The menu wins; a short phrase keeps the language. */
 export function languageAfterHeard(choice: LanguageChoice, current: VoiceLanguage | null, heard: { language: string | null; text: string }): VoiceLanguage | null {
@@ -29,6 +31,12 @@ export function languageAfterHeard(choice: LanguageChoice, current: VoiceLanguag
 export function languageAfterTyped(choice: LanguageChoice, current: VoiceLanguage | null, text: string): VoiceLanguage | null {
   if (choice !== 'auto') return choice;
   return CYRILLIC.test(text) ? VoiceLanguage.Russian : current;
+}
+
+/** The language to hear a phrase again in, when the recognizer named one Hira has no voice for. Null when it named a known one. */
+export function languageToRetry(heard: string | null, current: VoiceLanguage | null, browserLanguage: string | undefined): VoiceLanguage | null {
+  if (heard === null || asVoiceLanguage(heard) !== null) return null;
+  return HEARD_AS_RUSSIAN.has(heard.trim().toLowerCase()) ? VoiceLanguage.Russian : fallbackVoice(current, browserLanguage);
 }
 
 /** The voice to use before anything was said, from the browser's language. */
