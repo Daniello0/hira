@@ -28,10 +28,10 @@ class RedisLifecycle implements OnModuleDestroy {
 })
 export class RedisModule {}
 
-function createRedisClient(env: NodeJS.ProcessEnv): Redis {
+/** The first command waits for the lazy connection; a refused connection still fails it at once. */
+export function createRedisClient(env: NodeJS.ProcessEnv): Redis {
   return new Redis(readRedisUrl(env), {
     lazyConnect: true,
-    enableOfflineQueue: false,
     enableReadyCheck: false,
     maxRetriesPerRequest: 1,
     retryStrategy: () => null,

@@ -7,6 +7,7 @@ import { DEMO_QUOTA_PREFIX } from '../auth/auth.constants';
 import { LoginRateLimitService } from '../rate-limit/login-rate-limit.service';
 import { SearchQuotaService } from '../rate-limit/search-quota.service';
 import { RedisCounterStore } from './redis-counter.store';
+import { createRedisClient } from './redis.module';
 
 const exec = promisify(execFile);
 const CONTAINER = 'hira-redis-auth-test';
@@ -50,6 +51,15 @@ describe('redis counters', () => {
       expect(await limits.consume('203.0.113.9', 'ada@example.com')).toBeNull();
     }
     expect(await limits.consume('203.0.113.9', 'ada@example.com')).toBe(2);
+  });
+
+  it('answers the first command on a client that has not connected yet', async () => {
+    const client = createRedisClient({ REDIS_URL: redisUrl() });
+    try {
+      expect(await client.ping()).toBe('PONG');
+    } finally {
+      client.disconnect();
+    }
   });
 });
 
