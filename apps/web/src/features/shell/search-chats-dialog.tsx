@@ -26,7 +26,7 @@ export function SearchChatsDialog() {
     <Dialog open={open} onClose={close} title="Search chats" hideTitle size="wide">
       <div className="flex h-dialog-tall max-h-dvh flex-col">
         <div className="flex items-center gap-3 border-b border-line px-5 py-4">
-          <Search size={20} aria-hidden="true" className="shrink-0 text-ink-tertiary" />
+          <Search aria-hidden="true" className="size-icon shrink-0 text-ink-tertiary" />
           <input
             autoFocus
             aria-label="Search chats"
@@ -61,7 +61,7 @@ function ChatHits({ chats, onPick }: { chats: readonly ChatSummary[]; onPick: ()
       {chats.map((chat) => (
         <li key={chat.id}>
           <Link className="flex h-composer items-center gap-3 rounded-menu-item px-3 text-sm text-ink transition-colors hover:bg-hover" href={`/chat/${chat.id}`} onClick={onPick}>
-            <MessageCircle size={18} aria-hidden="true" className="shrink-0 text-ink-tertiary" />
+            <MessageCircle aria-hidden="true" className="size-icon-md shrink-0 text-ink-tertiary" />
             <span className="truncate">{chat.title ?? 'New chat'}</span>
           </Link>
         </li>

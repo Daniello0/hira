@@ -11,12 +11,10 @@ import { SettingsNav } from '../settings/settings-nav';
 import { ProfileMenu } from './profile-menu';
 import { useShell } from './shell.store';
 
-const NAV_ICON_SIZE = 20;
-
 const NAV_LINKS = [
-  { href: '/library', label: 'Library', icon: <Library size={NAV_ICON_SIZE} aria-hidden="true" /> },
-  { href: '/favorites', label: 'Favorites', icon: <Bookmark size={NAV_ICON_SIZE} aria-hidden="true" /> },
-  { href: '/call', label: 'Call', icon: <AudioLines size={NAV_ICON_SIZE} aria-hidden="true" /> },
+  { href: '/library', label: 'Library', icon: <Library className="size-icon" aria-hidden="true" /> },
+  { href: '/favorites', label: 'Favorites', icon: <Bookmark className="size-icon" aria-hidden="true" /> },
+  { href: '/call', label: 'Call', icon: <AudioLines className="size-icon" aria-hidden="true" /> },
 ] as const;
 
 /** Classes of one sidebar row. */
@@ -65,11 +63,11 @@ function SidebarTop({ onClose }: { onClose?: () => void }) {
         <HiraLogo /> Hira
       </Link>
       <div className="flex items-center">
-        <IconButton label="Search chats" onClick={() => setSearch(true)}><Search size={NAV_ICON_SIZE} aria-hidden="true" /></IconButton>
+        <IconButton label="Search chats" onClick={() => setSearch(true)}><Search className="size-icon" aria-hidden="true" /></IconButton>
         {onClose !== undefined ? (
-          <IconButton label="Close sidebar" onClick={onClose}><X size={NAV_ICON_SIZE} aria-hidden="true" /></IconButton>
+          <IconButton label="Close sidebar" onClick={onClose}><X className="size-icon" aria-hidden="true" /></IconButton>
         ) : (
-          <IconButton label="Hide sidebar" onClick={toggleCollapsed}><PanelLeft size={NAV_ICON_SIZE} aria-hidden="true" /></IconButton>
+          <IconButton label="Hide sidebar" onClick={toggleCollapsed}><PanelLeft className="size-icon" aria-hidden="true" /></IconButton>
         )}
       </div>
     </div>
@@ -80,7 +78,7 @@ function ChatNavigation({ pathname }: { pathname: string }) {
   return (
     <nav aria-label="Main">
       <ul className="space-y-0.5">
-        <NavLink href="/chat" active={pathname === '/chat'} icon={<SquarePen size={NAV_ICON_SIZE} aria-hidden="true" />}>New chat</NavLink>
+        <NavLink href="/chat" active={pathname === '/chat'} icon={<SquarePen className="size-icon" aria-hidden="true" />}>New chat</NavLink>
         {NAV_LINKS.map((link) => (
           <NavLink key={link.href} href={link.href} active={pathname === link.href} icon={link.icon}>{link.label}</NavLink>
         ))}
@@ -106,9 +104,9 @@ function SidebarRail() {
   const setSearch = useShell((state) => state.setSearch);
   return (
     <div className="flex h-full flex-col items-center gap-1 py-2">
-      <IconButton label="Show sidebar" tone="plain" onClick={toggleCollapsed}><PanelLeft size={NAV_ICON_SIZE} aria-hidden="true" /></IconButton>
-      <IconLink label="New chat" href="/chat"><SquarePen size={NAV_ICON_SIZE} aria-hidden="true" /></IconLink>
-      <IconButton label="Search chats" onClick={() => setSearch(true)}><Search size={NAV_ICON_SIZE} aria-hidden="true" /></IconButton>
+      <IconButton label="Show sidebar" tone="plain" onClick={toggleCollapsed}><PanelLeft className="size-icon" aria-hidden="true" /></IconButton>
+      <IconLink label="New chat" href="/chat"><SquarePen className="size-icon" aria-hidden="true" /></IconLink>
+      <IconButton label="Search chats" onClick={() => setSearch(true)}><Search className="size-icon" aria-hidden="true" /></IconButton>
       {NAV_LINKS.map((link) => <IconLink key={link.href} label={link.label} href={link.href}>{link.icon}</IconLink>)}
       <div className="mt-auto"><ProfileMenu full={false} /></div>
     </div>

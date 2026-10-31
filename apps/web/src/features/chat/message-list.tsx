@@ -48,7 +48,7 @@ export function MessageList({ turn, openIds, onToggle, onOlder, hasOlder, accoun
       </div>
       <div inert={!thread.away} className={`motion-swap absolute bottom-3 left-1/2 -translate-x-1/2 ${thread.away ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
         <IconButton label="Scroll to bottom" shape="round" tone="plain" className="border border-line bg-surface-raised shadow-menu" onClick={thread.toBottom}>
-          <ArrowDown size={20} aria-hidden="true" />
+          <ArrowDown className="size-icon" aria-hidden="true" />
         </IconButton>
       </div>
     </div>
@@ -104,7 +104,7 @@ function UserMessage({ content }: { content: string }) {
   return (
     <article className="motion-enter group flex flex-col items-end">
       <p className="max-w-bubble-max rounded-bubble bg-bubble px-4 py-2.5 text-base break-words whitespace-pre-wrap text-on-bubble">{content}</p>
-      <div className="mt-1 flex transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+      <div className="mt-1 flex transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100">
         <CopyAction text={content} />
       </div>
     </article>

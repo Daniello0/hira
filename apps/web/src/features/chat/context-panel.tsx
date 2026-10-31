@@ -34,7 +34,7 @@ export function PanelHeader({ onClose }: { onClose: () => void }) {
   return (
     <div className="mb-4 flex items-center justify-between">
       <p className="text-base font-medium">Context</p>
-      <IconButton label="Hide context" shape="action" onClick={onClose}><X size={18} aria-hidden="true" /></IconButton>
+      <IconButton label="Hide context" shape="action" onClick={onClose}><X className="size-icon-md" aria-hidden="true" /></IconButton>
     </div>
   );
 }

@@ -7,8 +7,6 @@ import { ConfirmDialog } from '../../common/components/confirm-dialog';
 import { Menu } from '../../common/components/menu';
 import { setChatArchived } from './chat-actions';
 
-const ICON_SIZE = 18;
-
 interface ChatActionsMenuProps {
   chat: ChatSummary;
   trigger: ReactElement;
@@ -31,9 +29,9 @@ export function ChatActionsMenu({ chat, trigger, tooltip, align = 'start', onRen
         tooltip={tooltip}
         align={align}
         entries={[
-          { kind: 'item', label: 'Rename', icon: <Pencil size={ICON_SIZE} aria-hidden="true" />, onSelect: onRename },
-          { kind: 'item', label: archived ? 'Restore' : 'Archive', icon: archived ? <ArchiveRestore size={ICON_SIZE} aria-hidden="true" /> : <Archive size={ICON_SIZE} aria-hidden="true" />, onSelect: () => void setChatArchived(chat, !archived, onError) },
-          { kind: 'item', label: 'Delete', danger: true, icon: <Trash2 size={ICON_SIZE} aria-hidden="true" />, onSelect: () => setConfirming(true) },
+          { kind: 'item', label: 'Rename', icon: <Pencil className="size-icon-md" aria-hidden="true" />, onSelect: onRename },
+          { kind: 'item', label: archived ? 'Restore' : 'Archive', icon: archived ? <ArchiveRestore className="size-icon-md" aria-hidden="true" /> : <Archive className="size-icon-md" aria-hidden="true" />, onSelect: () => void setChatArchived(chat, !archived, onError) },
+          { kind: 'item', label: 'Delete', danger: true, icon: <Trash2 className="size-icon-md" aria-hidden="true" />, onSelect: () => setConfirming(true) },
         ]}
       />
       <ConfirmDialog

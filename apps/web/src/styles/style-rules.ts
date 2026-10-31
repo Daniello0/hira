@@ -13,6 +13,7 @@ const LITERAL_RULES: readonly { rule: string; pattern: RegExp }[] = [
   { rule: 'color function', pattern: /\b(?:rgba?|hsla?|oklch|oklab)\(/g },
   { rule: 'Tailwind palette', pattern: new RegExp(`\\b(?:${COLOR_UTILITY})-(?:${PALETTE})\\b(?:-\\d+)?`, 'g') },
   { rule: 'old token', pattern: /\b[a-z]+-hira-[a-z]+/g },
+  { rule: 'icon size', pattern: /\bsize=\{/g },
   { rule: 'inline style', pattern: /style=\{\{[^}]*\b(?:color|background|backgroundColor|border|borderColor|fontSize|fontFamily|boxShadow|borderRadius|transition|animation|padding|margin)\b/g },
 ];
 

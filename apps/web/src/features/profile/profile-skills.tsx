@@ -43,7 +43,7 @@ function SkillList({ skills, onChange, onError }: ProfileSkillsProps & { onError
       {skills.map((skill) => (
         <li key={skill.skillId} className="motion-enter flex items-center justify-between gap-3 text-sm">
           <span className="min-w-0">{skill.canonicalName} · {skillLevelLabel(skill.level)} · {skillSourceLabel(skill.source)}</span>
-          <IconButton label={`Remove ${skill.canonicalName}`} shape="action" onClick={() => void remove(skill, onChange, onError)}><X size={16} aria-hidden="true" /></IconButton>
+          <IconButton label={`Remove ${skill.canonicalName}`} shape="action" onClick={() => void remove(skill, onChange, onError)}><X className="size-icon-sm" aria-hidden="true" /></IconButton>
         </li>
       ))}
     </ul>

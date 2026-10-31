@@ -188,8 +188,13 @@
   --spacing-composer-y: 0.3125rem;
   --spacing-row-y: 0.3125rem;
   --spacing-avatar: 1.5rem;
+  --spacing-icon-xl: 2rem;
+  --spacing-icon-lg: 1.5rem;
   --spacing-icon: 1.25rem;
+  --spacing-icon-md: 1.125rem;
   --spacing-icon-sm: 1rem;
+  --spacing-icon-xs: 0.875rem;
+  --spacing-icon-2xs: 0.75rem;
   --spacing-switch-w: 2.25rem;
   --spacing-switch-h: 1.25rem;
   --spacing-switch-thumb: 1rem;

@@ -56,7 +56,7 @@ function Chips({ selected, labels, onRemove }: { selected: readonly number[]; la
         <li key={id} className="motion-enter flex items-center gap-1 rounded-full bg-hover px-3 py-1 text-sm">
           {labels[id] ?? `Location #${id}`}
           <button type="button" aria-label={`Remove ${labels[id] ?? 'city'}`} className="text-ink-tertiary transition-colors hover:text-ink" onClick={() => onRemove(id)}>
-            <X size={12} />
+            <X className="size-icon-2xs" />
           </button>
         </li>
       ))}

@@ -13,7 +13,7 @@ export function PhaseIndicator({ phase, label }: { phase: CallPhase; label: stri
   return (
     <div className="flex flex-col items-center gap-3 py-6">
       <span className={`flex size-composer items-center justify-center rounded-full bg-accent text-on-accent ${live ? 'motion-pulse' : ''}`}>
-        <AudioLines size={24} aria-hidden="true" />
+        <AudioLines className="size-icon-lg" aria-hidden="true" />
       </span>
       <p key={label} className="motion-fade text-lg">{label}</p>
     </div>

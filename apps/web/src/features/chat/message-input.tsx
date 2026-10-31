@@ -58,7 +58,7 @@ export function MessageInput(props: MessageInputProps) {
         <div className="ml-auto flex items-center gap-1">
           {dictation.available ? (
             <IconButton label={dictation.listening ? 'Stop dictation' : 'Dictate'} shape="round" tone={dictation.listening ? 'active' : 'muted'} disabled={disabled || archived} className={dictation.listening ? 'motion-pulse' : ''} onClick={dictation.toggle}>
-              <Mic size={20} aria-hidden="true" />
+              <Mic className="size-icon" aria-hidden="true" />
             </IconButton>
           ) : null}
           <PrimaryAction hasText={draft.trim().length > 0} disabled={disabled || archived} />
@@ -73,14 +73,14 @@ function PrimaryAction({ hasText, disabled }: { hasText: boolean; disabled: bool
   if (hasText) {
     return (
       <IconButton key="send" label="Send" type="submit" shape="round" tone="accent" disabled={disabled} className="motion-fade">
-        <ArrowUp size={20} aria-hidden="true" />
+        <ArrowUp className="size-icon" aria-hidden="true" />
       </IconButton>
     );
   }
   return (
     <Tooltip label="Start a call">
       <Link key="call" href="/call" aria-label="Start a call" className={`motion-fade ${iconButtonClass('round', 'accent')}`}>
-        <AudioLines size={20} aria-hidden="true" />
+        <AudioLines className="size-icon" aria-hidden="true" />
       </Link>
     </Tooltip>
   );

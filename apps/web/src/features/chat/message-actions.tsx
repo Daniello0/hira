@@ -7,7 +7,6 @@ import { silence, speak } from '../call/speech';
 import { SpeechLanguage, synthesisLang } from '../call/speech-language';
 
 const COPIED_MS = 2_000;
-const ICON_SIZE = 18;
 
 /** Puts the message on the clipboard and confirms with a check mark. */
 export function CopyAction({ text }: { text: string }) {
@@ -24,7 +23,7 @@ export function CopyAction({ text }: { text: string }) {
   };
   return (
     <IconButton label={copied ? 'Copied' : 'Copy'} shape="action" onClick={copy}>
-      {copied ? <Check size={ICON_SIZE} aria-hidden="true" className="motion-fade" /> : <Copy size={ICON_SIZE} aria-hidden="true" />}
+      {copied ? <Check aria-hidden="true" className="size-icon-md motion-fade" /> : <Copy className="size-icon-md" aria-hidden="true" />}
     </IconButton>
   );
 }
@@ -56,7 +55,7 @@ export function ReadAloudAction({ text }: { text: string }) {
   };
   return (
     <IconButton label={speaking ? 'Stop reading' : 'Read aloud'} shape="action" tone={speaking ? 'active' : 'muted'} onClick={toggle}>
-      {speaking ? <Square size={ICON_SIZE} aria-hidden="true" /> : <Volume2 size={ICON_SIZE} aria-hidden="true" />}
+      {speaking ? <Square className="size-icon-md" aria-hidden="true" /> : <Volume2 className="size-icon-md" aria-hidden="true" />}
     </IconButton>
   );
 }

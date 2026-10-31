@@ -27,5 +27,5 @@ export function resolveTheme(mode: ThemeMode, systemDark: boolean): ResolvedThem
 
 /** Runs before the first paint, so a light page never flashes dark. Failing storage leaves the default. */
 export function themeBootScript(): string {
-  return `(function(){var m='${DEFAULT_THEME_MODE}';try{m=localStorage.getItem('${THEME_STORAGE_KEY}')||m}catch(e){}var d=m==='${ThemeMode.System}'?matchMedia('${SYSTEM_DARK_QUERY}').matches:m!=='${ThemeMode.Light}';var t=d?'dark':'light';document.documentElement.dataset.theme=t;var c=document.querySelector('meta[name=theme-color]');if(c)c.content=d?'${THEME_SURFACE.dark}':'${THEME_SURFACE.light}'})()`;
+  return `(function(){var m='${DEFAULT_THEME_MODE}';try{m=localStorage.getItem('${THEME_STORAGE_KEY}')||m}catch(e){}var d=m==='${ThemeMode.System}'?matchMedia('${SYSTEM_DARK_QUERY}').matches:m!=='${ThemeMode.Light}';var t=d?'dark':'light';document.documentElement.dataset.theme=t;var c=document.querySelector('meta[name=theme-color]');if(!c){c=document.createElement('meta');c.name='theme-color';document.head.appendChild(c)}c.content=d?'${THEME_SURFACE.dark}':'${THEME_SURFACE.light}'})()`;
 }

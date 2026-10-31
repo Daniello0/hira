@@ -69,7 +69,7 @@ function Entry({ entry }: { entry: MenuEntry }) {
     return (
       <DropdownMenu.CheckboxItem className={ROW_CLASS} checked={entry.checked} onCheckedChange={entry.onChange} onSelect={(event) => event.preventDefault()}>
         <RowBody icon={entry.icon} label={entry.label} description={entry.description} />
-        <DropdownMenu.ItemIndicator className="ml-auto motion-fade text-accent-focus"><Check size={16} aria-hidden="true" /></DropdownMenu.ItemIndicator>
+        <DropdownMenu.ItemIndicator className="ml-auto motion-fade text-accent-focus"><Check className="size-icon-sm" aria-hidden="true" /></DropdownMenu.ItemIndicator>
       </DropdownMenu.CheckboxItem>
     );
   }

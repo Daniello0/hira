@@ -111,7 +111,7 @@ function ChatHeader({ chatId }: { chatId: string }) {
   return (
     <AppHeader>
       <IconButton label={contextOpen ? 'Hide context' : 'Show context'} tone={contextOpen ? 'active' : 'muted'} aria-pressed={contextOpen} onClick={() => setContext(!contextOpen)}>
-        <PanelRight size={20} aria-hidden="true" />
+        <PanelRight className="size-icon" aria-hidden="true" />
       </IconButton>
       {chat !== undefined ? <HeaderMenu chat={chat} /> : null}
       <UpgradeLink />
@@ -140,7 +140,7 @@ function HeaderMenu({ chat }: { chat: ChatSummary }) {
         onRename={() => setRenaming(true)}
         onDelete={remove}
         onError={setError}
-        trigger={<IconButton label="Chat actions" tooltip={false}><Ellipsis size={20} aria-hidden="true" /></IconButton>}
+        trigger={<IconButton label="Chat actions" tooltip={false}><Ellipsis className="size-icon" aria-hidden="true" /></IconButton>}
       />
       <RenameDialog chat={chat} open={renaming} onClose={() => setRenaming(false)} onError={setError} />
     </>

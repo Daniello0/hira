@@ -48,6 +48,7 @@ describe('single home for styles', () => {
     ['arbitrary', 'className="w-[34rem]"'],
     ['old token', 'className="bg-hira-bg"'],
     ['inline color', 'style={{ color: value }}'],
+    ['icon size', '<Plus size={20} />'],
   ])('catches a bad line: %s', (_name, line) => {
     expect(findStyleViolations(line).length).toBeGreaterThan(0);
   });
@@ -92,6 +93,10 @@ describe('motion', () => {
       expect(MOTION).toContain(`.${name}[data-state='open']`);
       expect(MOTION).toContain(`.${name}[data-state='closed']`);
     }
+  });
+
+  it('turns a chevron once: motion-chevron already rotates it when open', () => {
+    expect(readFileSync(join(SRC_DIR, 'common/components/select.tsx'), 'utf8')).not.toContain('rotate-180');
   });
 
   it('turns motion off for people who ask for that', () => {

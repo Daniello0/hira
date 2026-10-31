@@ -22,5 +22,12 @@ export function ThemeController() {
 
 function applyTheme(theme: 'light' | 'dark'): void {
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', THEME_SURFACE[theme]);
+  // Only this code writes the tag: one from Next's `viewport` would return to its value on every navigation.
+  let tag = document.querySelector<HTMLMetaElement>('meta[name=theme-color]');
+  if (tag === null) {
+    tag = document.createElement('meta');
+    tag.name = 'theme-color';
+    document.head.appendChild(tag);
+  }
+  tag.content = THEME_SURFACE[theme];
 }

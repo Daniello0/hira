@@ -9,8 +9,6 @@ import { Menu, type MenuEntry } from '../../common/components/menu';
 import { useSession } from '../auth/session.store';
 import { signOut } from '../auth/sign-out';
 
-const ICON_SIZE = 18;
-
 /** Avatar with the account menu. `full` adds the name and the Upgrade pill. */
 export function ProfileMenu({ full }: { full: boolean }) {
   const user = useSession((state) => state.user);
@@ -57,12 +55,12 @@ function accountEntries(user: CurrentUserDto, onSignOut: () => void): MenuEntry[
   const quota = user.searchQuota === undefined ? [] : [quotaNote(user.searchQuota.used, user.searchQuota.limit)];
   return [
     ...quota,
-    { kind: 'link', label: 'Upgrade plan', href: '/settings/billing', icon: <Sparkles size={ICON_SIZE} aria-hidden="true" /> },
-    { kind: 'link', label: 'Memory', href: '/settings/memory', icon: <Brain size={ICON_SIZE} aria-hidden="true" /> },
-    { kind: 'link', label: 'Profile', href: '/settings/profile', icon: <User size={ICON_SIZE} aria-hidden="true" /> },
-    { kind: 'link', label: 'Settings', href: '/settings/appearance', icon: <Settings size={ICON_SIZE} aria-hidden="true" /> },
+    { kind: 'link', label: 'Upgrade plan', href: '/settings/billing', icon: <Sparkles className="size-icon-md" aria-hidden="true" /> },
+    { kind: 'link', label: 'Memory', href: '/settings/memory', icon: <Brain className="size-icon-md" aria-hidden="true" /> },
+    { kind: 'link', label: 'Profile', href: '/settings/profile', icon: <User className="size-icon-md" aria-hidden="true" /> },
+    { kind: 'link', label: 'Settings', href: '/settings/appearance', icon: <Settings className="size-icon-md" aria-hidden="true" /> },
     { kind: 'separator' },
-    { kind: 'item', label: 'Log out', icon: <LogOut size={ICON_SIZE} aria-hidden="true" />, onSelect: onSignOut },
+    { kind: 'item', label: 'Log out', icon: <LogOut className="size-icon-md" aria-hidden="true" />, onSelect: onSignOut },
   ];
 }
 
@@ -72,10 +70,10 @@ function quotaNote(used: number, limit: number): MenuEntry {
 
 function guestEntries(): MenuEntry[] {
   return [
-    { kind: 'link', label: 'Sign in', href: '/login', icon: <LogIn size={ICON_SIZE} aria-hidden="true" /> },
-    { kind: 'link', label: 'Sign up', href: '/register', icon: <UserPlus size={ICON_SIZE} aria-hidden="true" /> },
+    { kind: 'link', label: 'Sign in', href: '/login', icon: <LogIn className="size-icon-md" aria-hidden="true" /> },
+    { kind: 'link', label: 'Sign up', href: '/register', icon: <UserPlus className="size-icon-md" aria-hidden="true" /> },
     { kind: 'separator' },
-    { kind: 'link', label: 'Upgrade plan', href: '/settings/billing', icon: <Sparkles size={ICON_SIZE} aria-hidden="true" /> },
-    { kind: 'link', label: 'Settings', href: '/settings/appearance', icon: <Settings size={ICON_SIZE} aria-hidden="true" /> },
+    { kind: 'link', label: 'Upgrade plan', href: '/settings/billing', icon: <Sparkles className="size-icon-md" aria-hidden="true" /> },
+    { kind: 'link', label: 'Settings', href: '/settings/appearance', icon: <Settings className="size-icon-md" aria-hidden="true" /> },
   ];
 }

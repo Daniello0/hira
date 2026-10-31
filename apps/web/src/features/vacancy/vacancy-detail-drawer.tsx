@@ -27,7 +27,7 @@ export function VacancyDetailDrawer() {
   return (
     <Sheet open={openId !== null} label="Vacancy" onClose={close} side="right" widthClass="w-full md:w-vacancy">
       <div className="flex h-header shrink-0 items-center justify-end px-2">
-        <IconButton label="Close" onClick={close}><X size={20} aria-hidden="true" /></IconButton>
+        <IconButton label="Close" onClick={close}><X className="size-icon" aria-hidden="true" /></IconButton>
       </div>
       <div className="px-5 pb-8">
         {shownId !== null ? <VacancyDetailBody key={shownId} id={shownId} /> : null}

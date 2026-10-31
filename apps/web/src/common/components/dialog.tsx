@@ -29,7 +29,7 @@ export function Dialog({ open, onClose, title, hideTitle = false, size = 'md', c
           ) : (
             <div className="flex items-start justify-between gap-3 px-5 pt-4">
               <RadixDialog.Title className="py-1 text-lg font-semibold">{title}</RadixDialog.Title>
-              <RadixDialog.Close asChild><IconButton label="Close" tooltip={false}><X size={20} aria-hidden="true" /></IconButton></RadixDialog.Close>
+              <RadixDialog.Close asChild><IconButton label="Close" tooltip={false}><X className="size-icon" aria-hidden="true" /></IconButton></RadixDialog.Close>
             </div>
           )}
           <div className={hideTitle ? '' : 'px-5 pb-5'}>{children}</div>

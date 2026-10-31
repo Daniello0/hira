@@ -45,7 +45,7 @@ function ModeOption({ mode, label, selected, onSelect }: { mode: ThemeMode; labe
         ) : (
           <Preview theme={mode === ThemeMode.Light ? 'light' : 'dark'} />
         )}
-        {selected ? <span className="motion-fade absolute right-1 bottom-1 flex size-icon-sm items-center justify-center rounded-full bg-accent text-on-accent"><Check size={12} aria-hidden="true" /></span> : null}
+        {selected ? <span className="motion-fade absolute right-1 bottom-1 flex size-icon-sm items-center justify-center rounded-full bg-accent text-on-accent"><Check className="size-icon-2xs" aria-hidden="true" /></span> : null}
       </span>
       <span className="mt-1 block">{label}</span>
     </button>

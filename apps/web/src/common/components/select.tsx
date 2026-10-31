@@ -34,7 +34,7 @@ export function Select({ label, ariaLabel, value, defaultValue, name, options, o
     <RadixSelect.Root name={name} value={toRadix(value)} defaultValue={toRadix(defaultValue)} onValueChange={(next) => onChange?.(next === EMPTY_VALUE ? '' : next)}>
       <RadixSelect.Trigger aria-label={ariaLabel ?? label} className="group inline-flex h-action max-w-full items-center gap-1.5 rounded-full border border-line px-3 text-sm text-ink transition-colors hover:bg-hover focus-visible:outline-accent-focus">
         <span className="truncate"><RadixSelect.Value /></span>
-        <RadixSelect.Icon className="motion-chevron text-ink-tertiary group-data-[state=open]:rotate-180"><ChevronDown size={14} aria-hidden="true" /></RadixSelect.Icon>
+        <RadixSelect.Icon className="motion-chevron text-ink-tertiary"><ChevronDown className="size-icon-xs" aria-hidden="true" /></RadixSelect.Icon>
       </RadixSelect.Trigger>
       <RadixSelect.Portal>
         <RadixSelect.Content position="popper" sideOffset={6} className="motion-menu z-50 max-h-list-max min-w-(--radix-select-trigger-width) overflow-hidden rounded-menu bg-surface-menu p-1.5 text-ink shadow-menu backdrop-blur-sm">
@@ -42,7 +42,7 @@ export function Select({ label, ariaLabel, value, defaultValue, name, options, o
             {options.map((option) => (
               <RadixSelect.Item key={option.value} value={toRadix(option.value) ?? EMPTY_VALUE} className="flex min-h-menu-row cursor-pointer items-center justify-between gap-3 rounded-menu-item px-2.5 py-1.5 text-sm outline-none select-none data-[highlighted]:bg-hover">
                 <RadixSelect.ItemText>{option.label}</RadixSelect.ItemText>
-                <RadixSelect.ItemIndicator><Check size={16} aria-hidden="true" /></RadixSelect.ItemIndicator>
+                <RadixSelect.ItemIndicator><Check className="size-icon-sm" aria-hidden="true" /></RadixSelect.ItemIndicator>
               </RadixSelect.Item>
             ))}
           </RadixSelect.Viewport>

@@ -35,7 +35,7 @@ export function FavoriteCard({ favorite, collections, onDone, onError }: Favorit
         <h3 className="min-w-0 text-base font-medium">
           {removed ? vacancy.title : <button type="button" className="text-left transition-colors hover:text-link" onClick={() => openDetail(vacancy.id)}>{vacancy.title}</button>}
         </h3>
-        <IconButton label="Remove" shape="action" onClick={() => void removeFavorite(favorite, leave, onDone, onError)}><Trash2 size={18} aria-hidden="true" /></IconButton>
+        <IconButton label="Remove" shape="action" onClick={() => void removeFavorite(favorite, leave, onDone, onError)}><Trash2 className="size-icon-md" aria-hidden="true" /></IconButton>
       </div>
       <div className="text-sm text-ink-secondary">
         <p>{vacancy.companyName}{vacancy.locationLabel !== null ? ` · ${vacancy.locationLabel}` : ''}</p>

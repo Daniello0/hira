@@ -16,10 +16,10 @@ export function FeedbackButtons({ messageId, vacancyId }: { messageId: string; v
   return (
     <div className="flex items-center">
       <VoteButton label="Relevant" active={current === FeedbackRating.Relevant} disabled={pending} onClick={() => void vote(messageId, vacancyId, FeedbackRating.Relevant)}>
-        <ThumbsUp size={18} aria-hidden="true" />
+        <ThumbsUp className="size-icon-md" aria-hidden="true" />
       </VoteButton>
       <VoteButton label="Not relevant" active={current === FeedbackRating.Irrelevant} disabled={pending} onClick={() => void vote(messageId, vacancyId, FeedbackRating.Irrelevant)}>
-        <ThumbsDown size={18} aria-hidden="true" />
+        <ThumbsDown className="size-icon-md" aria-hidden="true" />
       </VoteButton>
       {error !== undefined ? <span role="alert" className="motion-fade text-xs text-danger">{error}</span> : null}
     </div>

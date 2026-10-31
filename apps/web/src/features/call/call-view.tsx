@@ -348,7 +348,7 @@ function CallActions(props: {
   if (props.phase === CallPhase.Idle) {
     return (
       <div className="mt-auto flex justify-center">
-        <Button onClick={props.onStart}><Phone size={16} aria-hidden="true" /> Start</Button>
+        <Button onClick={props.onStart}><Phone className="size-icon-sm" aria-hidden="true" /> Start</Button>
       </div>
     );
   }
@@ -358,7 +358,7 @@ function CallActions(props: {
         <TypeInstead typed={props.typed} onTyped={props.onTyped} onType={props.onType} />
       ) : null}
       <div className="flex justify-center">
-        <Button variant="danger" onClick={props.onEnd}><PhoneOff size={16} aria-hidden="true" /> End</Button>
+        <Button variant="danger" onClick={props.onEnd}><PhoneOff className="size-icon-sm" aria-hidden="true" /> End</Button>
       </div>
     </div>
   );

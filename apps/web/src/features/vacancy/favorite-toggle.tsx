@@ -29,7 +29,7 @@ export function FavoriteToggle({ vacancyId }: { vacancyId: string }) {
     <>
       {phase === 'error' ? <span role="alert" className="motion-fade text-xs text-danger">{label(phase, action)}</span> : null}
       <IconButton label={phase === 'error' ? 'Try again' : label(phase, action)} shape="action" tone={favoriteId !== undefined ? 'plain' : 'muted'} aria-pressed={favoriteId !== undefined} disabled={phase === 'saving'} onClick={onClick}>
-        {favoriteId !== undefined ? <BookmarkCheck size={18} aria-hidden="true" /> : <Bookmark size={18} aria-hidden="true" />}
+        {favoriteId !== undefined ? <BookmarkCheck className="size-icon-md" aria-hidden="true" /> : <Bookmark className="size-icon-md" aria-hidden="true" />}
       </IconButton>
     </>
   );

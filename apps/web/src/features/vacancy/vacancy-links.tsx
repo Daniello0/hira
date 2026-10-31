@@ -7,7 +7,7 @@ export function ForeignRemoteBadge({ show }: { show: boolean }) {
   if (!show) return null;
   return (
     <Badge tone="accent">
-      <Globe size={12} aria-hidden="true" /> {FOREIGN_REMOTE_LABEL}
+      <Globe className="size-icon-2xs" aria-hidden="true" /> {FOREIGN_REMOTE_LABEL}
     </Badge>
   );
 }
@@ -23,7 +23,7 @@ export function PostingLink({ url, closed }: { url: string; closed: boolean }) {
       rel="noopener noreferrer"
     >
       {closed ? CLOSED_VACANCY_LABEL : OPEN_POSTING_LABEL}
-      <ExternalLink size={12} aria-hidden="true" />
+      <ExternalLink className="size-icon-2xs" aria-hidden="true" />
     </a>
   );
 }

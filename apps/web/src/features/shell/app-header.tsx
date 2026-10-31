@@ -13,8 +13,8 @@ export function AppHeader({ children }: { children?: ReactNode }) {
   return (
     <header className="flex h-header shrink-0 items-center justify-between gap-2 px-2">
       <div className="flex items-center gap-2 md:hidden">
-        <IconLink label="New chat" href="/chat"><SquarePen size={20} aria-hidden="true" /></IconLink>
-        <IconButton label="Show sidebar" onClick={() => setSidebar(true)}><PanelLeft size={20} aria-hidden="true" /></IconButton>
+        <IconLink label="New chat" href="/chat"><SquarePen className="size-icon" aria-hidden="true" /></IconLink>
+        <IconButton label="Show sidebar" onClick={() => setSidebar(true)}><PanelLeft className="size-icon" aria-hidden="true" /></IconButton>
       </div>
       <div className="ml-auto flex items-center gap-2">{children}</div>
     </header>
@@ -25,7 +25,7 @@ export function AppHeader({ children }: { children?: ReactNode }) {
 export function UpgradeLink() {
   return (
     <Link href="/settings/billing" className={buttonClass('accent-soft')}>
-      <Sparkles size={16} aria-hidden="true" /> Upgrade
+      <Sparkles className="size-icon-sm" aria-hidden="true" /> Upgrade
     </Link>
   );
 }

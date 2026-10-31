@@ -45,7 +45,7 @@ export function LibraryView() {
       <PageHeading title="Library">
         <div className="flex flex-wrap gap-2">
           <UploadResume onDone={reload} onError={setError} />
-          <Button onClick={() => setCreating(true)}><Plus size={16} aria-hidden="true" /> New file</Button>
+          <Button onClick={() => setCreating(true)}><Plus className="size-icon-sm" aria-hidden="true" /> New file</Button>
         </div>
       </PageHeading>
       {error !== null ? <AlertText>{error}</AlertText> : null}
@@ -104,7 +104,7 @@ function DocumentRow({ document, onOpen }: { document: DocumentSummaryDto; onOpe
   return (
     <li className="motion-enter">
       <button type="button" className="flex min-h-composer w-full items-center gap-3 rounded-menu-item px-3 text-left text-sm text-ink transition-colors hover:bg-hover" onClick={() => onOpen(document.id)}>
-        <FileText size={18} aria-hidden="true" className="shrink-0 text-ink-tertiary" />
+        <FileText aria-hidden="true" className="size-icon-md shrink-0 text-ink-tertiary" />
         <span className="min-w-0 flex-1 truncate">{document.title}</span>
         {document.isPinned ? <Badge>Pinned</Badge> : null}
         {parsed !== null ? <Badge>{parsed}</Badge> : null}
@@ -128,7 +128,7 @@ function UploadResume({ onDone, onError }: { onDone: () => Promise<void>; onErro
     <>
       <input ref={file} type="file" hidden aria-label="Resume PDF" accept="application/pdf,.pdf" onChange={(event) => onChange(event.currentTarget)} />
       <Button variant="secondary" disabled={busy} onClick={() => file.current?.click()}>
-        <Upload size={16} aria-hidden="true" /> {busy ? 'Uploading…' : 'Upload resume'}
+        <Upload className="size-icon-sm" aria-hidden="true" /> {busy ? 'Uploading…' : 'Upload resume'}
       </Button>
     </>
   );

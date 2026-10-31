@@ -4,7 +4,6 @@ import { TooltipProvider } from '../common/components/tooltip';
 import { ServiceWorker } from '../features/pwa/service-worker';
 import { ThemeController } from '../features/theme/theme-controller';
 import { themeBootScript } from '../features/theme/theme-mode';
-import { THEME_SURFACE } from '../styles/theme-colors';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,7 +18,6 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
-  themeColor: THEME_SURFACE.dark,
 };
 
 /** Root document. The product UI is English; the theme is set before the first paint. */

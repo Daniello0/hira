@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { THEME_SURFACE } from '../../styles/theme-colors';
 import { DEFAULT_THEME_MODE, ThemeMode, parseThemeMode, resolveTheme, themeBootScript } from './theme-mode';
 
 describe('theme mode', () => {
@@ -25,7 +26,7 @@ describe('theme mode', () => {
       const scope = {
         localStorage: { getItem: () => { if (blocked) throw new Error('blocked'); return stored; } },
         matchMedia: () => ({ matches: false }),
-        document: { documentElement, querySelector: () => null },
+        document: { documentElement, head: { appendChild: () => undefined }, querySelector: () => null, createElement: () => ({}) },
       };
       new Function('localStorage', 'matchMedia', 'document', themeBootScript())(scope.localStorage, scope.matchMedia, scope.document);
       return documentElement.dataset.theme;
@@ -34,5 +35,15 @@ describe('theme mode', () => {
     expect(run(null)).toBe('dark');
     expect(run('system')).toBe('light');
     expect(run('light', true)).toBe('dark');
+  });
+
+  it('boot script creates the browser color tag, because Next must not own it', () => {
+    const tag = { name: '', content: '' };
+    const appended: unknown[] = [];
+    const scope = { dataset: {}, head: { appendChild: (node: unknown) => appended.push(node) } };
+    const document = { documentElement: { dataset: scope.dataset }, head: scope.head, querySelector: () => null, createElement: () => tag };
+    new Function('localStorage', 'matchMedia', 'document', themeBootScript())({ getItem: () => 'light' }, () => ({ matches: false }), document);
+    expect(appended).toEqual([tag]);
+    expect(tag).toEqual({ name: 'theme-color', content: THEME_SURFACE.light });
   });
 });

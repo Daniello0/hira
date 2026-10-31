@@ -7,7 +7,6 @@ import { IconButton } from '../../common/components/icon-button';
 import { Menu, type MenuEntry } from '../../common/components/menu';
 import { uploadAndOffer } from '../library/upload-resume';
 
-const ICON_SIZE = 18;
 /** The composer's inner padding: the menu lines up with its outer edge. */
 const BOX_PADDING_PX = 8;
 
@@ -27,7 +26,7 @@ export function ComposerMenu({ box, account, useMemory, includeForeignRemote, on
   const width = useElementWidth(box);
   const entries: MenuEntry[] = [
     ...(account ? accountEntries(() => file.current?.click(), useMemory, onUseMemory) : []),
-    { kind: 'check', label: 'Show foreign remote', description: 'Remote jobs from employers abroad', icon: <Globe size={ICON_SIZE} aria-hidden="true" />, checked: includeForeignRemote, onChange: onIncludeForeignRemote },
+    { kind: 'check', label: 'Show foreign remote', description: 'Remote jobs from employers abroad', icon: <Globe className="size-icon-md" aria-hidden="true" />, checked: includeForeignRemote, onChange: onIncludeForeignRemote },
   ];
   return (
     <>
@@ -38,7 +37,7 @@ export function ComposerMenu({ box, account, useMemory, includeForeignRemote, on
         alignOffset={-BOX_PADDING_PX}
         sideOffset={14}
         entries={entries}
-        trigger={<IconButton label="Add files and more" tooltip={false} shape="round" tone="plain"><Plus size={20} aria-hidden="true" /></IconButton>}
+        trigger={<IconButton label="Add files and more" tooltip={false} shape="round" tone="plain"><Plus className="size-icon" aria-hidden="true" /></IconButton>}
       />
     </>
   );
@@ -46,10 +45,10 @@ export function ComposerMenu({ box, account, useMemory, includeForeignRemote, on
 
 function accountEntries(onUpload: () => void, useMemory: boolean, onUseMemory: (value: boolean) => void): MenuEntry[] {
   return [
-    { kind: 'item', label: 'Upload resume', description: 'PDF, offers skills for your profile', icon: <FileUp size={ICON_SIZE} aria-hidden="true" />, onSelect: onUpload },
-    { kind: 'link', label: 'Open library', description: 'Your resumes, letters, and notes', icon: <Library size={ICON_SIZE} aria-hidden="true" />, href: '/library' },
+    { kind: 'item', label: 'Upload resume', description: 'PDF, offers skills for your profile', icon: <FileUp className="size-icon-md" aria-hidden="true" />, onSelect: onUpload },
+    { kind: 'link', label: 'Open library', description: 'Your resumes, letters, and notes', icon: <Library className="size-icon-md" aria-hidden="true" />, href: '/library' },
     { kind: 'separator' },
-    { kind: 'check', label: 'Use memory', description: 'Let Hira read your saved facts', icon: <Brain size={ICON_SIZE} aria-hidden="true" />, checked: useMemory, onChange: onUseMemory },
+    { kind: 'check', label: 'Use memory', description: 'Let Hira read your saved facts', icon: <Brain className="size-icon-md" aria-hidden="true" />, checked: useMemory, onChange: onUseMemory },
   ];
 }
 

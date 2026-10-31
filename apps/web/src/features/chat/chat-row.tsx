@@ -34,8 +34,8 @@ export function ChatRow({ chat }: { chat: ChatSummary }) {
             onDelete={onDelete}
             onError={setError}
             trigger={
-              <IconButton label="Chat actions" tooltip={false} shape="action" className="md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 md:data-[state=open]:opacity-100">
-                <Ellipsis size={18} aria-hidden="true" />
+              <IconButton label="Chat actions" tooltip={false} shape="action" className="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:data-[state=open]:opacity-100">
+                <Ellipsis className="size-icon-md" aria-hidden="true" />
               </IconButton>
             }
           />

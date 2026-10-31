@@ -27,7 +27,7 @@ export function Sheet({ open, onClose, label, side = 'left', widthClass = 'w-she
             event.preventDefault();
             (event.currentTarget as HTMLElement).focus();
           }}
-          className={`scroll-thin fixed inset-y-0 z-40 flex max-w-full flex-col overflow-y-auto bg-surface text-ink outline-none ${placement} ${widthClass}`}
+          className={`scroll-thin fixed inset-y-0 z-40 flex max-w-full flex-col overflow-y-auto bg-surface pt-safe-top pb-safe-bottom text-ink outline-none ${placement} ${widthClass}`}
         >
           <RadixDialog.Title className="sr-only">{label}</RadixDialog.Title>
           {children}

@@ -20,7 +20,7 @@ export function Collapsible({ summary, open, onToggle, defaultOpen, triggerClass
     <RadixCollapsible.Root open={open} defaultOpen={defaultOpen} onOpenChange={onToggle}>
       <RadixCollapsible.Trigger className={`inline-flex items-center gap-1 transition-colors ${triggerClassName}`}>
         {summary}
-        <ChevronDown size={14} aria-hidden="true" className="motion-chevron" />
+        <ChevronDown aria-hidden="true" className="size-icon-xs motion-chevron" />
       </RadixCollapsible.Trigger>
       <RadixCollapsible.Content className="motion-collapsible">{children}</RadixCollapsible.Content>
     </RadixCollapsible.Root>

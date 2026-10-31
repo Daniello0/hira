@@ -35,6 +35,8 @@ self.addEventListener('fetch', (event) => {
 // The offline page needs its own scripts and styles when there is no connection to fetch them.
 async function saveOfflinePage() {
   const response = await fetch(OFFLINE_URL);
+  // A failed install is retried on the next visit; a saved error page would stay forever.
+  if (!response.ok) throw new Error(`Offline page answered ${response.status}`);
   const pages = await caches.open(PAGE_CACHE);
   await pages.put(OFFLINE_URL, response.clone());
   const html = await response.text();

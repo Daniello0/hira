@@ -27,10 +27,10 @@ export function CollectionHeader({ group, onDone, onError }: { group: FavoriteGr
         <Menu
           align="end"
           tooltip="Collection actions"
-          trigger={<IconButton label="Collection actions" tooltip={false} shape="action"><Ellipsis size={18} aria-hidden="true" /></IconButton>}
+          trigger={<IconButton label="Collection actions" tooltip={false} shape="action"><Ellipsis className="size-icon-md" aria-hidden="true" /></IconButton>}
           entries={[
-            { kind: 'item', label: 'Rename', icon: <Pencil size={18} aria-hidden="true" />, onSelect: () => setEditing(true) },
-            { kind: 'item', label: 'Delete collection', danger: true, icon: <Trash2 size={18} aria-hidden="true" />, onSelect: () => setConfirming(true) },
+            { kind: 'item', label: 'Rename', icon: <Pencil className="size-icon-md" aria-hidden="true" />, onSelect: () => setEditing(true) },
+            { kind: 'item', label: 'Delete collection', danger: true, icon: <Trash2 className="size-icon-md" aria-hidden="true" />, onSelect: () => setConfirming(true) },
           ]}
         />
       ) : null}

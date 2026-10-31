@@ -64,7 +64,7 @@ describe('service worker install', () => {
     const html = '<script src="/_next/static/chunks/app/offline/page-1.js"></script><link href="/_next/static/css/a.css"/><script src="/_next/static/chunks/app/offline/page-1.js"></script>';
     const listeners: Record<string, (event: { waitUntil: (work: Promise<unknown>) => void }) => void> = {};
     const self = { location: { origin: ORIGIN }, addEventListener: (name: string, listener: (event: never) => void) => { listeners[name] = listener as never; }, skipWaiting: vi.fn() };
-    const response = { clone: () => response, text: async () => html };
+    const response = { ok: true, clone: () => response, text: async () => html };
     const fetchMock = vi.fn().mockResolvedValue(response);
     runInNewContext(readFileSync(join(WEB_DIR, 'public/sw.js'), 'utf8'), { self, caches: { open: vi.fn().mockResolvedValue(cache) }, fetch: fetchMock, URL, Promise, Set });
     let work: Promise<unknown> = Promise.resolve();
@@ -73,6 +73,21 @@ describe('service worker install', () => {
     expect(fetchMock).toHaveBeenCalledWith('/offline');
     expect(stored.sort()).toEqual(['/_next/static/chunks/app/offline/page-1.js', '/_next/static/css/a.css']);
     expect(self.skipWaiting).toHaveBeenCalled();
+  });
+});
+
+describe('service worker install, failed page', () => {
+  it('fails the install on a server error instead of keeping the error as the offline page', async () => {
+    const put = vi.fn();
+    const listeners: Record<string, (event: { waitUntil: (work: Promise<unknown>) => void }) => void> = {};
+    const self = { location: { origin: ORIGIN }, addEventListener: (name: string, listener: (event: never) => void) => { listeners[name] = listener as never; }, skipWaiting: vi.fn() };
+    const failed = { ok: false, status: 500, clone: () => failed, text: async () => 'Server error' };
+    const fetchMock = vi.fn().mockResolvedValue(failed);
+    runInNewContext(readFileSync(join(WEB_DIR, 'public/sw.js'), 'utf8'), { self, caches: { open: vi.fn().mockResolvedValue({ put, add: vi.fn() }) }, fetch: fetchMock, URL, Promise, Set, Error });
+    let work: Promise<unknown> = Promise.resolve();
+    listeners.install?.({ waitUntil: (promise) => { work = promise; } });
+    await expect(work).rejects.toThrow();
+    expect(put).not.toHaveBeenCalled();
   });
 });
 
@@ -92,6 +107,26 @@ describe('manifest', () => {
     for (const icon of icons) expect(existsSync(join(WEB_DIR, 'public', icon.src))).toBe(true);
     expect(icons.some((icon) => icon.purpose === 'maskable')).toBe(true);
     expect(icons.map((icon) => icon.sizes)).toEqual(expect.arrayContaining(['192x192', '512x512']));
+  });
+});
+
+describe('phone layout', () => {
+  it('leaves the browser color tag to the theme code, or a navigation resets it to dark', () => {
+    expect(readFileSync(join(WEB_DIR, 'src/app/layout.tsx'), 'utf8')).not.toContain('themeColor');
+  });
+
+  it('keeps side panels clear of the notch and the home bar', () => {
+    const sheet = readFileSync(join(WEB_DIR, 'src/common/components/sheet.tsx'), 'utf8');
+    expect(sheet).toContain('pt-safe-top');
+    expect(sheet).toContain('pb-safe-bottom');
+  });
+
+  it('hides row actions only for a mouse, because a touch screen has no hover', () => {
+    for (const file of ['src/features/chat/chat-row.tsx', 'src/features/chat/message-list.tsx']) {
+      const source = readFileSync(join(WEB_DIR, file), 'utf8');
+      expect(source).not.toContain('md:opacity-0');
+      expect(source).toContain('pointer-fine:opacity-0');
+    }
   });
 });
 

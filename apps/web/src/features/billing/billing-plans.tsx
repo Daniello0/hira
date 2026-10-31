@@ -34,7 +34,7 @@ export function BillingPlans() {
             {period === 'yearly' && yearlySavings(plan) !== null ? <p className="motion-fade text-sm text-link">{yearlySavings(plan)}</p> : null}
             <ul className="space-y-2 text-sm text-ink-secondary">
               {plan.features.map((feature) => (
-                <li key={feature} className="flex items-start gap-2"><Check size={16} aria-hidden="true" className="mt-0.5 shrink-0" />{feature}</li>
+                <li key={feature} className="flex items-start gap-2"><Check aria-hidden="true" className="size-icon-sm mt-0.5 shrink-0" />{feature}</li>
               ))}
             </ul>
             <Button className="mt-auto" onClick={() => setNotice(PAYMENT_UNAVAILABLE)}>Upgrade</Button>

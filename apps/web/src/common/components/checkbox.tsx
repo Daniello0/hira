@@ -14,7 +14,7 @@ export function Checkbox({ checked, onChange, disabled = false, children }: { ch
         onCheckedChange={(next) => onChange(next === true)}
         className="mt-0.5 flex size-icon-sm shrink-0 items-center justify-center rounded-sm border border-line-heavy transition-colors data-[state=checked]:border-accent data-[state=checked]:bg-accent"
       >
-        <RadixCheckbox.Indicator className="motion-fade text-on-accent"><Check size={12} aria-hidden="true" strokeWidth={3} /></RadixCheckbox.Indicator>
+        <RadixCheckbox.Indicator className="motion-fade text-on-accent"><Check className="size-icon-2xs" aria-hidden="true" strokeWidth={3} /></RadixCheckbox.Indicator>
       </RadixCheckbox.Root>
       <span>{children}</span>
     </label>

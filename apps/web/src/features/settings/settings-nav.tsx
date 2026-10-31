@@ -15,9 +15,9 @@ export function SettingsNav() {
   const sections = SETTINGS_SECTIONS.filter((section) => section.label.toLowerCase().includes(needle));
   return (
     <nav aria-label="Settings">
-      <Link className={navRowClass(false)} href="/chat"><ArrowLeft size={20} aria-hidden="true" /> Back to app</Link>
+      <Link className={navRowClass(false)} href="/chat"><ArrowLeft className="size-icon" aria-hidden="true" /> Back to app</Link>
       <div className="my-2 flex h-control items-center gap-2 rounded-full bg-surface-raised px-3 text-ink-tertiary transition-colors focus-within:text-ink">
-        <Search size={16} aria-hidden="true" className="shrink-0" />
+        <Search aria-hidden="true" className="size-icon-sm shrink-0" />
         <input
           aria-label="Search settings"
           placeholder="Search"
@@ -31,7 +31,7 @@ export function SettingsNav() {
         {sections.map(({ href, label, Icon }) => (
           <li key={href}>
             <Link className={navRowClass(pathname === href)} aria-current={pathname === href ? 'page' : undefined} href={href}>
-              <Icon size={20} aria-hidden="true" /> {label}
+              <Icon className="size-icon" aria-hidden="true" /> {label}
             </Link>
           </li>
         ))}
