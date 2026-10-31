@@ -29,7 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useLayoutMemory();
   const account = status === SessionStatus.Account && token !== null;
   return (
-    <div className="flex h-dvh overflow-hidden bg-surface pt-safe-top text-ink">
+    <div className="flex h-dvh overflow-hidden bg-surface pt-safe-top pr-safe-right pl-safe-left text-ink">
       {account ? <SuggestionModal /> : null}
       {account ? <ResumeSuggestionsModal /> : null}
       <VacancyDetailDrawer />

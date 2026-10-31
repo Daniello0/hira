@@ -13,11 +13,11 @@ export async function renameChat(chat: ChatSummary, title: string, onError: OnEr
   if (updated !== null) useChatList.getState().replace(updated);
 }
 
-/** Archives or restores a chat. */
-export async function setChatArchived(chat: ChatSummary, isArchived: boolean, onError: OnError): Promise<void> {
+/** Archives or restores a chat. `apply` holds the list change back, for a row that animates out first. */
+export async function setChatArchived(chat: ChatSummary, isArchived: boolean, onError: OnError, apply: (change: () => void) => void = (change) => change()): Promise<void> {
   const updated = await guarded(() => patchChat(chat.id, { isArchived }));
   onError(updated === null ? `Could not ${isArchived ? 'archive' : 'restore'} the chat` : null);
-  if (updated !== null) useChatList.getState().replace(updated);
+  if (updated !== null) apply(() => useChatList.getState().replace(updated));
 }
 
 /** Deletes on the server. The caller removes the row after its exit animation. */

@@ -121,6 +121,23 @@ describe('phone layout', () => {
     expect(sheet).toContain('pb-safe-bottom');
   });
 
+  it('keeps the page and side panels clear of the notch in landscape', () => {
+    const sheet = readFileSync(join(WEB_DIR, 'src/common/components/sheet.tsx'), 'utf8');
+    const shell = readFileSync(join(WEB_DIR, 'src/features/shell/app-shell.tsx'), 'utf8');
+    for (const name of ['pl-safe-left', 'pr-safe-right']) {
+      expect(sheet).toContain(name);
+      expect(shell).toContain(name);
+    }
+  });
+
+  it('animates every row that leaves a list', () => {
+    for (const file of ['src/features/profile/profile-skills.tsx', 'src/features/profile/location-picker.tsx', 'src/features/chat/chat-row.tsx']) {
+      const source = readFileSync(join(WEB_DIR, file), 'utf8');
+      expect(source).toContain('useLeaving');
+      expect(source).toContain('motion-row');
+    }
+  });
+
   it('hides row actions only for a mouse, because a touch screen has no hover', () => {
     for (const file of ['src/features/chat/chat-row.tsx', 'src/features/chat/message-list.tsx']) {
       const source = readFileSync(join(WEB_DIR, file), 'utf8');

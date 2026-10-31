@@ -9,13 +9,20 @@ import { exitDurationMs } from '../utils/motion-time';
  */
 export function useLeaving(): { leaving: boolean; leave: (remove: () => void) => void } {
   const [leaving, setLeaving] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pending = useRef<{ timer: ReturnType<typeof setTimeout>; remove: () => void } | null>(null);
+  // A row can unmount mid-animation, for example when its panel closes. The change still has to apply.
   useEffect(() => () => {
-    if (timer.current !== null) clearTimeout(timer.current);
+    if (pending.current === null) return;
+    clearTimeout(pending.current.timer);
+    pending.current.remove();
   }, []);
   const leave = useCallback((remove: () => void) => {
     setLeaving(true);
-    timer.current = setTimeout(remove, exitDurationMs());
+    const timer = setTimeout(() => {
+      pending.current = null;
+      remove();
+    }, exitDurationMs());
+    pending.current = { timer, remove };
   }, []);
   return { leaving, leave };
 }

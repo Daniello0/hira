@@ -33,8 +33,9 @@ export function ChatRow({ chat }: { chat: ChatSummary }) {
             onRename={() => setEditing(true)}
             onDelete={onDelete}
             onError={setError}
+            applyArchive={leave}
             trigger={
-              <IconButton label="Chat actions" tooltip={false} shape="action" className="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:data-[state=open]:opacity-100">
+              <IconButton label="Chat actions" tooltip={false} shape="action" className="transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:data-[state=open]:opacity-100">
                 <Ellipsis className="size-icon-md" aria-hidden="true" />
               </IconButton>
             }

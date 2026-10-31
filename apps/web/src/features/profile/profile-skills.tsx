@@ -8,6 +8,7 @@ import { AlertText, MutedText } from '../../common/components/feedback';
 import { IconButton } from '../../common/components/icon-button';
 import { SectionHeading } from '../../common/components/page-frame';
 import { Select } from '../../common/components/select';
+import { useLeaving } from '../../common/hooks/use-leaving';
 import { skillLevelLabel } from '../../common/utils/enum-labels';
 import { addProfileSkill, removeProfileSkill } from './profile-api';
 import { SkillCombobox } from './skill-combobox';
@@ -40,13 +41,18 @@ function SkillList({ skills, onChange, onError }: ProfileSkillsProps & { onError
   if (skills.length === 0) return <MutedText>No skills on your profile yet.</MutedText>;
   return (
     <ul className="space-y-2">
-      {skills.map((skill) => (
-        <li key={skill.skillId} className="motion-enter flex items-center justify-between gap-3 text-sm">
-          <span className="min-w-0">{skill.canonicalName} · {skillLevelLabel(skill.level)} · {skillSourceLabel(skill.source)}</span>
-          <IconButton label={`Remove ${skill.canonicalName}`} shape="action" onClick={() => void remove(skill, onChange, onError)}><X className="size-icon-sm" aria-hidden="true" /></IconButton>
-        </li>
-      ))}
+      {skills.map((skill) => <SkillRow key={skill.skillId} skill={skill} onChange={onChange} onError={onError} />)}
     </ul>
+  );
+}
+
+function SkillRow({ skill, onChange, onError }: { skill: ProfileSkillDto; onChange: () => Promise<void>; onError: (value: string | null) => void }) {
+  const { leaving, leave } = useLeaving();
+  return (
+    <li data-leaving={leaving} className="motion-row motion-enter flex items-center justify-between gap-3 text-sm">
+      <span className="min-w-0">{skill.canonicalName} · {skillLevelLabel(skill.level)} · {skillSourceLabel(skill.source)}</span>
+      <IconButton label={`Remove ${skill.canonicalName}`} shape="action" onClick={() => void remove(skill, leave, onChange, onError)}><X className="size-icon-sm" aria-hidden="true" /></IconButton>
+    </li>
   );
 }
 
@@ -69,8 +75,8 @@ async function add(
   await onChange();
 }
 
-async function remove(skill: ProfileSkillDto, onChange: () => Promise<void>, onError: (value: string | null) => void): Promise<void> {
+async function remove(skill: ProfileSkillDto, leave: (remove: () => void) => void, onChange: () => Promise<void>, onError: (value: string | null) => void): Promise<void> {
   const ok = await removeProfileSkill(skill.skillId).catch(() => false);
   onError(ok ? null : `Could not remove ${skill.canonicalName}`);
-  if (ok) await onChange();
+  if (ok) leave(() => void onChange());
 }

@@ -15,7 +15,7 @@ interface SheetProps {
 
 /** Side panel over the page. It slides in and out; Escape and the backdrop close it. */
 export function Sheet({ open, onClose, label, side = 'left', widthClass = 'w-sheet', children }: SheetProps) {
-  const placement = side === 'left' ? 'motion-sheet-left left-0' : 'motion-sheet-right right-0';
+  const placement = side === 'left' ? 'motion-sheet-left left-0 pl-safe-left' : 'motion-sheet-right right-0 pr-safe-right';
   return (
     <RadixDialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <RadixDialog.Portal>

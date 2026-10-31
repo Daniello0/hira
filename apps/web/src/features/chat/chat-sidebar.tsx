@@ -1,9 +1,10 @@
 'use client';
 
 import type { ChatSummary } from '@hira/contracts';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { AlertText } from '../../common/components/feedback';
 import { Collapsible } from '../../common/components/collapsible';
+import { useLoadOnView } from '../../common/hooks/use-load-on-view';
 import { fetchChats } from './chat-api';
 import { useChatList } from './chat-list.store';
 import { ChatRow } from './chat-row';
@@ -36,16 +37,9 @@ export function LoadMore() {
   const cursor = useChatList((state) => state.nextCursor);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const sentinel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const node = sentinel.current;
-    if (node === null || cursor === null || failed) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) void loadMore(cursor, setBusy, setFailed);
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [cursor, failed]);
+  const sentinel = useLoadOnView(cursor !== null && !failed, cursor, () => {
+    if (cursor !== null) void loadMore(cursor, setBusy, setFailed);
+  });
   if (cursor === null) return null;
   return (
     <div ref={sentinel} className="py-2 text-sm">

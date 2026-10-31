@@ -18,7 +18,7 @@ import { AppHeader, UpgradeLink } from '../shell/app-header';
 import { useShell } from '../shell/shell.store';
 import { deleteChatOnServer, renameChat } from './chat-actions';
 import { ChatActionsMenu } from './chat-actions-menu';
-import { useChatList } from './chat-list.store';
+import { findChat, useChatList } from './chat-list.store';
 import { ContextPanel, PanelBody, PanelHeader, type PanelData } from './context-panel';
 import { MessageInput } from './message-input';
 import { MessageList } from './message-list';
@@ -107,7 +107,7 @@ function ChatColumn({ screen, chatId, account }: { screen: Screen; chatId: strin
 function ChatHeader({ chatId }: { chatId: string }) {
   const contextOpen = useShell((state) => state.contextOpen);
   const setContext = useShell((state) => state.setContext);
-  const chat = useChatList((state) => state.chats.find((item) => item.id === chatId));
+  const chat = useChatList((state) => findChat(state, chatId));
   return (
     <AppHeader>
       <IconButton label={contextOpen ? 'Hide context' : 'Show context'} tone={contextOpen ? 'active' : 'muted'} aria-pressed={contextOpen} onClick={() => setContext(!contextOpen)}>

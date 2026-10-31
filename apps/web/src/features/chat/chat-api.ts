@@ -10,10 +10,10 @@ export async function fetchChats(cursor?: string): Promise<ChatPage<ChatSummary>
   return readJson<ChatPage<ChatSummary>>(await authedFetch(`/api/v1/chats${query(cursor)}`));
 }
 
-/** Chats whose title contains the text. `null` when the request failed. */
-export async function searchChats(text: string): Promise<ChatSummary[] | null> {
-  const page = await readJson<ChatPage<ChatSummary>>(await authedFetch(`/api/v1/chats?q=${encodeURIComponent(text)}`));
-  return page === null ? null : page.items;
+/** One page of chats whose title contains the text. `null` when the request failed. */
+export async function searchChats(text: string, cursor?: string): Promise<ChatPage<ChatSummary> | null> {
+  const position = cursor === undefined ? '' : `&cursor=${encodeURIComponent(cursor)}`;
+  return readJson<ChatPage<ChatSummary>>(await authedFetch(`/api/v1/chats?q=${encodeURIComponent(text)}${position}`));
 }
 
 /** Creates an empty chat. `limited` is the demo one-chat cap. */

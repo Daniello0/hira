@@ -10,7 +10,7 @@ import { SessionStatus } from '../auth/session-status';
 import { scheduleSuggestionRefresh } from '../suggestions/suggestion.store';
 import { fetchOlder, loadChat } from './chat-api';
 import { useChatDraft } from './chat-draft.store';
-import { useChatList } from './chat-list.store';
+import { findChat, useChatList } from './chat-list.store';
 import { MESSAGE_TOO_LONG, RELOAD_FAILED } from './chat.constants';
 import { refreshChatList } from './chat-sidebar';
 import { takePendingSend } from './start-chat';
@@ -49,7 +49,7 @@ export function useChatScreen(chatId: string) {
   const [includeForeignRemote, setIncludeForeignRemote] = useForeignRemotePreference();
   const [finishedTurns, setFinishedTurns] = useState(0);
   const [attempt, setAttempt] = useState(0);
-  const listed = useChatList((state) => state.chats.find((chat) => chat.id === chatId)?.isArchived);
+  const listed = useChatList((state) => findChat(state, chatId)?.isArchived);
   const latest = useRef(turn);
   const loadingOlder = useRef(false);
   latest.current = turn;
@@ -162,6 +162,7 @@ async function loadHistory(
     setCursor(loaded.detail.nextCursor);
   }
   setArchived(loaded.detail.chat.isArchived);
+  useChatList.getState().setOpened(loaded.detail.chat);
   setLoad('ready');
 }
 

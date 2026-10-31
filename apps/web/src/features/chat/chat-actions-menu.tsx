@@ -16,10 +16,12 @@ interface ChatActionsMenuProps {
   /** Runs after the user confirms deletion. */
   onDelete: () => void;
   onError: (value: string | null) => void;
+  /** A row passes its exit animation here; archiving moves it to another list. */
+  applyArchive?: (change: () => void) => void;
 }
 
 /** Rename, archive or restore, delete: the same menu in the sidebar row and the chat header. */
-export function ChatActionsMenu({ chat, trigger, tooltip, align = 'start', onRename, onDelete, onError }: ChatActionsMenuProps) {
+export function ChatActionsMenu({ chat, trigger, tooltip, align = 'start', onRename, onDelete, onError, applyArchive }: ChatActionsMenuProps) {
   const [confirming, setConfirming] = useState(false);
   const archived = chat.isArchived;
   return (
@@ -30,7 +32,7 @@ export function ChatActionsMenu({ chat, trigger, tooltip, align = 'start', onRen
         align={align}
         entries={[
           { kind: 'item', label: 'Rename', icon: <Pencil className="size-icon-md" aria-hidden="true" />, onSelect: onRename },
-          { kind: 'item', label: archived ? 'Restore' : 'Archive', icon: archived ? <ArchiveRestore className="size-icon-md" aria-hidden="true" /> : <Archive className="size-icon-md" aria-hidden="true" />, onSelect: () => void setChatArchived(chat, !archived, onError) },
+          { kind: 'item', label: archived ? 'Restore' : 'Archive', icon: archived ? <ArchiveRestore className="size-icon-md" aria-hidden="true" /> : <Archive className="size-icon-md" aria-hidden="true" />, onSelect: () => void setChatArchived(chat, !archived, onError, applyArchive) },
           { kind: 'item', label: 'Delete', danger: true, icon: <Trash2 className="size-icon-md" aria-hidden="true" />, onSelect: () => setConfirming(true) },
         ]}
       />
