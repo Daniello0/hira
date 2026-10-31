@@ -1,4 +1,4 @@
-import { UserRole, type CurrentUserDto } from '@hira/contracts';
+import { UserPlan, UserRole, type CurrentUserDto } from '@hira/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { SessionStatus } from './session-status';
 import {
@@ -80,6 +80,7 @@ function account(): CurrentUserDto {
     email: 'ada@example.com',
     displayName: null,
     role: UserRole.User,
+    plan: UserPlan.Free,
     crossChatMemoryEnabled: true,
     searchQuota: { used: 0, limit: 20 },
   };

@@ -1,5 +1,7 @@
+import { PLAN_LIMITS, PLAN_NAMES, PLAN_ORDER, PLAN_PRICES, UserPlan, isUpgrade } from '@hira/contracts';
+
 export interface BillingPlan {
-  id: string;
+  id: UserPlan;
   name: string;
   monthly: number;
   yearly: number;
@@ -8,32 +10,33 @@ export interface BillingPlan {
 
 export type BillingPeriod = 'monthly' | 'yearly';
 
-/** Mock prices. Nothing here is charged. */
-export const BILLING_PLANS: readonly BillingPlan[] = [
-  {
-    id: 'free',
-    name: 'Free',
-    monthly: 0,
-    yearly: 0,
-    features: ['Demo chat before sign-up', '20 searches a day on an account'],
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    monthly: 19,
-    yearly: 15,
-    features: ['Saved vacancies and collections', 'Library and cross-chat memory'],
-  },
-  {
-    id: 'team',
-    name: 'Team',
-    monthly: 49,
-    yearly: 39,
-    features: ['Shared shortlists', 'A library for the whole team'],
-  },
-];
+/** Plans as the page shows them. Prices and limits come from the one list the server also reads. */
+export const BILLING_PLANS: readonly BillingPlan[] = PLAN_ORDER.map((plan) => ({
+  id: plan,
+  name: PLAN_NAMES[plan],
+  ...PLAN_PRICES[plan],
+  features: planFeatures(plan),
+}));
 
-export const PAYMENT_UNAVAILABLE = 'Payment is not available in this preview.';
+/** What the plan gives, in words. */
+export function planFeatures(plan: UserPlan): string[] {
+  const limits = PLAN_LIMITS[plan];
+  return [
+    `${limits.searchesPerDay} searches a day`,
+    limits.favorites === null ? 'Unlimited saved vacancies' : `Up to ${limits.favorites} saved vacancies`,
+    ...(limits.collections ? ['Collections for saved vacancies'] : []),
+    limits.libraryFiles === null ? 'Unlimited library files' : `${limits.libraryFiles} library files`,
+    ...(limits.crossChatMemory ? ['Memory across chats'] : []),
+    ...(limits.call ? ['Voice calls in five languages'] : []),
+    limits.contextChats === 0 ? 'Hira knows the current chat' : `Hira knows your last ${limits.contextChats} chats and calls`,
+  ];
+}
+
+/** Label of a plan's button for this account. */
+export function planAction(current: UserPlan, plan: UserPlan): string {
+  if (current === plan) return 'Current plan';
+  return isUpgrade(current, plan) ? 'Upgrade' : 'Downgrade';
+}
 
 /** Price line for the selected period. Yearly is a lower monthly equivalent. */
 export function planPrice(plan: BillingPlan, period: BillingPeriod): string {

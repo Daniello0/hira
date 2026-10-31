@@ -48,6 +48,12 @@ export async function bootstrapSession(): Promise<void> {
   if (outcome.kind === 'unreachable') setTimeout(() => void bootstrapSession(), BOOTSTRAP_RETRY_MS);
 }
 
+/** Another tab signed in or out: this tab follows the refresh cookie. An unreachable API changes nothing. */
+export async function syncSession(): Promise<void> {
+  const outcome = await refreshOnce();
+  if (outcome.kind === 'rejected') useSession.getState().setAnonymous();
+}
+
 function underTabLock<T>(run: () => Promise<T>): Promise<T> {
   if (typeof navigator === 'undefined' || navigator.locks === undefined) return run();
   return navigator.locks.request(REFRESH_LOCK_NAME, run) as Promise<T>;

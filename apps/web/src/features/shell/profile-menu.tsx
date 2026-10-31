@@ -3,7 +3,7 @@
 import { Brain, LogIn, LogOut, Settings, Sparkles, User, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { CurrentUserDto } from '@hira/contracts';
+import { PLAN_NAMES, UserPlan, type CurrentUserDto } from '@hira/contracts';
 import { buttonClass } from '../../common/components/button';
 import { Menu, type MenuEntry } from '../../common/components/menu';
 import { useSession } from '../auth/session.store';
@@ -24,11 +24,11 @@ export function ProfileMenu({ full }: { full: boolean }) {
         trigger={
           <button type="button" aria-label="Open profile menu" className={full ? 'flex min-w-0 flex-1 items-center gap-2 rounded-row p-1.5 text-left transition-colors hover:bg-hover' : 'rounded-full p-1.5 transition-colors hover:bg-hover'}>
             <Avatar name={name} />
-            {full ? <AccountLabel name={name} plan={user === null ? 'Demo' : 'Free'} /> : null}
+            {full ? <AccountLabel name={name} plan={user === null ? 'Demo' : PLAN_NAMES[user.plan]} /> : null}
           </button>
         }
       />
-      {full ? <Link href="/settings/billing" className={buttonClass('secondary', 'sm')}>Upgrade</Link> : null}
+      {full && user?.plan !== UserPlan.Max ? <Link href="/settings/billing" className={buttonClass('secondary', 'sm')}>Upgrade</Link> : null}
     </>
   );
 }

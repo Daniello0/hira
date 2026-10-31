@@ -1,10 +1,12 @@
 'use client';
 
+import { PLAN_LIMITS } from '@hira/contracts';
 import { Brain, FileUp, Globe, Library, Plus } from 'lucide-react';
 import type { RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { IconButton } from '../../common/components/icon-button';
 import { Menu, type MenuEntry } from '../../common/components/menu';
+import { useSession } from '../auth/session.store';
 import { uploadAndOffer } from '../library/upload-resume';
 
 /** The composer's inner padding: the menu lines up with its outer edge. */
@@ -24,8 +26,9 @@ interface ComposerMenuProps {
 export function ComposerMenu({ box, account, useMemory, includeForeignRemote, onUseMemory, onIncludeForeignRemote, onError }: ComposerMenuProps) {
   const file = useRef<HTMLInputElement>(null);
   const width = useElementWidth(box);
+  const memory = useSession((state) => state.user !== null && PLAN_LIMITS[state.user.plan].crossChatMemory);
   const entries: MenuEntry[] = [
-    ...(account ? accountEntries(() => file.current?.click(), useMemory, onUseMemory) : []),
+    ...(account ? accountEntries(() => file.current?.click(), memory, useMemory, onUseMemory) : []),
     { kind: 'check', label: 'Show foreign remote', description: 'Remote jobs from employers abroad', icon: <Globe className="size-icon-md" aria-hidden="true" />, checked: includeForeignRemote, onChange: onIncludeForeignRemote },
   ];
   return (
@@ -43,12 +46,16 @@ export function ComposerMenu({ box, account, useMemory, includeForeignRemote, on
   );
 }
 
-function accountEntries(onUpload: () => void, useMemory: boolean, onUseMemory: (value: boolean) => void): MenuEntry[] {
+function accountEntries(onUpload: () => void, memory: boolean, useMemory: boolean, onUseMemory: (value: boolean) => void): MenuEntry[] {
   return [
     { kind: 'item', label: 'Upload resume', description: 'PDF, offers skills for your profile', icon: <FileUp className="size-icon-md" aria-hidden="true" />, onSelect: onUpload },
     { kind: 'link', label: 'Open library', description: 'Your resumes, letters, and notes', icon: <Library className="size-icon-md" aria-hidden="true" />, href: '/library' },
     { kind: 'separator' },
+    ...(memory
+      ? ([
     { kind: 'check', label: 'Use memory', description: 'Let Hira read your saved facts', icon: <Brain className="size-icon-md" aria-hidden="true" />, checked: useMemory, onChange: onUseMemory },
+        ] satisfies MenuEntry[])
+      : []),
   ];
 }
 

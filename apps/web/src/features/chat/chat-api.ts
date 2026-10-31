@@ -1,6 +1,7 @@
 import type { ChatDetail, ChatMessageView, ChatPage, ChatSummary, UpdateChatRequest } from '@hira/contracts';
 import { authedFetch, readJson } from '../../common/api/authed-fetch';
 import { jsonRequest } from '../../common/api/core-api';
+import { notifyOtherTabs } from '../../common/data/data-version.store';
 
 /** A chat that could not be opened: gone, or the request failed. */
 export type ChatLoad = { kind: 'ok'; detail: ChatDetail } | { kind: 'not-found' } | { kind: 'failed' };
@@ -48,12 +49,15 @@ export async function fetchOlder(chatId: string, cursor: string): Promise<ChatPa
 
 /** Renames, archives, or restores. */
 export async function patchChat(chatId: string, body: UpdateChatRequest): Promise<ChatSummary | null> {
-  return readJson<ChatSummary>(await authedFetch(`/api/v1/chats/${chatId}`, jsonRequest('PATCH', body)));
+  const updated = await readJson<ChatSummary>(await authedFetch(`/api/v1/chats/${chatId}`, jsonRequest('PATCH', body)));
+  if (updated !== null) notifyOtherTabs('chats');
+  return updated;
 }
 
 /** Deletes a chat. */
 export async function deleteChat(chatId: string): Promise<boolean> {
   const response = await authedFetch(`/api/v1/chats/${chatId}`, { method: 'DELETE' });
+  if (response.ok) notifyOtherTabs('chats');
   return response.ok;
 }
 

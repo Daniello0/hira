@@ -10,6 +10,7 @@ import { Button } from '../../common/components/button';
 import { AlertText } from '../../common/components/feedback';
 import { HiraLogo } from '../../common/components/logo';
 import { TextField } from '../../common/components/text-field';
+import { notifyOtherTabs } from '../../common/data/data-version.store';
 import { COULD_NOT_REACH } from './auth.constants';
 import { accountLanding } from './enter-account';
 import { loginSchema } from './auth.schema';
@@ -97,6 +98,7 @@ async function enter(
     { accessToken: body.accessToken, expiresAt: Date.now() + body.expiresIn * 1000 },
     user,
   );
+  notifyOtherTabs('session');
   router.push(await accountLanding(body.accessToken));
 }
 

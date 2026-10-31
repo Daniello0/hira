@@ -1,4 +1,4 @@
-import { UserRole, type CurrentUserDto } from '@hira/contracts';
+import { UserPlan, UserRole, type CurrentUserDto } from '@hira/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { accessToken, bootstrapSession, renewAccess } from './session-access';
 import { useSession } from './session.store';
@@ -9,9 +9,10 @@ const USER: CurrentUserDto = {
   email: 'a@b.c',
   displayName: null,
   role: UserRole.User,
+  plan: UserPlan.Free,
   crossChatMemoryEnabled: true,
   searchQuota: { used: 0, limit: 20 },
-} as CurrentUserDto;
+};
 
 function respond(refresh: () => Promise<Response>): void {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {

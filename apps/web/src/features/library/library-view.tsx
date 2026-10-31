@@ -3,6 +3,7 @@
 import { AuthorKind, DocumentFormat, DocumentKind, type DocumentDetailDto, type DocumentSummaryDto } from '@hira/contracts';
 import { FileText, Plus, Upload } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { useDataVersion } from '../../common/data/data-version.store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge } from '../../common/components/badge';
 import { Button } from '../../common/components/button';
@@ -30,6 +31,7 @@ export function LibraryView() {
   const [selected, setSelected] = useState<DocumentDetailDto | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const version = useDataVersion('library');
   const reload = useCallback(async () => {
     const next = await fetchDocuments().catch(() => null);
     setListFailed(next === null);
@@ -37,7 +39,7 @@ export function LibraryView() {
   }, []);
   useEffect(() => {
     if (token !== null) void reload();
-  }, [token, reload]);
+  }, [token, reload, version]);
   const shown = useLastDefined(selected);
   if (token === null) return null;
   return (

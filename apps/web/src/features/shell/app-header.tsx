@@ -1,10 +1,12 @@
 'use client';
 
+import { UserPlan } from '@hira/contracts';
 import { PanelLeft, Sparkles, SquarePen } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { IconButton, IconLink } from '../../common/components/icon-button';
 import { buttonClass } from '../../common/components/button';
+import { useSession } from '../auth/session.store';
 import { useShell } from './shell.store';
 
 /** Top bar of a page. On a phone it also opens the sidebar and starts a new chat. */
@@ -23,6 +25,8 @@ export function AppHeader({ children }: { children?: ReactNode }) {
 
 /** The accent pill leading to the plans. */
 export function UpgradeLink() {
+  const top = useSession((state) => state.user?.plan === UserPlan.Max);
+  if (top) return null;
   return (
     <Link href="/settings/billing" className={buttonClass('accent-soft')}>
       <Sparkles className="size-icon-sm" aria-hidden="true" /> Upgrade

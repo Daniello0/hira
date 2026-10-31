@@ -2,6 +2,7 @@
 
 import type { ProfileSuggestionDto } from '@hira/contracts';
 import { create } from 'zustand';
+import { invalidate } from '../../common/data/data-version.store';
 import { acceptSuggestion, dismissSuggestion, fetchSuggestions } from './suggestion-api';
 import { SUGGESTION_REFRESH_DELAYS_MS } from './suggestions.constants';
 
@@ -44,10 +45,13 @@ export function nextVisibleSuggestion(state: Pick<SuggestionState, 'items' | 'de
   return state.items.find((item) => !state.deferred.includes(item.id));
 }
 
-/** Re-reads offers a little after a finished turn, when server-side extraction has run. */
+/** Re-reads offers and memory a little after a finished turn, when server-side extraction has run. */
 export function scheduleSuggestionRefresh(): void {
   for (const delay of SUGGESTION_REFRESH_DELAYS_MS) {
-    setTimeout(() => void useSuggestions.getState().reload(), delay);
+    setTimeout(() => {
+      void useSuggestions.getState().reload();
+      invalidate('memory');
+    }, delay);
   }
 }
 

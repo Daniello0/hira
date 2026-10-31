@@ -1,4 +1,5 @@
 import type { CreateProfileSkillRequest, LocationDto, ProfileDto, ProfileSkillDto, SkillSearchHitDto, UpdateProfileRequest } from '@hira/contracts';
+import { notifyOtherTabs } from '../../common/data/data-version.store';
 import { authedFetch, readJson } from '../../common/api/authed-fetch';
 import { jsonRequest } from '../../common/api/core-api';
 import { readApiMessage } from '../auth/read-api-message';
@@ -13,7 +14,10 @@ export async function fetchProfile(): Promise<ProfileDto | null> {
 /** Writes the fields the request names. Omitted fields stay as stored. */
 export async function saveProfile(body: UpdateProfileRequest): Promise<string | null> {
   const response = await authedFetch('/api/v1/profile', jsonRequest('PUT', body));
-  if (response.ok) return null;
+  if (response.ok) {
+    notifyOtherTabs('profile');
+    return null;
+  }
   return readApiMessage(response, PROFILE_FAILED);
 }
 

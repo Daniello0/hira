@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertText } from '../../common/components/feedback';
 import { PageHeading } from '../../common/components/page-frame';
+import { useDataVersion } from '../../common/data/data-version.store';
 import { useSession } from '../auth/session.store';
 import { LocationPicker } from './location-picker';
 import { fetchProfile, fetchProfileSkills, saveProfile } from './profile-api';
@@ -26,6 +27,7 @@ export function ProfileView() {
     const next = await fetchProfileSkills().catch(() => null);
     if (next !== null) setSkills(next);
   }, []);
+  const version = useDataVersion('profile');
   const reloadProfile = useCallback(async () => {
     const next = await fetchProfile().catch(() => null);
     setLoadError(next === null);
@@ -37,7 +39,7 @@ export function ProfileView() {
     if (token === null) return;
     void reloadProfile();
     void reloadSkills();
-  }, [token, reloadProfile, reloadSkills, pending]);
+  }, [token, reloadProfile, reloadSkills, pending, version]);
   const formValues = useMemo(() => (profile === null ? null : profileFormValues(profile)), [profile]);
   if (token === null) return null;
   return (
