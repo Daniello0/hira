@@ -1,9 +1,12 @@
 # HTTPS for a phone on the local network: the browser gives the microphone only on a secure page.
 # Caddy's own certificate, so the phone warns once. Pages and the API share one address.
+{
+	# A browser sends no server name for an IP address.
+	default_sni {$LAN_HOST:localhost}
+}
+
 https://{$LAN_HOST:localhost}:3443 {
-	tls internal {
-		on_demand
-	}
+	tls internal
 	handle /api/* {
 		reverse_proxy core-api:4000 {
 			flush_interval -1
