@@ -13,8 +13,8 @@ export function ChatRecents() {
   const chats = useChatList((state) => state.chats);
   const active = chats.filter((chat) => !chat.isArchived);
   return (
-    <div className="mt-5 px-2">
-      <Collapsible defaultOpen summary="Recents" triggerClassName="-mx-2 mb-1 flex h-row w-full items-center gap-1 rounded-row px-2 text-sm text-ink-tertiary hover:bg-hover">
+    <div className="mt-5">
+      <Collapsible defaultOpen summary="Recents" triggerClassName="mb-1 h-row rounded-row px-2 text-sm text-ink-tertiary hover:text-ink">
         <ChatRows chats={active} />
         <LoadMore />
       </Collapsible>
@@ -25,7 +25,7 @@ export function ChatRecents() {
 /** Rows shared by the sidebar and the archive page. */
 export function ChatRows({ chats }: { chats: readonly ChatSummary[] }) {
   return (
-    <ul className="-mx-2 space-y-0.5">
+    <ul className="space-y-0.5">
       {chats.map((chat) => <ChatRow key={chat.id} chat={chat} />)}
     </ul>
   );

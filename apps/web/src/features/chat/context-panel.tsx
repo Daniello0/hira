@@ -22,13 +22,20 @@ export function ContextPanel({ data, open, onClose }: { data: PanelData; open: b
   return (
     <aside data-open={open} inert={!open} aria-label="Context" className="motion-width hidden w-0 shrink-0 overflow-hidden border-line-light data-[open=true]:w-panel data-[open=true]:border-l md:block">
       <div className="scroll-on-hover h-full w-panel overflow-y-auto p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-base font-medium">Context</p>
-          <IconButton label="Hide context" shape="action" onClick={onClose}><X size={18} aria-hidden="true" /></IconButton>
-        </div>
+        <PanelHeader onClose={onClose} />
         <PanelBody data={data} />
       </div>
     </aside>
+  );
+}
+
+/** Title and close button, in the column and in the phone sheet. */
+export function PanelHeader({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <p className="text-base font-medium">Context</p>
+      <IconButton label="Hide context" shape="action" onClick={onClose}><X size={18} aria-hidden="true" /></IconButton>
+    </div>
   );
 }
 

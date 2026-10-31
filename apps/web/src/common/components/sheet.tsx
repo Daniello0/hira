@@ -20,7 +20,15 @@ export function Sheet({ open, onClose, label, side = 'left', widthClass = 'w-she
     <RadixDialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="motion-scrim fixed inset-0 z-30 bg-scrim-sheet" />
-        <RadixDialog.Content aria-describedby={undefined} className={`scroll-thin fixed inset-y-0 z-40 flex max-w-full flex-col overflow-y-auto bg-surface text-ink outline-none ${placement} ${widthClass}`}>
+        <RadixDialog.Content
+          aria-describedby={undefined}
+          onOpenAutoFocus={(event) => {
+            // Focus the panel, not its first button, so no tooltip pops up on opening.
+            event.preventDefault();
+            (event.currentTarget as HTMLElement).focus();
+          }}
+          className={`scroll-thin fixed inset-y-0 z-40 flex max-w-full flex-col overflow-y-auto bg-surface text-ink outline-none ${placement} ${widthClass}`}
+        >
           <RadixDialog.Title className="sr-only">{label}</RadixDialog.Title>
           {children}
         </RadixDialog.Content>

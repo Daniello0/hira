@@ -55,13 +55,4 @@
   .scroll-on-hover:focus-within {
     scrollbar-color: var(--scrollbar-hover) transparent;
   }
-
-  .text-fade-end {
-    mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent);
-  }
-
-  /* Elements the View Transitions API crossfades when the route changes. */
-  .page-transition {
-    view-transition-name: page;
-  }
 }

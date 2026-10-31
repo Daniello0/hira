@@ -37,14 +37,14 @@ export function VacancyCard({ result, open, onToggle, messageId = null }: Vacanc
           <Badge tone="solid" className="shrink-0 px-2.5 py-1 text-sm font-medium" title="Match score">{model.score}</Badge>
         </div>
         <CardMeta model={model} />
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <Collapsible open={open} onToggle={onToggle} summary={open ? 'Hide explanation' : 'Explain match'}>
-            <MatchExplanationView result={result} />
-          </Collapsible>
-          <div className="-mr-1.5 flex items-center self-start">
+        <div className="relative mt-3">
+          <div className="absolute -top-1.5 -right-1.5 flex items-center">
             {account && messageId !== null ? <FeedbackButtons messageId={messageId} vacancyId={vacancyId} /> : null}
             <FavoriteToggle vacancyId={vacancyId} />
           </div>
+          <Collapsible open={open} onToggle={onToggle} summary={open ? 'Hide explanation' : 'Explain match'}>
+            <MatchExplanationView result={result} />
+          </Collapsible>
         </div>
       </article>
     </Card>

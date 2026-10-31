@@ -13,7 +13,7 @@ export function ArchivedSection() {
   return (
     <>
       <PageHeading title="Archived chats" />
-      <div className="px-2">
+      <div>
         {loaded && archived.length === 0 ? <MutedText>No archived chats.</MutedText> : null}
         <ChatRows chats={archived} />
         <LoadMore />

@@ -15,7 +15,7 @@ This replaces the 2026 solution (Streamlit + FastAPI + Sentence-BERT bi-encoder 
 
 **Tech Stack:**
 - **Language:** TypeScript (strict mode, no implicit `any`)
-- **Frontend:** Next.js 15 (App Router), React 19, Tailwind CSS v4, Zustand
+- **Frontend:** Next.js 15 (App Router), React 19, Tailwind CSS v4, Radix UI, Zustand
 - **Core backend:** Nest.js (auth, CRUD, orchestration, Swagger)
 - **Microservices:** Express (`retrieval-service`, `llm-service`, `ingestion-service`)
 - **ORM:** TypeORM
@@ -50,7 +50,7 @@ This replaces the 2026 solution (Streamlit + FastAPI + Sentence-BERT bi-encoder 
 ## 3. Functional Requirements
 
 - **Multi-source ingestion:** Connectors for rabota.by (public HTML pages, ADR-035), the state employment portal (gsz.gov.by), Habr Career, praca.by, LinkedIn, and Indeed, on a cron schedule, with cross-source deduplication and expiry detection. The two English-language sources are rate-limited aggressively, restricted to public pages, and collected ahead of time so that demonstrations run against a database snapshot.
-- **Bilingual corpus, English UI:** Russian and English vacancies coexist; FTS configuration is per document language; skill aliases in both languages; foreign currencies converted to BYN; **UI is English-only**; Hira answers in the language of the user's message (ADR-028). Dark theme only (blue–dark-blue–black palette).
+- **Bilingual corpus, English UI:** Russian and English vacancies coexist; FTS configuration is per document language; skill aliases in both languages; foreign currencies converted to BYN; **UI is English-only**; Hira answers in the language of the user's message (ADR-028). Dark theme by default, ChatGPT palette, with System / Light / Dark on the Appearance page (ADR-042). All styles and motion live in `apps/web/src/styles` (ADR-043).
 - **Geography:** Minimum coverage — all of Belarus; EU/US/world if resources allow; foreign remote jobs flagged with UI filter.
 - **Freelance and project work:** Modelled explicitly as employment types with hourly/daily/per-project rates and an optional project duration, rather than being forced into a monthly-salary schema.
 - **Skill extraction and normalization:** LLM-based extraction of required skills from vacancy descriptions, canonicalized against the ESCO taxonomy (labels machine-translated into Russian, with manual review of the upper hierarchy and the most frequent skills) through an alias table with fuzzy and vector fallback linking.
@@ -88,7 +88,7 @@ Five services, synchronous REST between them, one shared PostgreSQL instance:
 **Key public endpoints (`core-api`):**
 
 - `POST /api/v1/auth/register` · `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` · `GET /api/v1/auth/me`
-- `GET|POST /api/v1/chats` · `GET|PATCH|DELETE /api/v1/chats/{id}` · `GET /api/v1/chats/{id}/messages`
+- `GET|POST /api/v1/chats` (`?q=` searches titles) · `GET|PATCH|DELETE /api/v1/chats/{id}` · `GET /api/v1/chats/{id}/messages`
 - **`POST /api/v1/chats/{id}/messages`** — primary endpoint; returns an SSE stream of `user-message` → `intent` → `results` → `token`* → `assistant-message` → `done`.
 - `POST /api/v1/search` — direct, chat-free search used for debugging and for the evaluation harness.
 - `GET /api/v1/vacancies/{id}` · `/similar` · `/skill-gap`

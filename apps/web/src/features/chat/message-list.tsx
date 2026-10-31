@@ -46,11 +46,11 @@ export function MessageList({ turn, openIds, onToggle, onOlder, hasOlder, accoun
           <LiveBubble turn={turn} cards={cards} />
         </div>
       </div>
-      {thread.away ? (
-        <IconButton label="Scroll to bottom" shape="round" tone="plain" className="motion-fade absolute bottom-3 left-1/2 -translate-x-1/2 border border-line bg-surface-raised shadow-menu" onClick={thread.toBottom}>
+      <div inert={!thread.away} className={`motion-swap absolute bottom-3 left-1/2 -translate-x-1/2 ${thread.away ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+        <IconButton label="Scroll to bottom" shape="round" tone="plain" className="border border-line bg-surface-raised shadow-menu" onClick={thread.toBottom}>
           <ArrowDown size={20} aria-hidden="true" />
         </IconButton>
-      ) : null}
+      </div>
     </div>
   );
 }

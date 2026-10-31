@@ -15,6 +15,7 @@ import { ResumeSuggestionsModal } from '../suggestions/resume-suggestions-modal'
 import { SuggestionModal } from '../suggestions/suggestion-modal';
 import { useSuggestions } from '../suggestions/suggestion.store';
 import { VacancyDetailDrawer } from '../vacancy/vacancy-detail-drawer';
+import { PageTransition } from './page-transition';
 import { SearchChatsDialog } from './search-chats-dialog';
 import { useShell } from './shell.store';
 import { DesktopSidebar, SidebarContent } from './sidebar';
@@ -35,7 +36,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <SearchChatsDialog />
       <DesktopSidebar />
       <SidebarSheet />
-      <main className="page-transition relative min-w-0 flex-1 pb-safe-bottom">{children}</main>
+      <main className="relative min-w-0 flex-1 pb-safe-bottom"><PageTransition>{children}</PageTransition></main>
     </div>
   );
 }

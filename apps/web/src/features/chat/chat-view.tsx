@@ -19,7 +19,7 @@ import { useShell } from '../shell/shell.store';
 import { deleteChatOnServer, renameChat } from './chat-actions';
 import { ChatActionsMenu } from './chat-actions-menu';
 import { useChatList } from './chat-list.store';
-import { ContextPanel, PanelBody, type PanelData } from './context-panel';
+import { ContextPanel, PanelBody, PanelHeader, type PanelData } from './context-panel';
 import { MessageInput } from './message-input';
 import { MessageList } from './message-list';
 import { EMPTY_ACCOUNT_CONTEXT, loadAccountContext, type AccountContext } from './panel-context';
@@ -45,7 +45,10 @@ export function ChatView({ chatId }: { chatId: string }) {
       <ChatColumn screen={screen} chatId={chatId} account={account} />
       <ContextPanel data={panel} open={contextOpen} onClose={() => setContext(false)} />
       <Sheet open={contextOpen && !desktop} side="right" widthClass="w-panel" label="Context" onClose={() => setContext(false)}>
-        <div className="p-4"><PanelBody data={panel} /></div>
+        <div className="p-4">
+          <PanelHeader onClose={() => setContext(false)} />
+          <PanelBody data={panel} />
+        </div>
       </Sheet>
     </div>
   );

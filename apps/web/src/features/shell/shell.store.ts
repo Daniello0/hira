@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DESKTOP_QUERY } from '../../common/hooks/use-media-query';
 
 interface ShellState {
   /** Phone sheet with the sidebar. */
@@ -32,12 +33,17 @@ export const useShell = create<ShellState>((set, get) => ({
     set({ sidebarCollapsed });
   },
   setContext: (contextOpen) => {
-    remember(CONTEXT_KEY, contextOpen);
+    if (isDesktop()) remember(CONTEXT_KEY, contextOpen);
     set({ contextOpen });
   },
   setSearch: (searchOpen) => set({ searchOpen }),
-  load: () => set({ sidebarCollapsed: recall(COLLAPSED_KEY), contextOpen: recall(CONTEXT_KEY) }),
+  load: () => set({ sidebarCollapsed: recall(COLLAPSED_KEY), contextOpen: isDesktop() && recall(CONTEXT_KEY) }),
 }));
+
+/** On a phone the panel is a sheet over the chat, so it never reopens by itself. */
+function isDesktop(): boolean {
+  return window.matchMedia(DESKTOP_QUERY).matches;
+}
 
 function remember(key: string, value: boolean): void {
   try {
