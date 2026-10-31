@@ -8,6 +8,7 @@ import {
   VALIDATION_ERROR_CODE,
 } from '../../common/constants/app.constants';
 import { ApiHttpException } from '../../common/filters/api-http.exception';
+import { readWebOrigin } from './auth.config';
 import {
   AUTH_EMAIL_TAKEN,
   AUTH_INVALID_CREDENTIALS,
@@ -31,11 +32,16 @@ import type { ClientMeta } from './refresh-token.store';
 import type { IssuedSession } from './auth.service';
 import type { AuthSessionDto } from '@hira/contracts';
 
-/** Cookie flags from Wiki/07: httpOnly, Secure, SameSite=Strict. */
+/** `Secure` follows the web origin: Safari drops a `Secure` cookie on `http://localhost`. */
+function secureCookies(): boolean {
+  return readWebOrigin(process.env).startsWith('https://');
+}
+
+/** Cookie flags from Wiki/07: httpOnly, SameSite=Strict, and Secure on https. */
 export function sessionCookieOptions(maxAgeSeconds: number): CookieOptions {
   return {
     httpOnly: true,
-    secure: true,
+    secure: secureCookies(),
     sameSite: 'strict',
     path: '/',
     maxAge: maxAgeSeconds * 1000,
@@ -44,7 +50,7 @@ export function sessionCookieOptions(maxAgeSeconds: number): CookieOptions {
 
 /** Options that must match the setter, or `clearCookie` will not remove the cookie. */
 export function clearSessionCookieOptions(): CookieOptions {
-  return { httpOnly: true, secure: true, sameSite: 'strict', path: '/' };
+  return { httpOnly: true, secure: secureCookies(), sameSite: 'strict', path: '/' };
 }
 
 /** Writes the refresh cookie. */

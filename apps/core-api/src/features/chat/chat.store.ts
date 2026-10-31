@@ -87,6 +87,8 @@ export interface ChatStore {
   insertChat(owner: ChatOwner): Promise<ChatRecord>;
   findChat(id: string): Promise<ChatRecord | null>;
   findDemoChat(demoSessionId: string): Promise<ChatRecord | null>;
+  /** Gives a guest chat with messages to the account, with its search logs. Null when there is none. */
+  claimDemoChat(demoSessionId: string, userId: string): Promise<ChatRecord | null>;
   listChats(owner: ChatOwner, cursor: PageCursor | null, limit: number, titleQuery?: string): Promise<ChatRecord[]>;
   updateChat(id: string, owner: ChatOwner, patch: ChatPatch): Promise<ChatRecord | null>;
   deleteChat(id: string, owner: ChatOwner): Promise<boolean>;

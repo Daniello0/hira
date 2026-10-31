@@ -46,6 +46,17 @@ export class MemoryChatStore implements ChatStore {
   }
 
   /** @inheritdoc */
+  async claimDemoChat(demoSessionId: string, userId: string): Promise<ChatRecord | null> {
+    const chat = this.chats.find((row) => row.demoSessionId === demoSessionId && row.messageCount > 0);
+    if (chat === undefined) return null;
+    chat.userId = userId;
+    chat.demoSessionId = null;
+    const messageIds = new Set(this.messages.filter((message) => message.chatId === chat.id).map((message) => message.id));
+    for (const log of this.searchLogs) if (log.messageId !== null && messageIds.has(log.messageId)) log.userId = userId;
+    return chat;
+  }
+
+  /** @inheritdoc */
   async listChats(owner: ChatOwner, cursor: PageCursor | null, limit: number, titleQuery?: string): Promise<ChatRecord[]> {
     const needle = titleQuery?.toLowerCase();
     return this.chats

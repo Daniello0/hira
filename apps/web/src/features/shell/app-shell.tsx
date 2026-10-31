@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sheet } from '../../common/components/sheet';
 import { DESKTOP_QUERY, useMediaQuery } from '../../common/hooks/use-media-query';
-import { renewAccess } from '../auth/session-access';
+import { bootstrapSession } from '../auth/session-access';
 import { useSession } from '../auth/session.store';
 import { SessionStatus } from '../auth/session-status';
 import { refreshChatList } from '../chat/chat-sidebar';
@@ -44,9 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 function useBootstrap(): void {
   useEffect(() => {
     if (useSession.getState().status !== SessionStatus.Unknown) return;
-    void renewAccess().then((token) => {
-      if (token === null) useSession.getState().setAnonymous();
-    });
+    void bootstrapSession();
   }, []);
 }
 

@@ -38,6 +38,11 @@ export class TypeOrmChatStore implements ChatStore {
   }
 
   /** @inheritdoc */
+  claimDemoChat(demoSessionId: string, userId: string): Promise<ChatRecord | null> {
+    return rows.claimDemoChat(rows.asSql(this.dataSource), demoSessionId, userId);
+  }
+
+  /** @inheritdoc */
   findDemoChat(demoSessionId: string): Promise<ChatRecord | null> {
     return rows.findDemoChat(rows.asSql(this.dataSource), demoSessionId);
   }

@@ -17,10 +17,11 @@ export interface RefreshTokenStore {
   issue(userId: string, now: Date, meta: ClientMeta): Promise<string>;
   /**
    * Rotates a presented token.
-   * Reuse of a revoked token revokes every active token of that user.
+   * A token replaced within the grace window gets a new one.
+   * Later reuse of a revoked token revokes every active token of that user.
    */
   rotate(rawToken: string, now: Date, meta: ClientMeta): Promise<RotateResult>;
-  /** Marks one active token revoked. Does not treat a second logout as theft. */
+  /** Ends one active token for good (no grace). Does not treat a second logout as theft. */
   revokeIfActive(rawToken: string, now: Date): Promise<void>;
 }
 

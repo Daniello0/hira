@@ -276,6 +276,60 @@ describe('stage 12 account surfaces', () => {
     expect(state.library.documents).toHaveLength(0);
   });
 
+  it('saves one profile field and leaves the others alone', async () => {
+    app = await createApp(stores());
+    const token = await register(app);
+    const put = (body: object) =>
+      request(app!.getHttpServer()).put('/api/v1/profile').set('Authorization', `Bearer ${token}`).send(body);
+    const first = await put({ headline: 'QA', desiredRoles: ['QA'], preferredWorkFormat: [], preferredEmployment: [] });
+    expect(first.status).toBe(200);
+    const second = await put({ preferredLocations: [1] });
+    expect(second.status).toBe(200);
+    expect(second.body).toMatchObject({ headline: 'QA', desiredRoles: ['QA'], preferredLocations: [1] });
+    const third = await put({ desiredRoles: null });
+    expect(third.body.desiredRoles).toEqual(['QA']);
+  });
+
+  it('moves a guest chat with messages into the account and only once', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const opened = await request(server).post('/api/v1/chats');
+    const cookie = demoCookie(opened);
+    await request(server).post(`/api/v1/chats/${opened.body.id}/messages`).set('Cookie', cookie).send({ content: 'hello' });
+    const token = await register(app);
+    const claim = () => request(server).post('/api/v1/chats/claim-guest').set('Cookie', cookie).set('Authorization', `Bearer ${token}`);
+    const claimed = await claim();
+    expect(claimed.status).toBe(201);
+    expect(claimed.body.chat.id).toBe(opened.body.id);
+    expect((await claim()).body.chat).toBeNull();
+    const listed = await request(server).get('/api/v1/chats').set('Authorization', `Bearer ${token}`);
+    expect(listed.body.items.map((chat: { id: string }) => chat.id)).toEqual([opened.body.id]);
+    const detail = await request(server).get(`/api/v1/chats/${opened.body.id}`).set('Authorization', `Bearer ${token}`);
+    expect(detail.body.messages.length).toBeGreaterThan(0);
+  });
+
+  it('leaves an empty guest chat behind and does not reset the guest counter', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const opened = await request(server).post('/api/v1/chats');
+    const cookie = demoCookie(opened);
+    const token = await register(app);
+    const claimed = await request(server).post('/api/v1/chats/claim-guest').set('Cookie', cookie).set('Authorization', `Bearer ${token}`);
+    expect(claimed.body.chat).toBeNull();
+    const still = await request(server).get(`/api/v1/chats/${opened.body.id}`).set('Cookie', cookie);
+    expect(still.status).toBe(200);
+  });
+
+  it('answers null without a guest cookie and refuses a guest caller', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const token = await register(app);
+    const none = await request(server).post('/api/v1/chats/claim-guest').set('Authorization', `Bearer ${token}`);
+    expect(none.body.chat).toBeNull();
+    const guest = await request(server).post('/api/v1/chats/claim-guest');
+    expect(guest.status).toBe(403);
+  });
+
   it('rejects an empty PDF and a missing profile skill', async () => {
     const state = stores();
     app = await createApp(state, '');
@@ -379,6 +433,12 @@ async function register(app: INestApplication, email = 'ada@example.com'): Promi
     displayName: 'Ada',
   });
   return response.body.accessToken as string;
+}
+
+function demoCookie(response: { headers: Record<string, unknown> }): string {
+  const cookies = response.headers['set-cookie'] as unknown as string[];
+  const demo = cookies.find((cookie) => cookie.startsWith('demoSessionId='));
+  return (demo ?? '').split(';')[0] ?? '';
 }
 
 function fakeLlm(): LlmGateway {

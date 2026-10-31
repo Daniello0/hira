@@ -20,6 +20,25 @@ describe('memory chat store', () => {
     expect(rest.map((chat) => chat.id)).toEqual([first.id]);
   });
 
+  it('hands a guest chat with messages to the account, once, and logs follow it', async () => {
+    const store = new MemoryChatStore();
+    const chat = await store.insertChat({ demoSessionId: 'guest-1' });
+    const message = await store.insertMessage({ chatId: chat.id, role: MessageRole.User, content: 'hi' });
+    await store.insertSearchLog({ userId: null, messageId: message.id, rawQuery: 'hi', intent: heuristicIntent('hi'), diagnostics: retrievalResponse().diagnostics });
+    const claimed = await store.claimDemoChat('guest-1', 'user-1');
+    expect(claimed).toMatchObject({ id: chat.id, userId: 'user-1', demoSessionId: null });
+    expect(store.searchLogs[0]?.userId).toBe('user-1');
+    expect(await store.claimDemoChat('guest-1', 'user-1')).toBeNull();
+    expect(await store.findDemoChat('guest-1')).toBeNull();
+  });
+
+  it('does not hand over an empty guest chat', async () => {
+    const store = new MemoryChatStore();
+    await store.insertChat({ demoSessionId: 'guest-1' });
+    expect(await store.claimDemoChat('guest-1', 'user-1')).toBeNull();
+    expect(await store.findDemoChat('guest-1')).not.toBeNull();
+  });
+
   it('keeps vacancy snapshots on the assistant message and drops them with the chat', async () => {
     const store = new MemoryChatStore();
     const chat = await store.insertChat({ userId: 'user-1' });

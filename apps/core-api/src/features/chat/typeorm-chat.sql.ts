@@ -37,6 +37,24 @@ export async function findDemoChat(sql: Sql, demoSessionId: string): Promise<Cha
   return rows[0] === undefined ? null : toChat(rows[0]);
 }
 
+/** Moves a guest chat with messages, and its search logs, to the account in one statement. */
+export async function claimDemoChat(sql: Sql, demoSessionId: string, userId: string): Promise<ChatRecord | null> {
+  const rows = await rowsOf(
+    sql,
+    `WITH claimed AS (
+       UPDATE chats SET user_id = $2, demo_session_id = NULL
+       WHERE demo_session_id = $1 AND message_count > 0
+       RETURNING ${CHAT_COLUMNS}
+     ), logs AS (
+       UPDATE search_logs SET user_id = $2
+       WHERE message_id IN (SELECT m.id FROM messages m JOIN claimed c ON m.chat_id = c.id)
+     )
+     SELECT * FROM claimed`,
+    [demoSessionId, userId],
+  );
+  return rows[0] === undefined ? null : toChat(rows[0]);
+}
+
 /** Loads one chat, or null. */
 export async function findChat(sql: Sql, id: string): Promise<ChatRecord | null> {
   const rows = await rowsOf(sql, `SELECT ${CHAT_COLUMNS} FROM chats WHERE id = $1`, [id]);

@@ -11,6 +11,7 @@ import { AlertText } from '../../common/components/feedback';
 import { HiraLogo } from '../../common/components/logo';
 import { TextField } from '../../common/components/text-field';
 import { COULD_NOT_REACH } from './auth.constants';
+import { accountLanding } from './enter-account';
 import { registerSchema } from './auth.schema';
 import { readApiMessage } from './read-api-message';
 import { loadMe } from './session';
@@ -99,7 +100,7 @@ async function registerAccount(
     { accessToken: body.accessToken, expiresAt: Date.now() + body.expiresIn * 1000 },
     user,
   );
-  router.push('/chat');
+  router.push(await accountLanding(body.accessToken));
 }
 
 function bodyOf(values: RegisterValues): Record<string, string> {

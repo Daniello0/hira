@@ -14,7 +14,15 @@ export function shouldRefresh(expiresAt: number | null, now: number): boolean {
   return expiresAt - now < REFRESH_LEAD_MS;
 }
 
-/** One refresh. A failed cookie is an anonymous tab, not an error screen. */
+/** The API could not answer the refresh. That says nothing about the session. */
+export class RefreshUnreachableError extends Error {
+  constructor(status: number) {
+    super(`Refresh answered ${status}`);
+    this.name = 'RefreshUnreachableError';
+  }
+}
+
+/** One refresh. A rejected cookie is an anonymous tab, not an error screen. A 5xx throws. */
 export async function refreshAccess(
   request: typeof fetch,
   now: number,
@@ -23,6 +31,7 @@ export async function refreshAccess(
     method: 'POST',
     credentials: 'include',
   });
+  if (response.status >= 500) throw new RefreshUnreachableError(response.status);
   if (!response.ok) return null;
   return grant(await response.json(), now);
 }
