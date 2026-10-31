@@ -61,7 +61,29 @@ describe('redis counters', () => {
       client.disconnect();
     }
   });
+
+  it('answers again after Redis restarts', async () => {
+    const client = createRedisClient({ REDIS_URL: redisUrl() });
+    try {
+      await client.ping();
+      await exec('docker', ['restart', CONTAINER]);
+      await waitForPing();
+      expect(await pingWithin(client, 10_000)).toBe('PONG');
+    } finally {
+      client.disconnect();
+    }
+  }, START_TIMEOUT_MS);
 });
+
+async function pingWithin(client: Redis, ms: number): Promise<string> {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    const answer = await client.ping().catch(() => null);
+    if (answer !== null) return answer;
+    await delay(200);
+  }
+  return 'no answer';
+}
 
 function redisUrl(): string {
   return `redis://127.0.0.1:${HOST_PORT}`;
