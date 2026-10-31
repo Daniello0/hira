@@ -11,6 +11,8 @@ const PRE_SPEECH_PAD_MS = 300;
 
 /** Opens the microphone with echo cancellation and finds speech in it with the Silero model. */
 export async function startVadMic(handlers: MicHandlers): Promise<{ stop: () => void }> {
+  // No microphone API over plain http: say so at once, before the model is fetched.
+  if (navigator.mediaDevices === undefined) throw new Error('The browser gives no microphone here');
   const { MicVAD, utils } = await import('@ricky0123/vad-web');
   const vad = await MicVAD.new({
     model: 'v5',
