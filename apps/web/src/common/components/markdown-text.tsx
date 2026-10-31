@@ -26,7 +26,7 @@ function Block({ block }: { block: MarkdownBlock }) {
     return <p className={`${size} font-semibold`} role="heading" aria-level={block.level}>{inline(block.text)}</p>;
   }
   if (block.kind === 'code') {
-    return <pre className="overflow-x-auto rounded-md bg-black/40 p-3 text-sm"><code>{block.text}</code></pre>;
+    return <pre className="overflow-x-auto rounded-md bg-surface-control p-3 text-sm"><code>{block.text}</code></pre>;
   }
   if (block.kind === 'list') return <List ordered={block.ordered} items={block.items} />;
   return <p className="whitespace-pre-wrap">{inline(block.text)}</p>;
@@ -44,7 +44,7 @@ function inline(text: string): ReactNode[] {
 
 function token(part: string, key: number): ReactNode {
   if (part.startsWith('`') && part.endsWith('`') && part.length > 1)
-    return <code key={key} className="rounded bg-black/40 px-1">{part.slice(1, -1)}</code>;
+    return <code key={key} className="rounded-sm bg-surface-control px-1">{part.slice(1, -1)}</code>;
   if (isWrapped(part, '**') || isWrapped(part, '__')) return <strong key={key}>{part.slice(2, -2)}</strong>;
   if (isWrapped(part, '*') || isWrapped(part, '_')) return <em key={key}>{part.slice(1, -1)}</em>;
   const link = LINK.exec(part);
@@ -55,7 +55,7 @@ function token(part: string, key: number): ReactNode {
 function linkNode(label: string, href: string, key: number): ReactNode {
   if (!SAFE_URL.test(href)) return label;
   return (
-    <a key={key} className="text-hira-accent underline" href={href} target="_blank" rel="noopener noreferrer">
+    <a key={key} className="text-link underline" href={href} target="_blank" rel="noopener noreferrer">
       {label}
     </a>
   );

@@ -5,6 +5,7 @@ export const CHAT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 50;
 export const MAX_MESSAGE_LENGTH = 4_000;
 export const MAX_CHAT_TITLE_LENGTH = 256;
+export const CHAT_SEARCH_MAX_LENGTH = MAX_CHAT_TITLE_LENGTH;
 export const DEMO_CHAT_LIMIT = 1;
 
 /** First message becomes the title until the user renames the chat. An emoji is not split. */

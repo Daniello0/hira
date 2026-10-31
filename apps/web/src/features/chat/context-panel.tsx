@@ -1,4 +1,6 @@
 import type { RetrievalDiagnostics, SearchIntent } from '@hira/contracts';
+import { X } from 'lucide-react';
+import { IconButton } from '../../common/components/icon-button';
 import { seniorityLabel } from '../../common/utils/enum-labels';
 import { constraintLines, intentSkills } from './context-lines';
 import type { AccountContext } from './panel-context';
@@ -15,12 +17,25 @@ export interface PanelData {
 
 const MEMORY_PREVIEW = 5;
 
-/** Right column: intent, filters, profile skills, and memory. */
-export function ContextPanel({ data }: { data: PanelData }) {
+/** Right column that slides open from the header button: intent, filters, profile skills, and memory. */
+export function ContextPanel({ data, open, onClose }: { data: PanelData; open: boolean; onClose: () => void }) {
   return (
-    <aside className="hidden h-screen overflow-y-auto border-l border-white/10 bg-hira-panel/40 p-4 md:block">
-      <PanelBody data={data} />
+    <aside data-open={open} inert={!open} aria-label="Context" className="motion-width hidden w-0 shrink-0 overflow-hidden border-line-light data-[open=true]:w-panel data-[open=true]:border-l md:block">
+      <div className="scroll-on-hover h-full w-panel overflow-y-auto p-4">
+        <PanelHeader onClose={onClose} />
+        <PanelBody data={data} />
+      </div>
     </aside>
+  );
+}
+
+/** Title and close button, in the column and in the phone sheet. */
+export function PanelHeader({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <p className="text-base font-medium">Context</p>
+      <IconButton label="Hide context" shape="action" onClick={onClose}><X className="size-icon-md" aria-hidden="true" /></IconButton>
+    </div>
   );
 }
 
@@ -53,7 +68,7 @@ function Section({ title, lines }: { title: string; lines: readonly string[] }) 
   return (
     <section>
       <h2 className="font-medium">{title}</h2>
-      <ul className="mt-1 space-y-1 text-hira-muted">
+      <ul className="mt-1 space-y-1 text-ink-tertiary">
         {lines.map((line, index) => <li key={`${title}-${index}`}>{line}</li>)}
       </ul>
     </section>

@@ -38,7 +38,6 @@ export class RedisModule {}
 export function createRedisClient(env: NodeJS.ProcessEnv): Redis {
   return new Redis(readRedisUrl(env), {
     lazyConnect: true,
-    enableReadyCheck: false,
     maxRetriesPerRequest: 1,
     retryStrategy: (attempt) => Math.min(attempt * RECONNECT_STEP_MS, RECONNECT_MAX_MS),
   });

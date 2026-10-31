@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { SkeletonList } from '../../common/components/feedback';
 import { useSession } from '../auth/session.store';
 import { accountDestination, accountPending } from './account-gate';
 
@@ -15,11 +16,11 @@ export function RequireAccount({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (destination !== null) router.replace(destination);
   }, [destination, router]);
-  if (accountPending(status)) return <p className="p-6">Loading…</p>;
+  if (accountPending(status)) return <SkeletonList />;
   if (destination !== null) {
     return (
-      <p className="p-6">
-        Sign in required. <Link className="text-hira-accent underline" href="/login">Sign in</Link>
+      <p className="text-sm text-ink-secondary">
+        Sign in required. <Link className="text-link underline" href="/login">Sign in</Link>
       </p>
     );
   }

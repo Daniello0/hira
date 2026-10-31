@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  devIndicators: false,
+  experimental: {
+    viewTransition: true,
+  },
+  async redirects() {
+    return ['profile', 'memory', 'billing'].map((section) => ({
+      source: `/${section}`,
+      destination: `/settings/${section}`,
+      permanent: false,
+    }));
+  },
 };
 
 export default nextConfig;

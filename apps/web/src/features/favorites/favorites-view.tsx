@@ -4,6 +4,8 @@ import type { FormEvent } from 'react';
 import type { CollectionDto, FavoriteDto } from '@hira/contracts';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '../../common/components/button';
+import { AlertText, MutedText, SkeletonList } from '../../common/components/feedback';
+import { PageColumn, PageHeading } from '../../common/components/page-frame';
 import { TextField } from '../../common/components/text-field';
 import { useSession } from '../auth/session.store';
 import { createCollection, fetchCollections, fetchFavorites } from './favorites-api';
@@ -39,25 +41,27 @@ export function FavoritesView() {
   if (token === null) return null;
   const onDone = () => reload(query);
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
-      <h1 className="text-2xl font-semibold">Favorites</h1>
-      <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); void reload(query); }}>
-        <TextField label="Search notes" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <Button type="submit">Search</Button>
-      </form>
-      <NewCollection onDone={onDone} onError={setError} />
-      {error !== null ? <p role="alert">{error}</p> : null}
+    <PageColumn>
+      <PageHeading title="Favorites" />
+      <div className="flex flex-wrap items-end gap-6">
+        <form className="flex min-w-0 flex-1 items-end gap-2" onSubmit={(event) => { event.preventDefault(); void reload(query); }}>
+          <TextField className="min-w-0 flex-1" label="Search notes" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <Button type="submit" variant="secondary">Search</Button>
+        </form>
+        <NewCollection onDone={onDone} onError={setError} />
+      </div>
+      {error !== null ? <AlertText>{error}</AlertText> : null}
       <FavoriteGroups data={data} failed={error !== null} query={query} onDone={onDone} onError={setError} />
-    </div>
+    </PageColumn>
   );
 }
 
 function FavoriteGroups({ data, failed, query, onDone, onError }: { data: FavoritesData | null; failed: boolean; query: string; onDone: () => Promise<void>; onError: OnError }) {
-  if (data === null) return failed ? null : <p className="text-sm text-hira-muted">Loading…</p>;
+  if (data === null) return failed ? null : <SkeletonList />;
   const emptyMessage = favoritesEmptyMessage(query, data.favorites.length);
   return (
     <>
-      {emptyMessage !== null ? <p className="text-sm text-hira-muted">{emptyMessage}</p> : null}
+      {emptyMessage !== null ? <MutedText>{emptyMessage}</MutedText> : null}
       {groupFavorites(data.favorites, data.collections).map((group) => (
         <Group key={group.id ?? 'none'} group={group} collections={data.collections} onDone={onDone} onError={onError} />
       ))}
@@ -67,9 +71,9 @@ function FavoriteGroups({ data, failed, query, onDone, onError }: { data: Favori
 
 function NewCollection({ onDone, onError }: { onDone: () => Promise<void>; onError: OnError }) {
   return (
-    <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void addCollection(event, onDone, onError)}>
-      <TextField label="New collection" name="name" required />
-      <Button type="submit">Create</Button>
+    <form className="flex min-w-0 flex-1 items-end gap-2" onSubmit={(event) => void addCollection(event, onDone, onError)}>
+      <TextField className="min-w-0 flex-1" label="New collection" name="name" required />
+      <Button type="submit" variant="secondary">Create</Button>
     </form>
   );
 }
@@ -78,7 +82,7 @@ function Group({ group, collections, onDone, onError }: { group: FavoriteGroup; 
   return (
     <section className="space-y-3">
       <CollectionHeader group={group} onDone={onDone} onError={onError} />
-      {group.items.length === 0 ? <p className="text-sm text-hira-muted">No saved vacancies.</p> : null}
+      {group.items.length === 0 ? <MutedText>No saved vacancies.</MutedText> : null}
       {group.items.map((favorite) => (
         <FavoriteCard key={favorite.id} favorite={favorite} collections={collections} onDone={onDone} onError={onError} />
       ))}

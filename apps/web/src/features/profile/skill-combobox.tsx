@@ -41,14 +41,14 @@ export function SkillCombobox({ onPick }: { onPick: (hit: SkillSearchHitDto) => 
 
 function SearchResult({ search, onPick }: { search: SearchState; onPick: (hit: SkillSearchHitDto) => void }) {
   if (search.kind === 'idle') return null;
-  if (search.kind === 'loading') return <p className="mt-2 text-sm text-hira-muted">Searching…</p>;
-  if (search.kind === 'failed') return <p className="mt-2 text-sm" role="alert">Could not search skills</p>;
-  if (search.hits.length === 0) return <p className="mt-2 text-sm text-hira-muted">No matches</p>;
+  if (search.kind === 'loading') return <p className="motion-pulse mt-2 text-sm text-ink-tertiary">Searching…</p>;
+  if (search.kind === 'failed') return <p className="mt-2 text-sm text-danger" role="alert">Could not search skills</p>;
+  if (search.hits.length === 0) return <p className="mt-2 text-sm text-ink-tertiary">No matches</p>;
   return (
-    <ul className="mt-2 space-y-1">
+    <ul className="motion-fade mt-2 space-y-0.5">
       {search.hits.map((hit) => (
         <li key={hit.skillId}>
-          <button type="button" className="text-sm text-hira-accent" onClick={() => onPick(hit)}>{hit.canonicalName}</button>
+          <button type="button" className="h-row w-full rounded-row px-2 text-left text-sm text-ink transition-colors hover:bg-hover" onClick={() => onPick(hit)}>{hit.canonicalName}</button>
         </li>
       ))}
     </ul>

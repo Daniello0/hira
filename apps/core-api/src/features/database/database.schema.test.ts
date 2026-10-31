@@ -9,6 +9,7 @@ import {
   HNSW_M,
   SEARCH_DOCUMENT_EXPRESSION,
 } from './database.constants';
+import { DEFAULT_COLLECTION_INDEX_UP } from './migrations/1765000000000-default-collection-index';
 import { REFRESH_TOKEN_HASH_INDEX_UP } from './migrations/1762000000000-refresh-token-hash-index';
 import { INITIAL_SCHEMA_UP } from './schema-statements';
 
@@ -70,7 +71,8 @@ describe('schema constants', () => {
     expect(sql).toContain('UNIQUE (id, user_id)');
     expect(sql).toContain('favorites_collection_same_user');
     expect(sql).toContain('ON DELETE SET NULL (collection_id)');
-    expect(sql).toContain('uq_collections_default_per_user');
+    expect(sql).not.toContain('uq_collections_default_per_user');
+    expect(DEFAULT_COLLECTION_INDEX_UP).toContain('uq_collections_default_per_user');
   });
 
   it('creates extensions, partial BM25 indexes, HNSW, and trigram indexes in SQL', () => {

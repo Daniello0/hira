@@ -7,7 +7,7 @@ export function MemorySourceLink({ fact }: { fact: MemoryFactDto }) {
   const source = formatMemorySource(fact);
   if (source.href === null) return <span>{source.label}</span>;
   return (
-    <Link className="text-hira-accent underline" href={source.href}>
+    <Link className="text-link underline" href={source.href}>
       {source.label}
     </Link>
   );

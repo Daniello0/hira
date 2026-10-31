@@ -4,7 +4,10 @@ import { DocumentFormat, DocumentKind, type DocumentDraftDto } from '@hira/contr
 import Link from 'next/link';
 import { useState } from 'react';
 import { Button } from '../../common/components/button';
+import { Collapsible } from '../../common/components/collapsible';
+import { AlertText } from '../../common/components/feedback';
 import { MarkdownText } from '../../common/components/markdown-text';
+import { Select } from '../../common/components/select';
 import { TextField } from '../../common/components/text-field';
 import { documentKindLabel } from '../../common/utils/enum-labels';
 import { useSession } from '../auth/session.store';
@@ -13,8 +16,6 @@ import { TEXT_KINDS } from '../library/library.constants';
 import { saveDraftAsNew, replaceWithDraft, type DraftEdits } from './save-draft';
 
 type DraftPhase = { kind: 'editing' } | { kind: 'saving' } | { kind: 'saved'; replaced: boolean } | { kind: 'dismissed' };
-
-const FIELD_CLASS = 'mt-1 w-full rounded-md border border-white/15 bg-hira-bg px-3 py-2 text-hira-text';
 
 /** File text Hira proposed. Nothing is written until the user saves it (ADR-024). */
 export function DocumentDraftCard({ draft }: { draft: DocumentDraftDto }) {
@@ -25,11 +26,11 @@ export function DocumentDraftCard({ draft }: { draft: DocumentDraftDto }) {
   if (phase.kind === 'dismissed') return null;
   const run = (replace: boolean) => void save(draft, edits, replace, setPhase, setError);
   return (
-    <section className="mt-3 space-y-3 rounded-lg border border-hira-accent/40 bg-hira-bg/60 p-3" aria-label="Draft from Hira">
+    <section className="motion-enter mt-3 space-y-3 rounded-card border border-line bg-surface-card p-4" aria-label="Draft from Hira">
       <p className="text-sm font-medium">Draft from Hira</p>
       {phase.kind === 'saved' ? <SavedNote replaced={phase.replaced} /> : <DraftFields edits={edits} onChange={setEdits} />}
       <Preview draft={draft} format={edits.format} />
-      {error !== null ? <p role="alert" className="text-sm">{error}</p> : null}
+      {error !== null ? <AlertText>{error}</AlertText> : null}
       {phase.kind === 'saved' ? null : (
         <DraftActions draft={draft} account={account} busy={phase.kind === 'saving'} onSave={run} onDismiss={() => setPhase({ kind: 'dismissed' })} />
       )}
@@ -39,41 +40,29 @@ export function DocumentDraftCard({ draft }: { draft: DocumentDraftDto }) {
 
 function DraftFields({ edits, onChange }: { edits: DraftEdits; onChange: (next: DraftEdits) => void }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-[1fr_8rem_8rem]">
-      <TextField label="Title" value={edits.title} onChange={(event) => onChange({ ...edits, title: event.target.value })} />
-      <label className="block text-sm text-hira-muted">
-        Format
-        <select className={FIELD_CLASS} value={edits.format} onChange={(event) => onChange({ ...edits, format: event.target.value as DocumentFormat })}>
-          <option value={DocumentFormat.Md}>Markdown</option>
-          <option value={DocumentFormat.Txt}>Text</option>
-        </select>
-      </label>
-      <label className="block text-sm text-hira-muted">
-        Kind
-        <select className={FIELD_CLASS} value={edits.kind} onChange={(event) => onChange({ ...edits, kind: event.target.value as DocumentKind })}>
-          {TEXT_KINDS.map((kind) => <option key={kind} value={kind}>{documentKindLabel(kind)}</option>)}
-        </select>
-      </label>
+    <div className="flex flex-wrap items-end gap-3">
+      <TextField className="min-w-0 flex-1 basis-full md:basis-0" label="Title" value={edits.title} onChange={(event) => onChange({ ...edits, title: event.target.value })} />
+      <Select label="Format" value={edits.format} options={[{ value: DocumentFormat.Md, label: 'Markdown' }, { value: DocumentFormat.Txt, label: 'Text' }]} onChange={(value) => onChange({ ...edits, format: value as DocumentFormat })} />
+      <Select label="Kind" value={edits.kind} options={TEXT_KINDS.map((kind) => ({ value: kind, label: documentKindLabel(kind) }))} onChange={(value) => onChange({ ...edits, kind: value as DocumentKind })} />
     </div>
   );
 }
 
 function Preview({ draft, format }: { draft: DocumentDraftDto; format: DocumentFormat }) {
   return (
-    <details className="text-sm">
-      <summary className="cursor-pointer text-hira-muted">Preview ({draft.content.length} characters)</summary>
-      <div className="mt-2 max-h-64 overflow-y-auto rounded-md bg-black/30 p-3">
+    <Collapsible summary={`Preview (${draft.content.length} characters)`}>
+      <div className="scroll-thin mt-2 max-h-preview-max overflow-y-auto rounded-field bg-surface-control p-3 text-sm">
         {format === DocumentFormat.Md ? <MarkdownText text={draft.content} /> : <p className="whitespace-pre-wrap">{draft.content}</p>}
       </div>
-    </details>
+    </Collapsible>
   );
 }
 
 function DraftActions({ draft, account, busy, onSave, onDismiss }: { draft: DocumentDraftDto; account: boolean; busy: boolean; onSave: (replace: boolean) => void; onDismiss: () => void }) {
   if (!account) {
     return (
-      <p className="text-sm text-hira-muted">
-        <Link className="text-hira-accent underline" href="/login">Sign in</Link> to save drafts to your library.
+      <p className="text-sm text-ink-tertiary">
+        <Link className="text-link underline" href="/login">Sign in</Link> to save drafts to your library.
       </p>
     );
   }
@@ -81,9 +70,9 @@ function DraftActions({ draft, account, busy, onSave, onDismiss }: { draft: Docu
     <div className="flex flex-wrap gap-2">
       <Button type="button" disabled={busy} onClick={() => onSave(false)}>{busy ? 'Saving…' : 'Save as new'}</Button>
       {draft.targetDocumentId !== null ? (
-        <Button type="button" tone="quiet" disabled={busy} onClick={() => onSave(true)}>Replace {draft.targetTitle ?? 'file'}</Button>
+        <Button type="button" variant="secondary" disabled={busy} onClick={() => onSave(true)}>Replace {draft.targetTitle ?? 'file'}</Button>
       ) : null}
-      <Button type="button" tone="quiet" disabled={busy} onClick={onDismiss}>Dismiss</Button>
+      <Button type="button" variant="secondary" disabled={busy} onClick={onDismiss}>Dismiss</Button>
     </div>
   );
 }
@@ -92,7 +81,7 @@ function SavedNote({ replaced }: { replaced: boolean }) {
   return (
     <p className="text-sm" role="status">
       {replaced ? 'File updated.' : 'Saved to your library.'}{' '}
-      <Link className="text-hira-accent underline" href="/library">Open library</Link>
+      <Link className="text-link underline" href="/library">Open library</Link>
     </p>
   );
 }

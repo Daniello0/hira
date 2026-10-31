@@ -3,7 +3,10 @@
 import { ProfileSkillSource, type ProfileSuggestionDto } from '@hira/contracts';
 import { useState } from 'react';
 import { Button } from '../../common/components/button';
-import { Modal } from '../../common/components/modal';
+import { Checkbox } from '../../common/components/checkbox';
+import { Dialog } from '../../common/components/dialog';
+import { AlertText, MutedText } from '../../common/components/feedback';
+import { useLastDefined } from '../../common/hooks/use-last-defined';
 import { suggestionCanAccept, suggestionTitle, suggestionValue } from './format-suggestion';
 import { useSuggestions } from './suggestion.store';
 
@@ -13,10 +16,16 @@ const BATCH_FAILED = 'Some items could not be updated. They stay in the list.';
 export function ResumeSuggestionsModal() {
   const open = useSuggestions((state) => state.resumeBatch);
   const items = useSuggestions((state) => state.items);
-  const close = useSuggestions((state) => state.setResumeBatch);
+  const setBatch = useSuggestions((state) => state.setResumeBatch);
   const fromResume = items.filter((item) => item.source === ProfileSkillSource.ExtractedFromResume);
-  if (!open || fromResume.length === 0) return null;
-  return <ResumeChecklist items={fromResume} onClose={() => close(false)} />;
+  const visible = open && fromResume.length > 0;
+  const shown = useLastDefined(visible ? fromResume : null);
+  const close = () => setBatch(false);
+  return (
+    <Dialog open={visible} title="Found in your resume" onClose={close}>
+      {shown !== null ? <ResumeChecklist items={shown} onClose={close} /> : null}
+    </Dialog>
+  );
 }
 
 function ResumeChecklist({ items, onClose }: { items: readonly ProfileSuggestionDto[]; onClose: () => void }) {
@@ -26,17 +35,17 @@ function ResumeChecklist({ items, onClose }: { items: readonly ProfileSuggestion
   const toggle = (id: string) => setChecked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   const submit = () => void applyBatch(items, checked, setBusy, setError, onClose);
   return (
-    <Modal title="Found in your resume" onClose={onClose}>
-      <p className="mt-2 text-sm text-hira-muted">Choose what to add to your profile. Unchecked items are dismissed.</p>
-      <ul className="mt-3 max-h-80 space-y-2 overflow-y-auto">
+    <>
+      <MutedText className="mt-2">Choose what to add to your profile. Unchecked items are dismissed.</MutedText>
+      <ul className="scroll-thin mt-3 max-h-list-max space-y-2 overflow-y-auto">
         {items.map((item) => <ChecklistRow key={item.id} item={item} checked={checked.includes(item.id)} onToggle={() => toggle(item.id)} />)}
       </ul>
-      {error !== null ? <p className="mt-2 text-sm" role="alert">{error}</p> : null}
-      <div className="mt-4 flex gap-2">
-        <Button type="button" disabled={busy} onClick={submit}>{busy ? 'Saving…' : `Add selected (${checked.length})`}</Button>
-        <Button type="button" tone="quiet" disabled={busy} onClick={onClose}>Later</Button>
+      {error !== null ? <AlertText className="mt-2">{error}</AlertText> : null}
+      <div className="mt-5 flex justify-end gap-2">
+        <Button variant="secondary" disabled={busy} onClick={onClose}>Later</Button>
+        <Button disabled={busy} onClick={submit}>{busy ? 'Saving…' : `Add selected (${checked.length})`}</Button>
       </div>
-    </Modal>
+    </>
   );
 }
 
@@ -44,13 +53,10 @@ function ChecklistRow({ item, checked, onToggle }: { item: ProfileSuggestionDto;
   const canAccept = suggestionCanAccept(item);
   return (
     <li>
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" className="mt-1" checked={checked && canAccept} disabled={!canAccept} onChange={onToggle} />
-        <span>
-          {suggestionValue(item) ?? suggestionTitle(item)}
-          {canAccept ? null : <span className="block text-xs text-hira-muted">Not in the skill catalog yet</span>}
-        </span>
-      </label>
+      <Checkbox checked={checked && canAccept} disabled={!canAccept} onChange={onToggle}>
+        {suggestionValue(item) ?? suggestionTitle(item)}
+        {canAccept ? null : <span className="block text-xs text-ink-tertiary">Not in the skill catalog yet</span>}
+      </Checkbox>
     </li>
   );
 }

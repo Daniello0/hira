@@ -1,0 +1,201 @@
+/*
+ * Hira motion tokens. The only place where a duration, easing curve, or keyframe is written.
+ * Every overlay and list uses one of the `.motion-*` classes below: opening and closing are a pair.
+ * Radix keeps a closing element mounted until its CSS animation ends, so overlays use keyframes.
+ * Rule and how to extend it: Wiki/06-frontend.md §5.
+ */
+
+:root {
+  --duration-basic: 150ms;
+  --duration-moderate: 200ms;
+  --duration-enter: 250ms;
+  --duration-relaxed: 300ms;
+  --stagger-step: 40ms;
+  --ease-basic: ease;
+  --ease-enter: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-enter-snappy: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-exit: cubic-bezier(0.8, 0, 0.4, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@theme {
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: ease;
+  --transition-duration-basic: 150ms;
+  --transition-duration-moderate: 200ms;
+  --transition-duration-relaxed: 300ms;
+  --ease-*: initial;
+  --ease-enter: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-exit: cubic-bezier(0.8, 0, 0.4, 1);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes menu-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes menu-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.98); }
+}
+
+/* Centering uses the `translate` property, so these only touch `scale`. */
+@keyframes dialog-in {
+  from { opacity: 0; scale: 0.96; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes dialog-out {
+  from { opacity: 1; scale: 1; }
+  to { opacity: 0; scale: 0.98; }
+}
+
+@keyframes sheet-left-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes sheet-left-out {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@keyframes sheet-right-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes sheet-right-out {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes collapsible-open {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+
+@keyframes collapsible-close {
+  from { height: var(--radix-collapsible-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+
+@keyframes enter-up {
+  from { opacity: 0; transform: translateY(0.25rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes row-leave {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-0.5rem); }
+}
+
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes loading-shimmer {
+  from { background-position: -100% 0; }
+  to { background-position: 250% 0; }
+}
+
+@keyframes pulse-soft {
+  50% { opacity: 0.5; }
+}
+
+@keyframes page-out {
+  to { opacity: 0; }
+}
+
+@keyframes page-in {
+  from { opacity: 0; }
+}
+
+@layer components {
+  .motion-menu {
+    transform-origin: var(--radix-dropdown-menu-content-transform-origin, var(--radix-popper-transform-origin));
+  }
+  .motion-menu[data-state='open'] { animation: menu-in var(--duration-basic) var(--ease-basic); }
+  .motion-menu[data-state='closed'] { animation: menu-out var(--duration-basic) var(--ease-basic); }
+
+  .motion-tooltip[data-state='delayed-open'],
+  .motion-tooltip[data-state='instant-open'] { animation: fade-in var(--duration-basic) var(--ease-basic); }
+  .motion-tooltip[data-state='closed'] { animation: fade-out var(--duration-basic) var(--ease-basic); }
+
+  .motion-scrim[data-state='open'] { animation: fade-in var(--duration-moderate) var(--ease-basic); }
+  .motion-scrim[data-state='closed'] { animation: fade-out var(--duration-moderate) var(--ease-basic); }
+
+  .motion-dialog[data-state='open'] { animation: dialog-in var(--duration-enter) var(--ease-enter); }
+  .motion-dialog[data-state='closed'] { animation: dialog-out var(--duration-moderate) var(--ease-exit); }
+
+  .motion-sheet-left[data-state='open'] { animation: sheet-left-in var(--duration-enter) var(--ease-enter); }
+  .motion-sheet-left[data-state='closed'] { animation: sheet-left-out var(--duration-moderate) var(--ease-exit); }
+
+  .motion-sheet-right[data-state='open'] { animation: sheet-right-in var(--duration-enter) var(--ease-enter); }
+  .motion-sheet-right[data-state='closed'] { animation: sheet-right-out var(--duration-moderate) var(--ease-exit); }
+
+  .motion-collapsible { overflow: hidden; }
+  .motion-collapsible[data-state='open'] { animation: collapsible-open var(--duration-moderate) var(--ease-in-out); }
+  .motion-collapsible[data-state='closed'] { animation: collapsible-close var(--duration-moderate) var(--ease-in-out); }
+
+  .motion-chevron { transition: transform var(--duration-basic) var(--ease-basic); }
+  [data-state='open'] > .motion-chevron { transform: rotate(180deg); }
+
+  .motion-enter { animation: enter-up var(--duration-enter) var(--ease-enter) backwards; }
+  .motion-stagger { animation-delay: calc(var(--stagger-index, 0) * var(--stagger-step)); }
+  .motion-fade { animation: fade-in var(--duration-moderate) var(--ease-basic) backwards; }
+  .motion-bar { transform-origin: left; animation: bar-grow var(--duration-relaxed) var(--ease-enter) backwards; }
+  .motion-pulse { animation: pulse-soft 1.6s var(--ease-in-out) infinite; }
+
+  .motion-row[data-leaving='true'] {
+    animation: row-leave var(--duration-moderate) var(--ease-exit) forwards;
+    pointer-events: none;
+  }
+
+  /* Sidebar, rail, and context panel keep their content mounted and change width. */
+  .motion-width { transition: width var(--duration-moderate) var(--ease-in-out); }
+  .motion-swap { transition: opacity var(--duration-basic) var(--ease-basic); }
+
+  .motion-shimmer {
+    background: linear-gradient(90deg, var(--ink-tertiary) 0%, var(--ink) 50%, var(--ink-tertiary) 100%);
+    background-size: 200% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: loading-shimmer 2s linear infinite;
+  }
+
+  .motion-skeleton {
+    background: var(--hover);
+    animation: pulse-soft 1.6s var(--ease-in-out) infinite;
+  }
+}
+
+/* Page changes: the old page fades out, the new one fades in. */
+::view-transition-old(page) { animation: page-out var(--duration-basic) var(--ease-basic) both; }
+::view-transition-new(page) { animation: page-in var(--duration-moderate) var(--ease-basic) both; }
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

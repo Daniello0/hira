@@ -10,9 +10,10 @@ import { SessionStatus } from '../auth/session-status';
 import { scheduleSuggestionRefresh } from '../suggestions/suggestion.store';
 import { fetchOlder, loadChat } from './chat-api';
 import { useChatDraft } from './chat-draft.store';
-import { useChatList } from './chat-list.store';
+import { findChat, useChatList } from './chat-list.store';
 import { MESSAGE_TOO_LONG, RELOAD_FAILED } from './chat.constants';
 import { refreshChatList } from './chat-sidebar';
+import { takePendingSend } from './start-chat';
 import { postStream, type StreamResult } from './chat-stream';
 import { useForeignRemotePreference } from './foreign-remote-preference';
 import {
@@ -48,7 +49,7 @@ export function useChatScreen(chatId: string) {
   const [includeForeignRemote, setIncludeForeignRemote] = useForeignRemotePreference();
   const [finishedTurns, setFinishedTurns] = useState(0);
   const [attempt, setAttempt] = useState(0);
-  const listed = useChatList((state) => state.chats.find((chat) => chat.id === chatId)?.isArchived);
+  const listed = useChatList((state) => findChat(state, chatId)?.isArchived);
   const latest = useRef(turn);
   const loadingOlder = useRef(false);
   latest.current = turn;
@@ -72,11 +73,20 @@ export function useChatScreen(chatId: string) {
     };
   }, [chatId, status, attempt]);
 
-  async function send(): Promise<void> {
+  // A first message from the home screen waits here until the new chat is readable.
+  useEffect(() => {
+    if (!ready) return;
+    const pending = takePendingSend(chatId);
+    if (pending === null) return;
+    setUseMemory(pending.useMemory);
+    void send(pending.useMemory);
+  }, [ready, chatId]);
+
+  async function send(memory: boolean = useMemory): Promise<void> {
     const decision = rejectDraft(draft, latest.current.phase);
     if (decision === 'too-long') return publish({ ...latest.current, notice: MESSAGE_TOO_LONG }, latest, setTurn);
     if (decision !== 'ok' || !ready) return;
-    const body = messageBody(draft.trim(), status === SessionStatus.Account, useMemory, includeForeignRemote);
+    const body = messageBody(draft.trim(), status === SessionStatus.Account, memory, includeForeignRemote);
     publish({ ...latest.current, phase: StreamPhase.Searching, banner: null, notice: null }, latest, setTurn);
     if (!(await sessionStillOpen(status))) return publish(releaseTurn(latest.current, SIGN_IN_AGAIN), latest, setTurn);
     const result = await postStream(messagePath(chatId), body, (event) =>
@@ -100,7 +110,7 @@ export function useChatScreen(chatId: string) {
     finishedTurns,
     retry: () => setAttempt((count) => count + 1),
     toggle: (id: string) => setOpenIds((current) => toggleId(current, id)),
-    send,
+    send: () => send(),
     hasOlder: cursor !== null,
     loadOlder: () => void loadOlderMessages(chatId, cursor, latest, setTurn, setCursor, loadingOlder),
   };
@@ -152,6 +162,7 @@ async function loadHistory(
     setCursor(loaded.detail.nextCursor);
   }
   setArchived(loaded.detail.chat.isArchived);
+  useChatList.getState().setOpened(loaded.detail.chat);
   setLoad('ready');
 }
 

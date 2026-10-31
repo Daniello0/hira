@@ -1,8 +1,14 @@
 'use client';
 
 import { SkillLevel, type ProfileSkillDto, type SkillSearchHitDto } from '@hira/contracts';
+import { X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../common/components/button';
+import { AlertText, MutedText } from '../../common/components/feedback';
+import { IconButton } from '../../common/components/icon-button';
+import { SectionHeading } from '../../common/components/page-frame';
+import { Select } from '../../common/components/select';
+import { useLeaving } from '../../common/hooks/use-leaving';
 import { skillLevelLabel } from '../../common/utils/enum-labels';
 import { addProfileSkill, removeProfileSkill } from './profile-api';
 import { SkillCombobox } from './skill-combobox';
@@ -20,40 +26,38 @@ export function ProfileSkills({ skills, onChange }: ProfileSkillsProps) {
   const [error, setError] = useState<string | null>(null);
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-medium">Skills</h2>
+      <SectionHeading>Skills</SectionHeading>
       <SkillList skills={skills} onChange={onChange} onError={setError} />
       <SkillCombobox onPick={setPicked} />
       <LevelField level={level} onChange={setLevel} />
-      {picked !== null ? <p className="text-sm">Selected: {picked.canonicalName}</p> : null}
-      {error !== null ? <p role="alert">{error}</p> : null}
-      <Button type="button" disabled={picked === null} onClick={() => void add(picked, level, setError, setPicked, onChange)}>Add skill</Button>
+      {picked !== null ? <p className="motion-fade text-sm">Selected: {picked.canonicalName}</p> : null}
+      {error !== null ? <AlertText>{error}</AlertText> : null}
+      <Button disabled={picked === null} onClick={() => void add(picked, level, setError, setPicked, onChange)}>Add skill</Button>
     </section>
   );
 }
 
 function SkillList({ skills, onChange, onError }: ProfileSkillsProps & { onError: (value: string | null) => void }) {
-  if (skills.length === 0) return <p className="text-sm text-hira-muted">No skills on your profile yet.</p>;
+  if (skills.length === 0) return <MutedText>No skills on your profile yet.</MutedText>;
   return (
     <ul className="space-y-2">
-      {skills.map((skill) => (
-        <li key={skill.skillId} className="flex items-center justify-between gap-3 text-sm">
-          <span>{skill.canonicalName} · {skillLevelLabel(skill.level)} · {skillSourceLabel(skill.source)}</span>
-          <button type="button" className="text-hira-muted" onClick={() => void remove(skill, onChange, onError)}>Remove</button>
-        </li>
-      ))}
+      {skills.map((skill) => <SkillRow key={skill.skillId} skill={skill} onChange={onChange} onError={onError} />)}
     </ul>
   );
 }
 
-function LevelField({ level, onChange }: { level: SkillLevel; onChange: (level: SkillLevel) => void }) {
+function SkillRow({ skill, onChange, onError }: { skill: ProfileSkillDto; onChange: () => Promise<void>; onError: (value: string | null) => void }) {
+  const { leaving, leave } = useLeaving();
   return (
-    <label className="block text-sm text-hira-muted">
-      Level
-      <select className="mt-1 w-full rounded-md border border-white/15 bg-hira-bg px-3 py-2 text-hira-text" value={level} onChange={(event) => onChange(event.target.value as SkillLevel)}>
-        {Object.values(SkillLevel).map((item) => <option key={item} value={item}>{skillLevelLabel(item)}</option>)}
-      </select>
-    </label>
+    <li data-leaving={leaving} className="motion-row motion-enter flex items-center justify-between gap-3 text-sm">
+      <span className="min-w-0">{skill.canonicalName} · {skillLevelLabel(skill.level)} · {skillSourceLabel(skill.source)}</span>
+      <IconButton label={`Remove ${skill.canonicalName}`} shape="action" onClick={() => void remove(skill, leave, onChange, onError)}><X className="size-icon-sm" aria-hidden="true" /></IconButton>
+    </li>
   );
+}
+
+function LevelField({ level, onChange }: { level: SkillLevel; onChange: (level: SkillLevel) => void }) {
+  return <Select label="Level" value={level} options={Object.values(SkillLevel).map((item) => ({ value: item, label: skillLevelLabel(item) }))} onChange={(next) => onChange(next as SkillLevel)} />;
 }
 
 async function add(
@@ -71,8 +75,8 @@ async function add(
   await onChange();
 }
 
-async function remove(skill: ProfileSkillDto, onChange: () => Promise<void>, onError: (value: string | null) => void): Promise<void> {
+async function remove(skill: ProfileSkillDto, leave: (remove: () => void) => void, onChange: () => Promise<void>, onError: (value: string | null) => void): Promise<void> {
   const ok = await removeProfileSkill(skill.skillId).catch(() => false);
   onError(ok ? null : `Could not remove ${skill.canonicalName}`);
-  if (ok) await onChange();
+  if (ok) leave(() => void onChange());
 }

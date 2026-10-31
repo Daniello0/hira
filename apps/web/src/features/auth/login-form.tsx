@@ -7,6 +7,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { coreFetch } from '../../common/api/core-api';
 import { Button } from '../../common/components/button';
+import { AlertText } from '../../common/components/feedback';
+import { HiraLogo } from '../../common/components/logo';
 import { TextField } from '../../common/components/text-field';
 import { COULD_NOT_REACH } from './auth.constants';
 import { loginSchema } from './auth.schema';
@@ -28,12 +30,12 @@ export function LoginForm() {
   const form = useForm<LoginValues>({ resolver: yupResolver(loginSchema) });
   return (
     <form
-      className="mx-auto flex w-full max-w-sm flex-col gap-4 p-8"
+      className="motion-enter mx-auto flex min-h-dvh w-full max-w-form flex-col justify-center gap-4 px-6 py-8"
       onSubmit={form.handleSubmit(
         (values) => void submitLogin(values, setAccount, setError, setPending, router),
       )}
     >
-      <h1 className="text-2xl font-semibold">Sign in</h1>
+      <div className="flex flex-col items-center gap-4 pb-2"><HiraLogo className="size-control" /><h1 className="text-center text-3xl font-normal">Sign in</h1></div>
       <TextField label="Email" type="email" autoComplete="email" {...form.register('email')} />
       <TextField
         label="Password"
@@ -41,12 +43,12 @@ export function LoginForm() {
         autoComplete="current-password"
         {...form.register('password')}
       />
-      {form.formState.errors.password ? <p>{form.formState.errors.password.message}</p> : null}
-      {error !== null ? <p>{error}</p> : null}
+      {form.formState.errors.password ? <AlertText>{form.formState.errors.password.message}</AlertText> : null}
+      {error !== null ? <AlertText>{error}</AlertText> : null}
       <Button type="submit" disabled={pending}>
         Sign in
       </Button>
-      <Link className="text-sm text-hira-accent" href="/register">
+      <Link className="text-center text-sm text-link transition-colors hover:text-link-hover" href="/register">
         Create an account
       </Link>
     </form>

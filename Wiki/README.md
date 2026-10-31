@@ -22,11 +22,11 @@
 | [03-data-sources.md](03-data-sources.md) | Источники вакансий (rabota.by, ГСЗ, LinkedIn), коннекторы, cron-обновление | Черновик |
 | [04-data-model.md](04-data-model.md) | Схема PostgreSQL: реляционная часть, векторы, граф навыков | Черновик |
 | [05-api-contracts.md](05-api-contracts.md) | REST-контракты между сервисами и наружу | Черновик |
-| [06-frontend.md](06-frontend.md) | Next.js + Tailwind: структура, экраны, стриминг | Черновик |
+| [06-frontend.md](06-frontend.md) | Next.js + Tailwind: структура, экраны, стриминг; **правила стилей и анимаций**, PWA | Черновик |
 | [07-auth-and-memory.md](07-auth-and-memory.md) | Регистрация/вход, сессии, чаты, память модели, выключатель межчатовой памяти | Черновик |
 | [08-evaluation.md](08-evaluation.md) | План экспериментальной оценки: метрики, бенчмарк, абляции | Черновик |
 | [09-open-questions.md](09-open-questions.md) | **Открытые вопросы к тебе.** Решения, которые нельзя принять за тебя | Активен |
-| [10-decision-log.md](10-decision-log.md) | Журнал архитектурных решений — ADR-001…041 | Активен |
+| [10-decision-log.md](10-decision-log.md) | Журнал архитектурных решений — ADR-001…044 | Активен |
 | [progress-log.md](progress-log.md) | **Этапы разработки**, % завершённости, latency-ориентиры | Активен |
 | [design.mdc](design.mdc) | Design Document — сжатая техническая спецификация (переписан с курсовой 2026) | Черновик |
 | [diagrams/](diagrams/) | Схемы: `architecture.dot` / `.png` / `.svg` (Graphviz) | Активен |

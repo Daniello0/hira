@@ -6,7 +6,7 @@ import { SIGN_UP_BANNER } from './chat.constants';
 export function SignUpLinks({ className = '' }: { className?: string }) {
   return (
     <p className={className}>
-      <a className="text-hira-accent underline" href="/billing">{SIGN_UP_BANNER}</a>
+      <a className="text-link underline transition-colors hover:text-link-hover" href="/settings/billing">{SIGN_UP_BANNER}</a>
       {' · '}
       <a className="underline" href="/register">Sign up</a>
     </p>
