@@ -1,4 +1,4 @@
-import { DocumentKind, MemoryKind, MessageRole } from '@hira/contracts';
+import { DocumentKind, MemoryKind, MessageRole, type GenerateRequest, type TurnFacts } from '@hira/contracts';
 import { describe, expect, it } from 'vitest';
 import { SSE_EVENT } from '../chat/chat.constants';
 import { MemoryChatStore } from '../chat/memory-chat.store';
@@ -52,6 +52,40 @@ describe('stage 12 turn context', () => {
       requestId: 'req',
     });
     expect(rig.llm.understandCalls).toHaveLength(0);
+  });
+
+  it('hands the facts to the reply and tells understanding which vacancies the user may mean', async () => {
+    const rig = rigFor();
+    const facts: TurnFacts = {
+      catalog: null,
+      profile: null,
+      memory: [],
+      favorites: [{ title: 'Saved', company: 'Acme', city: null, source: 'gsz.gov.by', workFormat: null }],
+      activity: [],
+      shownHere: [],
+    };
+    rig.deps.context = { load: async () => ({ summary: null, memory: [], documents: [], extract: false, facts }) };
+    await postChatMessage(rig.deps, { caller: { kind: 'user', userId: USER_ID }, chat: rig.chat, content: 'the saved one', requestId: 'req' }, new MemorySink());
+    expect(rig.llm.generateCalls[0]?.facts).toEqual(facts);
+    expect(rig.llm.understandCalls[0]).toMatchObject({ knownVacancies: ['Saved (Acme)'] });
+  });
+
+  it('lets the next chat turn know what the last one showed, and names the open chat', async () => {
+    const rig = rigFor();
+    const loads: Array<{ chatId?: string | null; shownHere?: unknown[] }> = [];
+    rig.deps.context = {
+      load: async (input) => {
+        loads.push(input);
+        return { summary: null, memory: [], documents: [], extract: false };
+      },
+    };
+    const caller = { kind: 'user' as const, userId: USER_ID };
+    await postChatMessage(rig.deps, { caller, chat: rig.chat, content: 'python', requestId: 'r1' }, new MemorySink());
+    const chat = (await rig.deps.chats.findChat(rig.chat.id)) ?? rig.chat;
+    await postChatMessage(rig.deps, { caller, chat, content: 'which site is it on?', requestId: 'r2' }, new MemorySink());
+    expect(loads[0]).toMatchObject({ chatId: rig.chat.id, shownHere: [] });
+    expect(loads[1]?.shownHere?.length).toBeGreaterThan(0);
+    expect(loads[1]?.shownHere?.[0]).toHaveProperty('source');
   });
 
   it('keeps a call out of the chat list and spends quota only on search', async () => {
@@ -150,7 +184,9 @@ class FakeLlm implements LlmGateway {
     this.understandCalls.push(request);
     return { intent: { ...heuristicIntent(request.query), intentType: this.intentType }, meta: { tokenUsage: TOKEN_USAGE } };
   }
-  async *generate(): AsyncGenerator<LlmGenerateEvent> {
+  generateCalls: GenerateRequest[] = [];
+  async *generate(request: GenerateRequest): AsyncGenerator<LlmGenerateEvent> {
+    this.generateCalls.push(request);
     yield { kind: 'token', delta: 'Hi' };
     yield { kind: 'done', tokenUsage: TOKEN_USAGE };
   }

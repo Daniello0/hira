@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { DocumentFormat, DocumentKind, MemoryKind, ProfileSuggestionStatus, UserRole, WorkFormat } from '@hira/contracts';
+import { UserPlan } from '@hira/contracts';
 import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CLOCK, type Clock } from '../common/utils/clock';
@@ -276,6 +277,59 @@ describe('stage 12 account surfaces', () => {
     expect(state.library.documents).toHaveLength(0);
   });
 
+  it('changes the plan at once and reports it on the account', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const token = await register(app);
+    const put = (plan: string) => request(server).put('/api/v1/billing/plan').set('Authorization', `Bearer ${token}`).send({ plan });
+    const up = await put('MAX');
+    expect(up.status).toBe(200);
+    expect(up.body).toMatchObject({ plan: 'MAX', searchQuota: { limit: 500 } });
+    const me = await request(server).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
+    expect(me.body.plan).toBe('MAX');
+    expect((await put('FREE')).body).toMatchObject({ plan: 'FREE', searchQuota: { limit: 20 } });
+    expect((await put('TEAM')).status).toBe(400);
+  });
+
+  it('refuses a guest a plan change', async () => {
+    app = await createApp(stores());
+    const response = await request(app.getHttpServer()).put('/api/v1/billing/plan').send({ plan: 'PRO' });
+    expect(response.status).toBe(401);
+  });
+
+  it('holds the free plan to its limits on the server', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const token = await register(app);
+    const bearer = `Bearer ${token}`;
+    await request(server).put('/api/v1/billing/plan').set('Authorization', bearer).send({ plan: 'FREE' });
+    const call = await request(server).post('/api/v1/calls').set('Authorization', bearer);
+    expect(call.status).toBe(403);
+    expect(call.body).toMatchObject({ errorCode: 'PLAN_LIMIT_REACHED', details: { feature: 'call', requiredPlan: 'PRO' } });
+    const memory = await request(server).patch('/api/v1/settings/memory').set('Authorization', bearer).send({ crossChatMemory: true });
+    expect(memory.body.details).toMatchObject({ feature: 'crossChatMemory' });
+    const file = (title: string) =>
+      request(server).post('/api/v1/documents').set('Authorization', bearer).send({ kind: DocumentKind.Note, title, format: DocumentFormat.Txt, content: 'hello' });
+    for (const title of ['a', 'b', 'c']) expect((await file(title)).status).toBe(201);
+    const fourth = await file('d');
+    expect(fourth.status).toBe(403);
+    expect(fourth.body.details).toMatchObject({ feature: 'libraryFiles', requiredPlan: 'PRO' });
+  });
+
+  it('keeps saved data after a downgrade and refuses only new additions', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const token = await register(app);
+    const bearer = `Bearer ${token}`;
+    const file = (title: string) =>
+      request(server).post('/api/v1/documents').set('Authorization', bearer).send({ kind: DocumentKind.Note, title, format: DocumentFormat.Txt, content: 'hello' });
+    for (const title of ['a', 'b', 'c', 'd']) await file(title);
+    await request(server).put('/api/v1/billing/plan').set('Authorization', bearer).send({ plan: 'FREE' });
+    const listed = await request(server).get('/api/v1/documents').set('Authorization', bearer);
+    expect(listed.body).toHaveLength(4);
+    expect((await file('e')).status).toBe(403);
+  });
+
   it('saves one profile field and leaves the others alone', async () => {
     app = await createApp(stores());
     const token = await register(app);
@@ -468,10 +522,17 @@ class MemoryUserStore implements UserStore {
   async findById(id: string) { return this.accounts.find((account) => account.id === id) ?? null; }
   async insert(input: NewAccount): Promise<Account> {
     if ((await this.findByEmail(input.email)) !== null) throw new EmailTakenError();
-    const account: Account = { id: randomUUID(), email: input.email, displayName: input.displayName, role: UserRole.User, passwordHash: input.passwordHash, crossChatMemoryEnabled: true };
+    const account: Account = { id: randomUUID(), email: input.email, displayName: input.displayName, role: UserRole.User, passwordHash: input.passwordHash, plan: UserPlan.Pro, crossChatMemoryEnabled: true };
     this.accounts.push(account);
     return account;
   }
+  async setPlan(userId: string, plan: UserPlan) {
+    const account = await this.findById(userId);
+    if (account === null) return false;
+    account.plan = plan;
+    return true;
+  }
+
   async setCrossChatMemory(userId: string, enabled: boolean) {
     const account = await this.findById(userId);
     if (account === null) return false;

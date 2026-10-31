@@ -1,4 +1,4 @@
-import type { MessageRole, RetrievalRequest, RetrievalResponse, SearchIntent, TokenUsage } from '@hira/contracts';
+import type { MessageRole, PromptVacancy, RetrievalRequest, RetrievalResponse, SearchIntent, TokenUsage } from '@hira/contracts';
 import type { ChatRecord, ChatStore } from '../chat/chat.store';
 import type { Caller } from '../chat/resolve-actor';
 import type { DraftTarget } from '../library/draft-target';
@@ -25,6 +25,11 @@ export interface ContextLoad {
   query: string;
   useMemory: boolean;
   summary: string | null;
+  /** The open chat or call, left out of the earlier ones. */
+  chatId?: string | null;
+  callSessionId?: string | null;
+  /** Vacancies shown earlier in this conversation. */
+  shownHere?: PromptVacancy[];
 }
 
 export interface FollowUpJob {

@@ -9,6 +9,7 @@ export function buildUnderstandMessages(request: UnderstandRequest): ChatMessage
     ...note('Chat summary', request.summary),
     ...documentMessage(request.documents),
     ...memoryMessage(request),
+    ...note('Vacancies the user may refer to', request.knownVacancies?.join('\n')),
     ...request.history.map(toMessage),
     { role: 'user', content: request.query },
   ];

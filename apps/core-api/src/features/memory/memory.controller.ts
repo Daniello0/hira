@@ -10,6 +10,7 @@ import { OptionalAccessGuard } from '../auth/optional-access.guard';
 import { actorHint } from '../chat/actor-hint';
 import { ChatService } from '../chat/chat.service';
 import { mapAccountError } from '../auth/account-http';
+import { PlanGate } from '../billing/plan-gate';
 import { requireUserId } from '../auth/require-user-id';
 import { USER_STORE, type UserStore } from '../auth/user.store';
 import { EmptyMemoryPatchError, MemoryNotFoundError, MemoryService } from './memory.service';
@@ -46,6 +47,7 @@ export class MemoryController {
     @Inject(ChatService) private readonly chats: ChatService,
     @Inject(MemoryService) private readonly memory: MemoryService,
     @Inject(USER_STORE) private readonly users: UserStore,
+    @Inject(PlanGate) private readonly plans: PlanGate,
     @Inject(TEXT_EMBEDDER) private readonly embed: (text: string) => Promise<number[] | null>,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
@@ -97,6 +99,7 @@ export class MemoryController {
   @ApiOperation({ summary: 'Set cross-chat memory' })
   settings(@Body(validatedBody(MemorySettingsBody)) body: MemorySettingsBody, @Req() request: Request) {
     return this.call(request, async (userId) => {
+      if (body.crossChatMemory) await this.plans.requireFeature(userId, 'crossChatMemory');
       await this.users.setCrossChatMemory(userId, body.crossChatMemory);
       return { crossChatMemory: body.crossChatMemory };
     });

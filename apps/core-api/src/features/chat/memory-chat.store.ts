@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { MessageRole } from '@hira/contracts';
+import { ACTIVITY_QUERIES, ACTIVITY_VACANCIES, promptVacancy, type ActivityRecord } from '../memory/account-activity';
 import { DemoChatLimitError } from './chat.errors';
 import { isBeforeCursor, type PageCursor } from './chat-cursor';
 import type {
@@ -43,6 +44,15 @@ export class MemoryChatStore implements ChatStore {
   /** @inheritdoc */
   async findDemoChat(demoSessionId: string): Promise<ChatRecord | null> {
     return this.chats.find((chat) => chat.demoSessionId === demoSessionId) ?? null;
+  }
+
+  /** @inheritdoc */
+  async recentActivity(userId: string, limit: number, exceptChatId: string | null): Promise<ActivityRecord[]> {
+    const chats = this.chats
+      .filter((chat) => chat.userId === userId && chat.messageCount > 0 && chat.id !== exceptChatId)
+      .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
+      .slice(0, limit);
+    return chats.map((chat) => this.activityOf(chat));
   }
 
   /** @inheritdoc */
@@ -209,6 +219,22 @@ export class MemoryChatStore implements ChatStore {
   private before(at: Date, id: string, cursor: PageCursor | null): boolean {
     if (cursor === null) return true;
     return isBeforeCursor({ at, id }, cursor);
+  }
+
+  private activityOf(chat: ChatRecord): ActivityRecord {
+    const messages = this.messages.filter((message) => message.chatId === chat.id).reverse();
+    const ids = new Set(messages.map((message) => message.id));
+    return {
+      kind: 'chat',
+      title: chat.title,
+      summary: chat.summary,
+      at: chat.updatedAt,
+      queries: messages.filter((message) => message.role === MessageRole.User).slice(0, ACTIVITY_QUERIES).map((message) => message.content),
+      vacancies: this.vacancies
+        .filter((row) => ids.has(row.messageId))
+        .flatMap((row) => (row.vacancy === undefined ? [] : [promptVacancy(row.vacancy)]))
+        .slice(0, ACTIVITY_VACANCIES),
+    };
   }
 
   private stamp(): Date {

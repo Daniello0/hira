@@ -4,6 +4,7 @@ import {
   createApiErrorResponse,
   type GenerateRequest,
   type PromptTurn,
+  type PromptVacancy,
   type RetrievalRequest,
   type RetrievalResponse,
   type SearchIntent,
@@ -16,6 +17,7 @@ import { InvalidSearchError } from '../chat/chat.errors';
 import type { Caller } from '../chat/resolve-actor';
 import { withTargetDocument } from '../library/fit-documents';
 import type { DraftTarget } from '../library/draft-target';
+import { knownVacancies } from '../memory/account-activity';
 import type { TurnContext } from '../memory/assemble-context';
 import { heuristicIntent } from './heuristic-intent';
 import { draftEvent, isDraftTurn, loadDraftTarget, targetDocument } from './turn-draft';
@@ -32,6 +34,10 @@ export interface TurnInput extends TurnOptions {
   summary: string | null;
   /** Stored user message for the search log. Null for calls. */
   messageId: string | null;
+  /** The open chat or call, and what it showed so far. */
+  chatId?: string | null;
+  callSessionId?: string | null;
+  shownHere?: PromptVacancy[];
   /** Runs after understand, before the intent event (the chat stores the intent here). */
   onIntent?: (understood: Understood) => Promise<void>;
 }
@@ -87,13 +93,29 @@ function worthExtracting(input: TurnInput, turn: Pick<TurnOutcome, 'understood' 
 
 async function loadContext(deps: OrchestratorDeps, input: TurnInput): Promise<TurnContext> {
   if (deps.context === undefined) return { ...EMPTY_CONTEXT, summary: input.summary };
-  return deps.context.load({ caller: input.caller, query: input.content, useMemory: input.useMemory !== false, summary: input.summary });
+  return deps.context.load({
+    caller: input.caller,
+    query: input.content,
+    useMemory: input.useMemory !== false,
+    summary: input.summary,
+    chatId: input.chatId ?? null,
+    callSessionId: input.callSessionId ?? null,
+    shownHere: input.shownHere ?? [],
+  });
 }
 
 async function resolveIntent(deps: OrchestratorDeps, input: TurnInput, context: TurnContext): Promise<Understood> {
   try {
+    const known = knownVacancies(context.facts);
     const response = await deps.llm.understand(
-      { query: input.content, history: input.history, memory: context.memory, summary: context.summary, documents: context.documents },
+      {
+        query: input.content,
+        history: input.history,
+        memory: context.memory,
+        summary: context.summary,
+        documents: context.documents,
+        ...(known.length === 0 ? {} : { knownVacancies: known }),
+      },
       input.requestId,
     );
     return { intent: withForeignRemote(response.intent, input), usage: response.meta.tokenUsage, degraded: false };
@@ -155,6 +177,7 @@ function generateBody(
     history: [...input.history, { role: MessageRole.User, content: input.content }],
     summary: turn.context.summary,
     documents: withTargetDocument(turn.context.documents, targetDocument(target)),
+    ...(turn.context.facts === undefined ? {} : { facts: turn.context.facts }),
   };
 }
 

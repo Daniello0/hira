@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { MessageRole, type RetrievalResponse, type VacancyResult } from '@hira/contracts';
+import { MessageRole, type PromptVacancy, type RetrievalResponse, type VacancyDto, type VacancyResult } from '@hira/contracts';
 import { WORKING_WINDOW_SIZE, SSE_EVENT, titleFromFirstMessage } from '../chat/chat.constants';
 import { ArchivedChatError } from '../chat/chat.errors';
 import { promptHistory } from '../chat/history-window';
 import type { Caller } from '../chat/resolve-actor';
-import type { CompletedTurn, MessageRecord } from '../chat/chat.store';
+import type { CompletedTurn, MessageRecord, ShownVacancyRecord } from '../chat/chat.store';
+import { shownInOrder } from '../memory/account-activity';
 import { isAborted, runTurn } from './run-turn';
 import { consumeOrThrow } from './turn-quota';
 import type {
@@ -47,6 +48,8 @@ export async function postChatMessage(deps: OrchestratorDeps, input: PostMessage
     history: promptHistory(prior),
     summary: input.chat.summary,
     messageId: user.id,
+    chatId: input.chat.id,
+    shownHere: await shownInChat(deps, prior),
     onIntent: (understood) => deps.chats.patchUserMessage(user.id, understood.intent, understood.usage),
   }, sink);
   if (outcome === null) return;
@@ -69,6 +72,21 @@ export async function runDirectSearch(deps: OrchestratorDeps, input: DirectSearc
     diagnostics: retrieval.diagnostics,
   });
   return retrieval;
+}
+
+/** What this chat already showed, by search. A failed read leaves the prompt without it. */
+async function shownInChat(deps: OrchestratorDeps, prior: readonly MessageRecord[]): Promise<PromptVacancy[]> {
+  try {
+    const shown = await deps.chats.vacanciesFor(prior.map((message) => message.id));
+    return shownInOrder(prior.map((message) => cardsOf(shown.filter((row) => row.messageId === message.id))));
+  } catch (error) {
+    deps.logger.warn({ err: error }, 'could not read the vacancies of this chat');
+    return [];
+  }
+}
+
+function cardsOf(rows: readonly ShownVacancyRecord[]): VacancyDto[] {
+  return [...rows].sort((left, right) => left.rank - right.rank).flatMap((row) => (row.vacancy === undefined ? [] : [row.vacancy]));
 }
 
 function turnOptions(input: TurnOptions): TurnOptions {
@@ -150,6 +168,7 @@ interface CallTurnRecord {
   role: string;
   content: string;
   createdAt: Date;
+  results?: VacancyResult[] | null;
 }
 
 export interface CallTurnInput extends TurnOptions {
@@ -188,6 +207,8 @@ export async function postCallTurn(deps: OrchestratorDeps, input: CallTurnInput,
     history: promptHistory(prior.map(asMessage)),
     summary: null,
     messageId: null,
+    callSessionId: input.session.id,
+    shownHere: shownInOrder(prior.map((turn) => (turn.results ?? []).map((result) => result.vacancy))),
   }, sink);
   if (outcome === null) return;
   const results = outcome.retrieval.results;

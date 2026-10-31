@@ -1,12 +1,24 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import type { CallSessionRecord, CallStore, CallTurnRecord } from './call.store';
+import type { ActivityRecord } from '../memory/account-activity';
+import { callActivity, type CallSessionRecord, type CallStore, type CallTurnRecord } from './call.store';
 
 /** Process-local calls. They are never inserted into chats. */
 @Injectable()
 export class MemoryCallStore implements CallStore {
   readonly sessions: CallSessionRecord[] = [];
   readonly turns: CallTurnRecord[] = [];
+
+  /** @inheritdoc */
+  async recentActivity(userId: string, limit: number, exceptSessionId: string | null): Promise<ActivityRecord[]> {
+    return this.sessions
+      .filter((session) => session.userId === userId && session.id !== exceptSessionId)
+      .map((session) => ({ session, turns: this.turns.filter((turn) => turn.sessionId === session.id).reverse() }))
+      .filter(({ turns }) => turns.length > 0)
+      .reverse()
+      .slice(0, limit)
+      .map(({ session, turns }) => callActivity(session.startedAt, turns));
+  }
 
   /** @inheritdoc */
   async insertSession(userId: string, startedAt: Date): Promise<CallSessionRecord> {

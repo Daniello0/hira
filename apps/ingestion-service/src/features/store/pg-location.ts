@@ -1,10 +1,13 @@
+import { OTHER_CITIES_REGION } from '@hira/contracts';
 import { dictionaryCity } from '../normalize/dictionary-city';
 import type { CanonicalVacancy } from '../normalize/normalize-vacancy';
 import type { SqlClient } from './sql-client';
 
 type Place = Pick<CanonicalVacancy, 'region' | 'city'>;
 
-/** Reuses a seeded city or inserts a new one under its region. */
+const CITY_MAX_CHARS = 128;
+
+/** Reuses a known city or inserts a new one under its region, or under other cities when the page names none. */
 export async function resolveLocationId(client: SqlClient, vacancy: Place): Promise<number | null> {
   const city = dictionaryCity(vacancy.city);
   if (vacancy.region === null) return seededCityId(client, city);
@@ -17,7 +20,9 @@ async function seededCityId(client: SqlClient, city: string | null): Promise<num
     `SELECT id FROM locations WHERE lower(city) = lower($1) LIMIT 1`,
     [city],
   );
-  return numberId(result.rows[0]?.id);
+  const known = numberId(result.rows[0]?.id);
+  if (known !== null || city.length > CITY_MAX_CHARS) return known;
+  return cityInRegion(client, OTHER_CITIES_REGION, city);
 }
 
 async function cityInRegion(

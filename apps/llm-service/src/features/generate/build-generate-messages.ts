@@ -1,4 +1,12 @@
-import { IntentType, MessageRole, type GenerateRequest, type PromptTurn, type VacancyResult } from '@hira/contracts';
+import {
+  IntentType,
+  MessageRole,
+  vacancySourceSite,
+  type GenerateRequest,
+  type PromptTurn,
+  type VacancyResult,
+} from '@hira/contracts';
+import { factsBlock } from './facts-block';
 import {
   CAREER_ADVICE_SYSTEM_PROMPT,
   DRAFT_SYSTEM_PROMPT,
@@ -36,6 +44,7 @@ function userContent(request: GenerateRequest): string {
   const { earlier, latest } = splitLatest(request.history);
   const searching = SEARCHING.has(request.intent.intentType);
   return [
+    factsBlock(request.facts, request.intent.intentType === IntentType.DraftDocument),
     summaryLine(request.summary),
     documentLine(request.documents),
     historyLine(earlier),
@@ -73,7 +82,16 @@ function resultsLine(results: VacancyResult[]): string {
   return results.slice(0, MAX_GENERATE_RESULTS).map(formatResult).join('\n');
 }
 
-function formatResult(result: VacancyResult): string {
+function formatResult(result: VacancyResult, index: number): string {
+  const { vacancy } = result;
   const matched = result.explanation.matchedSkills.map((skill) => skill.surface).join(', ');
-  return `${result.vacancy.title} score ${result.score} matched ${matched}`;
+  const place = vacancy.locationLabel ?? 'city not stated';
+  const details = [vacancy.companyName, place, vacancy.workFormat, payOf(result), vacancySourceSite(vacancy.source)];
+  return `${index + 1}. ${vacancy.title} | ${details.filter(Boolean).join(' | ')} | score ${result.score} matched ${matched}`;
+}
+
+function payOf({ vacancy }: VacancyResult): string | null {
+  if (vacancy.salaryMin === null && vacancy.salaryMax === null) return null;
+  const range = [vacancy.salaryMin, vacancy.salaryMax].filter((value) => value !== null).join('-');
+  return vacancy.salaryCurrency === null ? range : `${range} ${vacancy.salaryCurrency}`;
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { UserRole } from '@hira/contracts';
+import { UserRole, type UserPlan } from '@hira/contracts';
 import { DataSource } from 'typeorm';
 import { User } from '../user/user.entity';
 import { EmailTakenError, type Account, type NewAccount, type UserStore } from './user.store';
@@ -39,6 +39,12 @@ export class TypeOrmUserStore implements UserStore {
     return (result.affected ?? 0) > 0;
   }
 
+  /** @inheritdoc */
+  async setPlan(userId: string, plan: UserPlan): Promise<boolean> {
+    const result = await this.dataSource.getRepository(User).update({ id: userId }, { plan });
+    return (result.affected ?? 0) > 0;
+  }
+
   private row(input: NewAccount): User {
     return this.dataSource.getRepository(User).create({
       email: input.email,
@@ -55,6 +61,7 @@ function toAccount(user: User): Account {
     email: user.email,
     displayName: user.displayName,
     role: user.role,
+    plan: user.plan,
     passwordHash: user.passwordHash,
     crossChatMemoryEnabled: user.crossChatMemoryEnabled,
   };

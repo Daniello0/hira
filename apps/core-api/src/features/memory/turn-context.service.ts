@@ -1,12 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import { MessageRole, type PromptTurn } from '@hira/contracts';
+import { MessageRole, PLAN_LIMITS, UserPlan, type PromptTurn, type TurnFacts } from '@hira/contracts';
 import type { Logger } from 'pino';
 import { LOGGER } from '../../common/constants/app.constants';
-import { USER_STORE, type UserStore } from '../auth/user.store';
+import { USER_STORE, type Account, type UserStore } from '../auth/user.store';
+import { CALL_STORE, type CallStore } from '../call/call.store';
+import { CatalogStatsService } from '../catalog/catalog-stats.service';
+import { FAVORITE_STORE, type FavoriteStore } from '../favorite/favorite.store';
 import { CHAT_STORE, type ChatStore, type MessageRecord } from '../chat/chat.store';
 import type { Caller } from '../chat/resolve-actor';
 import { LIBRARY_STORE, TEXT_EMBEDDER, type LibraryStore } from '../library/library.store';
+import { FACTS_MAX_CHARS, fitFacts, mergeActivity, promptFavorite, promptProfile, type ActivityRecord } from './account-activity';
 import { applyMemoryCandidates } from './apply-candidates';
 import { assembleTurnContext, type TurnContext } from './assemble-context';
 import { enqueueUser } from './follow-up-queue';
@@ -33,17 +37,26 @@ export class TurnContextService {
     @Inject(LLM_GATEWAY) private readonly llm: LlmGateway,
     @Inject(ProfileService) private readonly profiles: ProfileService,
     @Inject(LOGGER) private readonly logger: Logger,
+    @Inject(FAVORITE_STORE) private readonly favorites: FavoriteStore,
+    @Inject(CALL_STORE) private readonly calls: CallStore,
+    @Inject(CatalogStatsService) private readonly catalog: CatalogStatsService,
   ) {}
 
-  /** Facts, files, and the chat summary for one turn. */
+  /** Facts, files, the chat summary, and what Hira knows about the catalog and the caller, for one turn. */
   async load(input: ContextLoad): Promise<TurnContext> {
-    if (input.caller.kind !== 'user') return this.closed(input.summary);
-    const account = await this.users.findById(input.caller.userId);
-    const enabled = account?.crossChatMemoryEnabled ?? false;
-    const facts = enabled && input.useMemory ? await this.memories.list(input.caller.userId) : [];
+    const catalog = await this.catalog.read();
+    if (input.caller.kind !== 'user') {
+      const closed = await this.closed(input.summary);
+      return { ...closed, facts: guestFacts(catalog, input) };
+    }
+    const userId = input.caller.userId;
+    const account = await this.users.findById(userId);
+    const limits = PLAN_LIMITS[account?.plan ?? UserPlan.Free];
+    const enabled = (account?.crossChatMemoryEnabled ?? false) && limits.crossChatMemory;
+    const facts = enabled && input.useMemory ? await this.memories.list(userId) : [];
     const queryVector = await this.embed(input.query);
-    const documents = await this.library.forPrompt(input.caller.userId, queryVector, DOCUMENT_NEIGHBOR_LIMIT);
-    return assembleTurnContext({
+    const documents = await this.library.forPrompt(userId, queryVector, DOCUMENT_NEIGHBOR_LIMIT);
+    const context = assembleTurnContext({
       enabled,
       useMemory: input.useMemory,
       summary: input.summary,
@@ -57,6 +70,46 @@ export class TurnContextService {
       queryVector,
       now: new Date(),
     });
+    const chats = enabled && input.useMemory ? limits.contextChats : 0;
+    return { ...context, facts: await this.accountFacts(account, userId, chats, context, input, catalog) };
+  }
+
+  private async accountFacts(
+    account: Account | null,
+    userId: string,
+    chats: number,
+    context: TurnContext,
+    input: ContextLoad,
+    catalog: TurnFacts['catalog'],
+  ): Promise<TurnFacts> {
+    const [profile, skills, favorites, chatRows, callRows] = await Promise.all([
+      this.safely('profile', () => this.profiles.get(userId), null),
+      this.safely('profile skills', () => this.profiles.skills(userId), []),
+      this.safely('favorites', () => this.favorites.list(userId, {}), []),
+      this.safely<ActivityRecord[]>('earlier chats', () => this.chats.recentActivity(userId, chats, input.chatId ?? null), []),
+      this.safely<ActivityRecord[]>('earlier calls', () => this.calls.recentActivity(userId, chats, input.callSessionId ?? null), []),
+    ]);
+    return fitFacts(
+      {
+        catalog,
+        profile: profile === null ? null : promptProfile(account?.displayName ?? null, profile, skills),
+        memory: context.memory,
+        favorites: favorites.map(promptFavorite),
+        activity: mergeActivity(chatRows, callRows, chats),
+        shownHere: input.shownHere ?? [],
+      },
+      FACTS_MAX_CHARS,
+    );
+  }
+
+  /** A source of facts that fails leaves a gap. It never stops the reply. */
+  private async safely<T>(what: string, read: () => Promise<T>, fallback: T): Promise<T> {
+    try {
+      return await read();
+    } catch (error) {
+      this.logger.warn({ err: error }, `could not read ${what} for the prompt`);
+      return fallback;
+    }
   }
 
   /** Summary and fact extraction. A failure is logged and does not cancel the other step. */
@@ -129,6 +182,11 @@ export class TurnContextService {
       now: new Date(),
     }));
   }
+}
+
+/** A guest has no account data: only the catalog and what this chat showed. */
+function guestFacts(catalog: TurnFacts['catalog'], input: ContextLoad): TurnFacts {
+  return { catalog, profile: null, memory: [], favorites: [], activity: [], shownHere: input.shownHere ?? [] };
 }
 
 function toTurn(message: MessageRecord): PromptTurn {

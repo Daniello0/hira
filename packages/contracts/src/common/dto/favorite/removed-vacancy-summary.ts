@@ -8,6 +8,7 @@ export const REMOVED_VACANCY_TITLE = 'Vacancy removed';
 export function removedVacancySummary(vacancyId: string): VacancyCardSummary {
   return {
     id: vacancyId,
+    source: null,
     title: REMOVED_VACANCY_TITLE,
     companyName: '',
     locationLabel: null,

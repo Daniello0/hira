@@ -4,7 +4,8 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { AuthorKind } from '@hira/contracts';
 import { DataSource } from 'typeorm';
 import { typeormRows } from '../database/typeorm-rows';
-import type { CallSessionRecord, CallStore, CallTurnRecord } from './call.store';
+import type { ActivityRecord } from '../memory/account-activity';
+import { callActivity, type CallSessionRecord, type CallStore, type CallTurnRecord } from './call.store';
 
 /** PostgreSQL calls. Rows are not written into `chats`. */
 @Injectable()
@@ -56,6 +57,27 @@ export class TypeOrmCallStore implements CallStore {
       [sessionId],
     );
     return rows.map(turnOf).slice(-limit);
+  }
+
+  /** @inheritdoc */
+  async recentActivity(userId: string, limit: number, exceptSessionId: string | null): Promise<ActivityRecord[]> {
+    if (limit <= 0) return [];
+    const sessions = await this.query(
+      `SELECT s.id, s.started_at AS "startedAt" FROM call_sessions s
+       WHERE s.user_id = $1 AND ($2::uuid IS NULL OR s.id <> $2::uuid)
+         AND EXISTS (SELECT 1 FROM call_turns t WHERE t.session_id = s.id)
+       ORDER BY s.started_at DESC, s.id LIMIT $3`,
+      [userId, exceptSessionId, limit],
+    );
+    const turns = await this.query(
+      `SELECT id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, created_at AS "createdAt"
+       FROM call_turns WHERE session_id = ANY($1::uuid[]) ORDER BY created_at DESC, id DESC`,
+      [sessions.map((session) => String(session.id))],
+    );
+    const records = turns.map(turnOf);
+    return sessions.map((session) =>
+      callActivity(new Date(session.startedAt as string), records.filter((turn) => turn.sessionId === session.id)),
+    );
   }
 
   private async ownedSession(id: string, userId: string): Promise<CallSessionRecord | null> {

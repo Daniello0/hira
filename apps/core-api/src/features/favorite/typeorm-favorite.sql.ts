@@ -5,6 +5,7 @@ import {
   type CollectionDto,
   type FavoriteDto,
   type VacancyCardSummary,
+  type VacancySource,
   type VacancyStatus,
   type WorkFormat,
 } from '@hira/contracts';
@@ -18,7 +19,7 @@ const FAVORITE_FROM = `FROM favorites f
 
 const FAVORITE_COLUMNS = `f.id::text AS id, f.vacancy_id::text AS "vacancyId", f.collection_id::text AS "collectionId",
   f.note, f.added_by::text AS "addedBy", f.created_at AS "createdAt",
-  (v.id IS NULL) AS "vacancyMissing", v.title, v.company_name AS "companyName", v.status::text AS status, v.url,
+  (v.id IS NULL) AS "vacancyMissing", v.source::text AS source, v.title, v.company_name AS "companyName", v.status::text AS status, v.url,
   v.salary_min AS "salaryMin", v.salary_max AS "salaryMax", v.salary_currency AS "salaryCurrency",
   v.work_format::text AS "workFormat", v.is_foreign_remote AS "isForeignRemote",
   l.city AS "locationCity", l.region AS "locationRegion"`;
@@ -125,7 +126,7 @@ export async function deleteCollection(sql: Sql, userId: string, id: string): Pr
 export async function loadVacancySummary(sql: Sql, vacancyId: string): Promise<VacancyCardSummary | null> {
   const rows = await rowsOf(
     sql,
-    `SELECT v.id::text AS id, v.title, v.company_name AS "companyName", v.status::text AS status, v.url,
+    `SELECT v.id::text AS id, v.source::text AS source, v.title, v.company_name AS "companyName", v.status::text AS status, v.url,
       v.salary_min AS "salaryMin", v.salary_max AS "salaryMax", v.salary_currency AS "salaryCurrency",
       v.work_format::text AS "workFormat", v.is_foreign_remote AS "isForeignRemote",
       l.city AS "locationCity", l.region AS "locationRegion"
@@ -158,6 +159,7 @@ function vacancyFromRow(row: Record<string, unknown>): VacancyCardSummary {
 function toSummary(row: Record<string, unknown>): VacancyCardSummary {
   return {
     id: String(row.vacancyId ?? row.id),
+    source: textOrNull(row.source) as VacancySource | null,
     title: String(row.title ?? ''),
     companyName: typeof row.companyName === 'string' ? row.companyName : '',
     locationLabel: formatLocationLabel(textOrNull(row.locationCity), textOrNull(row.locationRegion)),

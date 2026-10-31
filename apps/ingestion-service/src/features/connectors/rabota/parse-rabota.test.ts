@@ -71,4 +71,17 @@ describe('rabota.by parser', () => {
   it('rejects a detail page without a title', () => {
     expect(() => parseRabotaVacancy('<div>пусто</div>', '1')).toThrow(/title/i);
   });
+
+  it('takes the city from JSON-LD when the page has no exact address', () => {
+    const page = `<h1 data-qa="vacancy-title">Менеджер</h1>
+      <script type="application/ld+json">{"@type":"JobPosting","title":"Менеджер","jobLocation":{"address":{"addressLocality":"Москва"}}}</script>`;
+    expect(parseRabotaVacancy(page, '1').city).toBe('Москва');
+  });
+
+  it('prefers the exact address over JSON-LD', () => {
+    const page = `<h1 data-qa="vacancy-title">Менеджер</h1>
+      <span data-qa="vacancy-view-raw-address">Гомель, улица Советская, 1</span>
+      <script type="application/ld+json">{"@type":"JobPosting","jobLocation":{"address":{"addressLocality":"Минск"}}}</script>`;
+    expect(parseRabotaVacancy(page, '1').city).toBe('Гомель');
+  });
 });

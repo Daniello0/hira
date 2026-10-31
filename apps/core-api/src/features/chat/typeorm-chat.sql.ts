@@ -1,3 +1,5 @@
+import { formatLocationLabel, vacancySourceSite, type PromptVacancy } from '@hira/contracts';
+import { ACTIVITY_QUERIES, ACTIVITY_VACANCIES, type ActivityRecord } from '../memory/account-activity';
 import { MessageRole, type RetrievalDiagnostics, type SearchIntent, type TokenUsage } from '@hira/contracts';
 import type { EntityManager } from 'typeorm';
 import type { PageCursor } from './chat-cursor';
@@ -53,6 +55,55 @@ export async function claimDemoChat(sql: Sql, demoSessionId: string, userId: str
     [demoSessionId, userId],
   );
   return rows[0] === undefined ? null : toChat(rows[0]);
+}
+
+/** Earlier chats with their latest questions and the vacancies they showed. */
+export async function recentActivity(sql: Sql, userId: string, limit: number, exceptChatId: string | null): Promise<ActivityRecord[]> {
+  if (limit <= 0) return [];
+  const chats = await rowsOf(
+    sql,
+    `SELECT id, title, summary, updated_at AS "updatedAt" FROM chats
+     WHERE user_id = $1 AND message_count > 0 AND ($2::uuid IS NULL OR id <> $2::uuid)
+     ORDER BY updated_at DESC, id LIMIT $3`,
+    [userId, exceptChatId, limit],
+  );
+  const ids = chats.map((chat) => String(chat.id));
+  const queries = await rowsOf(sql, ACTIVITY_QUERIES_SQL, [ids, ACTIVITY_QUERIES]);
+  const vacancies = await rowsOf(sql, ACTIVITY_VACANCIES_SQL, [ids, ACTIVITY_VACANCIES]);
+  return chats.map((chat) => ({
+    kind: 'chat',
+    title: typeof chat.title === 'string' ? chat.title : null,
+    summary: typeof chat.summary === 'string' ? chat.summary : null,
+    at: new Date(String(chat.updatedAt)),
+    queries: queries.filter((row) => row.chatId === chat.id).map((row) => String(row.content)),
+    vacancies: vacancies.filter((row) => row.chatId === chat.id).map(toActivityVacancy),
+  }));
+}
+
+const ACTIVITY_QUERIES_SQL = `SELECT "chatId", content FROM (
+    SELECT chat_id AS "chatId", content, row_number() OVER (PARTITION BY chat_id ORDER BY created_at DESC, id DESC) AS place
+    FROM messages WHERE chat_id = ANY($1::uuid[]) AND role = 'USER'
+  ) ranked WHERE place <= $2 ORDER BY place`;
+
+const ACTIVITY_VACANCIES_SQL = `SELECT "chatId", title, "companyName", city, region, source, "workFormat" FROM (
+    SELECT m.chat_id AS "chatId", v.title, v.company_name AS "companyName", l.city, l.region, v.source::text AS source,
+      v.work_format::text AS "workFormat",
+      row_number() OVER (PARTITION BY m.chat_id ORDER BY m.created_at DESC, mv.rank) AS place
+    FROM message_vacancies mv
+    JOIN messages m ON m.id = mv.message_id
+    JOIN vacancies v ON v.id = mv.vacancy_id
+    LEFT JOIN locations l ON l.id = v.location_id
+    WHERE m.chat_id = ANY($1::uuid[])
+  ) ranked WHERE place <= $2 ORDER BY place`;
+
+function toActivityVacancy(row: Record<string, unknown>): PromptVacancy {
+  return {
+    title: String(row.title),
+    company: typeof row.companyName === 'string' ? row.companyName : '',
+    city: formatLocationLabel(typeof row.city === 'string' ? row.city : null, typeof row.region === 'string' ? row.region : null),
+    source: vacancySourceSite(String(row.source)),
+    workFormat: typeof row.workFormat === 'string' ? row.workFormat : null,
+  };
 }
 
 /** Loads one chat, or null. */

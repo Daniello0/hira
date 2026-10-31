@@ -1,3 +1,4 @@
+import type { UserPlan } from '../../enums/user-plan.enum';
 import type { UserRole } from '../../enums/user-role.enum';
 
 /** Searches already counted today. Reading this does not consume a search. */
@@ -12,6 +13,7 @@ export interface CurrentUserDto {
   email: string;
   displayName: string | null;
   role: UserRole;
+  plan: UserPlan;
   crossChatMemoryEnabled: boolean;
   searchQuota: SearchQuota;
 }

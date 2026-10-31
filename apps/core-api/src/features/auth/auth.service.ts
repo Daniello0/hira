@@ -1,8 +1,9 @@
-import type {
-  AuthSessionDto,
-  CurrentUserDto,
-  LoginRequest,
-  RegisterRequest,
+import {
+  PLAN_LIMITS,
+  type AuthSessionDto,
+  type CurrentUserDto,
+  type LoginRequest,
+  type RegisterRequest,
 } from '@hira/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../common/utils/clock';
@@ -80,7 +81,7 @@ export class AuthService {
   async me(userId: string): Promise<CurrentUserDto> {
     const account = await this.users.findById(userId);
     if (account === null) throw new UnauthorizedError();
-    return toCurrentUser(account, await this.quotas.readRegistered(userId));
+    return toCurrentUser(account, await this.quotas.readRegistered(userId, PLAN_LIMITS[account.plan].searchesPerDay));
   }
 
   private async createAccount(input: RegisterRequest): Promise<Account> {

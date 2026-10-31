@@ -75,3 +75,4 @@ export const RESUME_TEXT_MESSAGE = 'A resume must be uploaded as a PDF file';
 /** A library title shorter than this is too generic to match inside a message. */
 export const DRAFT_TARGET_MIN_TITLE = 3;
 export const TEXT_TOO_LONG_MESSAGE = 'The document text is too long';
+export const PLAN_LIMIT_REACHED = 'PLAN_LIMIT_REACHED';

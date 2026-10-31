@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { UserRole } from '@hira/contracts';
+import { UserPlan } from '@hira/contracts';
 import type { Response as SupertestResponse } from 'supertest';
 import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -68,7 +69,7 @@ describe('auth http', () => {
       email: 'ada@example.com',
       displayName: 'Ada',
       role: 'USER',
-      crossChatMemoryEnabled: true,
+      plan: UserPlan.Free, crossChatMemoryEnabled: true,
       searchQuota: { used: 0, limit: 20 },
     });
   });
@@ -310,13 +311,20 @@ class MemoryUserStore implements UserStore {
       displayName: input.displayName,
       role: UserRole.User,
       passwordHash: input.passwordHash,
-      crossChatMemoryEnabled: true,
+      plan: UserPlan.Free, crossChatMemoryEnabled: true,
     };
     this.accounts.push(account);
     return account;
   }
 
   /** @inheritdoc */
+  async setPlan(userId: string, plan: UserPlan) {
+    const account = await this.findById(userId);
+    if (account === null) return false;
+    account.plan = plan;
+    return true;
+  }
+
   async setCrossChatMemory(userId: string, enabled: boolean): Promise<boolean> {
     const account = await this.findById(userId);
     if (account === null) return false;

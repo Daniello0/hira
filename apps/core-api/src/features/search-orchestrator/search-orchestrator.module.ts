@@ -8,6 +8,8 @@ import { DemoSessionMiddleware } from '../auth/demo-session.middleware';
 import { ChatModule } from '../chat/chat.module';
 import { CallController } from '../call/call.controller';
 import { CallModule } from '../call/call.module';
+import { CatalogModule } from '../catalog/catalog.module';
+import { FavoriteModule } from '../favorite/favorite.module';
 import { EmbedModule } from '../embed/embed.module';
 import { DocumentController } from '../library/document.controller';
 import { LibraryModule } from '../library/library.module';
@@ -30,7 +32,7 @@ import { createLlmGateway, createRetrievalGateway } from './upstream-gateway';
 
 /** Search turn: llm-service, retrieval-service, and the chat store. */
 @Module({
-  imports: [AuthModule, ChatModule, CallModule, EmbedModule, LibraryModule, MemoryModule, ProfileModule],
+  imports: [AuthModule, ChatModule, CallModule, CatalogModule, FavoriteModule, EmbedModule, LibraryModule, MemoryModule, ProfileModule],
   controllers: [SearchController, CallController, DocumentController],
   providers: [
     SearchOrchestratorService,

@@ -1,4 +1,4 @@
-import type { CurrentUserDto, SearchQuota } from '@hira/contracts';
+import type { CurrentUserDto, SearchQuota, UserPlan } from '@hira/contracts';
 import { UserRole } from '@hira/contracts';
 
 export const USER_STORE = Symbol('USER_STORE');
@@ -14,6 +14,7 @@ export interface Account {
   email: string;
   displayName: string | null;
   role: UserRole;
+  plan: UserPlan;
   passwordHash: string;
   crossChatMemoryEnabled: boolean;
 }
@@ -23,6 +24,7 @@ export interface UserStore {
   findById(id: string): Promise<Account | null>;
   insert(input: NewAccount): Promise<Account>;
   setCrossChatMemory(userId: string, enabled: boolean): Promise<boolean>;
+  setPlan(userId: string, plan: UserPlan): Promise<boolean>;
 }
 
 /** Raised when `users.email` is already taken. */
@@ -40,6 +42,7 @@ export function toCurrentUser(account: Account, searchQuota: SearchQuota): Curre
     email: account.email,
     displayName: account.displayName,
     role: account.role,
+    plan: account.plan,
     crossChatMemoryEnabled: account.crossChatMemoryEnabled,
     searchQuota,
   };

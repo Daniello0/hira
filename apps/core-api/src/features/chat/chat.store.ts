@@ -7,6 +7,7 @@ import type {
   TokenUsage,
   VacancyDto,
 } from '@hira/contracts';
+import type { ActivityRecord } from '../memory/account-activity';
 import type { PageCursor } from './chat-cursor';
 
 export const CHAT_STORE = Symbol('CHAT_STORE');
@@ -85,6 +86,8 @@ export interface DirectSearchLog {
 /** Dialogue rows. List methods return one extra row so the caller can build `nextCursor`. */
 export interface ChatStore {
   insertChat(owner: ChatOwner): Promise<ChatRecord>;
+  /** Earlier chats of an account with messages, newest first, leaving out the open one. */
+  recentActivity(userId: string, limit: number, exceptChatId: string | null): Promise<ActivityRecord[]>;
   findChat(id: string): Promise<ChatRecord | null>;
   findDemoChat(demoSessionId: string): Promise<ChatRecord | null>;
   /** Gives a guest chat with messages to the account, with its search logs. Null when there is none. */

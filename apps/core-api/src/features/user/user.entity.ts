@@ -1,4 +1,4 @@
-import { UserRole } from '@hira/contracts';
+import { UserPlan, UserRole } from '@hira/contracts';
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { Timestamps, TimestampsColumn } from '../database/timestamped.entity';
 
@@ -28,4 +28,7 @@ export class User {
 
   @Column({ type: 'boolean', default: true })
   crossChatMemoryEnabled!: boolean;
+
+  @Column({ type: 'enum', enum: UserPlan, enumName: 'user_plan', default: UserPlan.Free })
+  plan!: UserPlan;
 }

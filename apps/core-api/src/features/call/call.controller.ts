@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiBody, ApiOperation, ApiProduces, ApiProperty, ApiProp
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import type { Request, Response } from 'express';
+import { PlanGate } from '../billing/plan-gate';
 import { readRequestId } from '../../common/interceptors/request-id.interceptor';
 import { MAX_MESSAGE_LENGTH } from '../chat/chat.constants';
 import { validatedBody } from '../auth/validation-exception';
@@ -44,6 +45,7 @@ export class CallController {
   constructor(
     @Inject(ChatService) private readonly chats: ChatService,
     @Inject(CALL_STORE) private readonly calls: CallStore,
+    @Inject(PlanGate) private readonly plans: PlanGate,
     @Inject(SearchOrchestratorService) private readonly search: SearchOrchestratorService,
   ) {}
 
@@ -52,6 +54,7 @@ export class CallController {
   @ApiOperation({ summary: 'Start a call' })
   start(@Req() request: Request) {
     return this.call(request, async (userId) => {
+      await this.plans.requireFeature(userId, 'call');
       const session = await this.calls.insertSession(userId, new Date());
       return { id: session.id, startedAt: session.startedAt.toISOString(), endedAt: null };
     });
@@ -71,6 +74,7 @@ export class CallController {
   ): Promise<void> {
     try {
       const userId = requireUserId(this.chats.caller(actorHint(request)));
+      await this.plans.requireFeature(userId, 'call');
       const session = await this.calls.findSession(id);
       if (session === null || session.userId !== userId) throw new CallMissingError();
       await this.search.postCall(
