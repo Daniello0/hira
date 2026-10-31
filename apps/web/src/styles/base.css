@@ -1,0 +1,67 @@
+/* Document defaults built only from tokens: body, selection, focus, scrollbars. */
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
+  body {
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: var(--selection);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent-focus);
+    outline-offset: 1px;
+  }
+
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem'],
+  [role='menuitemcheckbox'],
+  [role='option'],
+  summary {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar) transparent;
+  }
+
+  .scroll-thread {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar) transparent;
+    scrollbar-gutter: stable both-edges;
+  }
+
+  .scroll-on-hover {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color var(--duration-basic) var(--ease-basic);
+  }
+
+  .scroll-on-hover:hover,
+  .scroll-on-hover:focus-within {
+    scrollbar-color: var(--scrollbar-hover) transparent;
+  }
+
+  .text-fade-end {
+    mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent);
+  }
+
+  /* Elements the View Transitions API crossfades when the route changes. */
+  .page-transition {
+    view-transition-name: page;
+  }
+}

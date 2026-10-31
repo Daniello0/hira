@@ -1,0 +1,205 @@
+/*
+ * Hira design tokens. The only place where a color, size, radius, shadow, or font is written.
+ * A new style is added here first; components only use the utilities and classes built from it.
+ * Rule and how to extend it: Wiki/06-frontend.md §5. Values measured on ChatGPT:
+ * specs/001-chatgpt-ui/chatgpt-reference.md.
+ */
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+  --surface: #000000;
+  --surface-raised: #1b1b1b;
+  --surface-card: #212121;
+  --surface-control: #303030;
+  --surface-menu: color-mix(in oklab, #303030 90%, transparent);
+  --hover: #ffffff1a;
+  --press: #ffffff0d;
+  --ink: #ededed;
+  --ink-secondary: #cdcdcd;
+  --ink-tertiary: #afafaf;
+  --ink-row: color-mix(in oklab, #ededed 85%, transparent);
+  --line: #ffffff26;
+  --line-light: #ffffff0d;
+  --line-heavy: #ffffff33;
+  --accent: #2c67c5;
+  --accent-focus: #3a83f7;
+  --on-accent: #ededed;
+  --accent-soft: #133463;
+  --on-accent-soft: #f6fafe;
+  --bubble: #173e76;
+  --on-bubble: #f6fafe;
+  --primary: #ededed;
+  --primary-hover: #ffffffcc;
+  --on-primary: #0d0d0d;
+  --link: #339cff;
+  --link-hover: #0285ff;
+  --danger: #ff6764;
+  --success: #40c977;
+  --scrim-sheet: #00000099;
+  --scrim-dialog: #00000080;
+  --selection: #63a8f866;
+  --scrollbar: #ffffff26;
+  --scrollbar-hover: #ffffff33;
+  --shadow-composer-value: inset 0 0 1px #ffffff33;
+  --shadow-menu-value: 0 0 0 0.5px #ffffff26, 0 8px 16px -4px #0000001f;
+  --shadow-dialog-value: 0 0 0 0.5px #ffffff26, 0 16px 32px -8px #00000030;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --surface: #fcfcfc;
+  --surface-raised: #ffffff;
+  --surface-card: #ffffff;
+  --surface-control: #f3f3f3;
+  --surface-menu: color-mix(in oklab, #ffffff 90%, transparent);
+  --hover: #0000000d;
+  --press: #0000001a;
+  --ink: #0d0d0d;
+  --ink-secondary: #5d5d5d;
+  --ink-tertiary: #6e6e6e;
+  --ink-row: color-mix(in oklab, #0d0d0d 85%, transparent);
+  --line: #0000001a;
+  --line-light: #0000000d;
+  --line-heavy: #00000026;
+  --accent: #2c67c5;
+  --accent-focus: #3a83f7;
+  --on-accent: #ffffff;
+  --accent-soft: #e8f3fe;
+  --on-accent-soft: #1b4b9c;
+  --bubble: #e8f3fe;
+  --on-bubble: #0d0d0d;
+  --primary: #0d0d0d;
+  --primary-hover: #000000cc;
+  --on-primary: #ffffff;
+  --link: #0169cc;
+  --link-hover: #004f99;
+  --danger: #ba2623;
+  --success: #00792f;
+  --scrim-sheet: #00000066;
+  --scrim-dialog: #00000040;
+  --selection: #539af859;
+  --scrollbar: #00000026;
+  --scrollbar-hover: #00000033;
+  --shadow-composer-value: 0 0 0 0.5px #0000001a, 0 4px 8px -2px #0000001a;
+  --shadow-menu-value: 0 0 0 0.5px #0000001a, 0 8px 16px -4px #0000001f;
+  --shadow-dialog-value: 0 0 0 0.5px #0000001a, 0 16px 32px -8px #00000030;
+}
+
+/* Tailwind's own scales are cleared, so a class outside this list does not build. */
+@theme inline {
+  --color-*: initial;
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-card: var(--surface-card);
+  --color-surface-control: var(--surface-control);
+  --color-surface-menu: var(--surface-menu);
+  --color-hover: var(--hover);
+  --color-press: var(--press);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-tertiary: var(--ink-tertiary);
+  --color-ink-row: var(--ink-row);
+  --color-line: var(--line);
+  --color-line-light: var(--line-light);
+  --color-line-heavy: var(--line-heavy);
+  --color-accent: var(--accent);
+  --color-accent-focus: var(--accent-focus);
+  --color-on-accent: var(--on-accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent-soft: var(--on-accent-soft);
+  --color-bubble: var(--bubble);
+  --color-on-bubble: var(--on-bubble);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-scrim-sheet: var(--scrim-sheet);
+  --color-scrim-dialog: var(--scrim-dialog);
+
+  --shadow-*: initial;
+  --shadow-composer: var(--shadow-composer-value);
+  --shadow-menu: var(--shadow-menu-value);
+  --shadow-dialog: var(--shadow-dialog-value);
+}
+
+@theme {
+  --font-*: initial;
+  --font-sans: -apple-system-body, ui-sans-serif, -apple-system, system-ui, 'Segoe UI', Helvetica, 'Apple Color Emoji', Arial, sans-serif, 'Segoe UI Emoji', 'Segoe UI Symbol';
+  --font-mono: ui-monospace, 'SFMono-Regular', 'SF Mono', menlo, consolas, 'Liberation Mono', monospace;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --text-*: initial;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-message: 1rem;
+  --text-message--line-height: 1.625rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.625rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.8rem;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 2.375rem;
+
+  --radius-*: initial;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-row: 0.5rem;
+  --radius-field: 0.75rem;
+  --radius-menu-item: 0.75rem;
+  --radius-menu: 1rem;
+  --radius-card: 1rem;
+  --radius-dialog: 1rem;
+  --radius-bubble: 1.375rem;
+  --radius-composer: 1.625rem;
+  --radius-composer-tall: 1.75rem;
+
+  --container-*: initial;
+  --spacing-sidebar: clamp(15rem, 21.25rem, min(32.5rem, calc(100vw - 20rem)));
+  --spacing-rail: 3.25rem;
+  --spacing-header: 3.25rem;
+  --spacing-sheet: 16.1875rem;
+  --spacing-panel: 22.5rem;
+  --spacing-vacancy: 34rem;
+  --spacing-thread: 48rem;
+  --spacing-settings: 48rem;
+  --spacing-form: 24rem;
+  --spacing-dialog: 28rem;
+  --spacing-dialog-wide: 45rem;
+  --spacing-dialog-tall: 28.75rem;
+  --spacing-menu: 15rem;
+  --spacing-menu-wide: 20.25rem;
+  --spacing-menu-max: 24rem;
+  --spacing-control: 2.25rem;
+  --spacing-action: 2rem;
+  --spacing-row: 2.1875rem;
+  --spacing-menu-row: 2.25rem;
+  --spacing-composer: 3.25rem;
+  --spacing-avatar: 1.5rem;
+  --spacing-icon: 1.25rem;
+  --spacing-icon-sm: 1rem;
+  --spacing-switch-w: 2.25rem;
+  --spacing-switch-h: 1.25rem;
+  --spacing-switch-thumb: 1rem;
+  --spacing-switch-travel: 1rem;
+  --spacing-bar: 0.5rem;
+  --spacing-preview-w: 5.25rem;
+  --spacing-preview-h: 3.75rem;
+  --spacing-input-max: 14rem;
+  --spacing-list-max: 20rem;
+  --spacing-preview-max: 16rem;
+  --spacing-bubble-max: 70%;
+  --spacing-safe-top: env(safe-area-inset-top);
+  --spacing-safe-bottom: env(safe-area-inset-bottom);
+}

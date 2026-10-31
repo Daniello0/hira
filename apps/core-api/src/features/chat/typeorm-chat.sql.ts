@@ -55,6 +55,7 @@ export async function listChats(
   owner: ChatOwner,
   cursor: PageCursor | null,
   limit: number,
+  titleQuery?: string,
 ): Promise<ChatRecord[]> {
   const rows = await rowsOf(sql, chatPageSql(), [
     'userId' in owner ? owner.userId : null,
@@ -62,6 +63,7 @@ export async function listChats(
     cursor?.at ?? null,
     cursor?.id ?? null,
     limit + 1,
+    titleQuery === undefined ? null : `%${escapeLike(titleQuery)}%`,
   ]);
   return rows.map(toChat);
 }
@@ -218,8 +220,14 @@ function chatPageSql(): string {
   return `SELECT ${CHAT_COLUMNS} FROM chats
     WHERE ${ownerSql('$1', '$2')}
       AND ($3::timestamptz IS NULL OR updated_at < $3 OR (updated_at = $3 AND id < $4::uuid))
+      AND ($6::text IS NULL OR title ILIKE $6)
     ORDER BY updated_at DESC, id DESC
     LIMIT $5`;
+}
+
+/** A typed `%` or `_` is text, not a pattern. */
+function escapeLike(text: string): string {
+  return text.replace(/[\\%_]/g, (mark) => `\\${mark}`);
 }
 
 function ownerSql(userSlot: string, demoSlot: string): string {

@@ -32,13 +32,13 @@ import { ChatService } from './chat.service';
 export class ChatController {
   constructor(@Inject(ChatService) private readonly chats: ChatService) {}
 
-  /** Lists chats. A demo session gets its one chat on the first call. */
+  /** Lists chats, optionally by a part of the title (`q`). A demo session gets its one chat on the first call. */
   @Get()
   @ApiOperation({ summary: 'List chats' })
   list(@Query(validatedBody(ChatPageQueryDto)) query: ChatPageQueryDto, @Req() request: Request) {
     return this.call(request, async () => {
       const caller = this.chats.caller(actorHint(request));
-      return this.chats.list(caller, query.cursor, query.limit ?? CHAT_PAGE_SIZE);
+      return this.chats.list(caller, query.cursor, query.limit ?? CHAT_PAGE_SIZE, query.q);
     });
   }
 

@@ -30,15 +30,17 @@ export class ChatService {
     return resolveCaller(hint);
   }
 
-  /** Lists chats. A demo cookie receives its chat, created on the first call. */
+  /** Lists chats, optionally by a part of the title. A demo cookie receives its chat, created on the first call. */
   async list(
     caller: Caller,
     rawCursor: string | undefined,
     limit: number,
+    rawQuery?: string,
   ): Promise<ChatPage<ChatSummary>> {
     if (caller.kind === 'demo') await this.ensureDemo(caller.demoSessionId);
     const owner = ownerOf(caller);
-    const rows = await this.chats.listChats(owner, this.pageCursor(rawCursor), limit);
+    const titleQuery = rawQuery?.trim() || undefined;
+    const rows = await this.chats.listChats(owner, this.pageCursor(rawCursor), limit, titleQuery);
     const page = cutIdPage(
       rows.map((chat) => ({ ...chat, at: chat.updatedAt })),
       limit,

@@ -1,6 +1,6 @@
 import { MessageRole } from '@hira/contracts';
 import { describe, expect, it } from 'vitest';
-import { deleteChat, findChat, insertMessage, updateChat, type Sql } from './typeorm-chat.sql';
+import { deleteChat, findChat, insertMessage, listChats, updateChat, type Sql } from './typeorm-chat.sql';
 
 const CHAT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const USER_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -25,6 +25,13 @@ describe('typeorm chat sql', () => {
     expect(db.calls[0]?.statement).toContain('title = $4');
     expect(db.calls[0]?.statement).toContain('is_archived = $5');
     expect(db.calls[0]?.params).toEqual([CHAT_ID, USER_ID, null, 'Next', true]);
+  });
+
+  it('searches titles with typed wildcards as plain text', async () => {
+    const db = scripted([]);
+    await listChats(db.sql, { userId: USER_ID }, null, 10, '100%_ok');
+    expect(db.calls[0]?.statement).toContain('title ILIKE $6');
+    expect(db.calls[0]?.params.at(-1)).toBe('%100\\%\\_ok%');
   });
 
   it('returns null when an update matches no chat', async () => {

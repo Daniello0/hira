@@ -4,6 +4,7 @@ import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength 
 import type { CreateMessageRequest, UpdateChatRequest } from '@hira/contracts';
 import {
   CHAT_PAGE_SIZE,
+  CHAT_SEARCH_MAX_LENGTH,
   MAX_CHAT_TITLE_LENGTH,
   MAX_MESSAGE_LENGTH,
   MAX_PAGE_SIZE,
@@ -51,6 +52,12 @@ export class ChatPageQueryDto {
   @IsOptional()
   @IsString()
   cursor?: string;
+
+  @ApiPropertyOptional({ type: String, description: 'Part of the chat title' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(CHAT_SEARCH_MAX_LENGTH)
+  q?: string;
 
   @ApiPropertyOptional({ type: Number, minimum: 1, maximum: MAX_PAGE_SIZE, default: CHAT_PAGE_SIZE })
   @Transform(({ value }: { value: unknown }) => (value === undefined || value === '' ? undefined : Number(value)))

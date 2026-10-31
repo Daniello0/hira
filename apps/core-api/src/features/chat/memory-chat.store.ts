@@ -46,9 +46,11 @@ export class MemoryChatStore implements ChatStore {
   }
 
   /** @inheritdoc */
-  async listChats(owner: ChatOwner, cursor: PageCursor | null, limit: number): Promise<ChatRecord[]> {
+  async listChats(owner: ChatOwner, cursor: PageCursor | null, limit: number, titleQuery?: string): Promise<ChatRecord[]> {
+    const needle = titleQuery?.toLowerCase();
     return this.chats
       .filter((chat) => owns(chat, owner) && this.before(chat.updatedAt, chat.id, cursor))
+      .filter((chat) => needle === undefined || (chat.title ?? '').toLowerCase().includes(needle))
       .sort(byNewest)
       .slice(0, limit + 1);
   }

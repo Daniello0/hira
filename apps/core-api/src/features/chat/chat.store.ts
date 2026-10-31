@@ -87,7 +87,7 @@ export interface ChatStore {
   insertChat(owner: ChatOwner): Promise<ChatRecord>;
   findChat(id: string): Promise<ChatRecord | null>;
   findDemoChat(demoSessionId: string): Promise<ChatRecord | null>;
-  listChats(owner: ChatOwner, cursor: PageCursor | null, limit: number): Promise<ChatRecord[]>;
+  listChats(owner: ChatOwner, cursor: PageCursor | null, limit: number, titleQuery?: string): Promise<ChatRecord[]>;
   updateChat(id: string, owner: ChatOwner, patch: ChatPatch): Promise<ChatRecord | null>;
   deleteChat(id: string, owner: ChatOwner): Promise<boolean>;
   insertMessage(input: NewMessage): Promise<MessageRecord>;

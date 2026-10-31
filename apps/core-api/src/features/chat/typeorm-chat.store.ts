@@ -48,8 +48,8 @@ export class TypeOrmChatStore implements ChatStore {
   }
 
   /** @inheritdoc */
-  listChats(owner: ChatOwner, cursor: PageCursor | null, limit: number): Promise<ChatRecord[]> {
-    return rows.listChats(rows.asSql(this.dataSource), owner, cursor, limit);
+  listChats(owner: ChatOwner, cursor: PageCursor | null, limit: number, titleQuery?: string): Promise<ChatRecord[]> {
+    return rows.listChats(rows.asSql(this.dataSource), owner, cursor, limit, titleQuery);
   }
 
   /** @inheritdoc */
