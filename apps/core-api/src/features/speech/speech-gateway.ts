@@ -100,10 +100,6 @@ function transcribeForm(audio: Buffer, language: VoiceLanguage | null): FormData
   return form;
 }
 
-/**
- * The container streams its WAV and leaves the sizes in the header open.
- * Browsers differ on such a file, so the real sizes are written before it goes out.
- */
 /** The natural voice through llm-service, which alone holds the provider key. */
 export function createCloudSpeaker(options: { baseUrl: string; token: string }, request: Fetch = fetch): CloudVoice['speak'] {
   return async (text, voice) => {
@@ -118,6 +114,10 @@ export function createCloudSpeaker(options: { baseUrl: string; token: string }, 
   };
 }
 
+/**
+ * The container streams its WAV and leaves the sizes in the header open.
+ * Browsers differ on such a file, so the real sizes are written before it goes out.
+ */
 export function closedWav(wav: Buffer): Buffer {
   const data = wav.indexOf('data', 12, 'latin1');
   if (wav.toString('latin1', 0, 4) !== 'RIFF' || data < 0 || data + 8 > wav.length) return wav;
