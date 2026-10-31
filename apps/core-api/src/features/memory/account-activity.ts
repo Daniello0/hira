@@ -98,5 +98,7 @@ export function fitFacts(facts: TurnFacts, maxChars: number): TurnFacts {
 /** Vacancies the user may mean by "the second one". Query understanding reads these. */
 export function knownVacancies(facts: TurnFacts | undefined): string[] {
   if (facts === undefined) return [];
-  return [...facts.shownHere, ...facts.favorites].slice(0, SHOWN_HERE_MAX).map((vacancy) => `${vacancy.title} (${vacancy.company})`);
+  const half = SHOWN_HERE_MAX / 2;
+  const known = [...facts.shownHere.slice(0, half), ...facts.favorites.slice(0, half)];
+  return known.map((vacancy) => `${vacancy.title} (${vacancy.company})`);
 }

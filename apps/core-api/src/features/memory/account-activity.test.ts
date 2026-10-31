@@ -65,4 +65,9 @@ describe('account activity', () => {
     expect(knownVacancies(facts({ shownHere: [line('Shown')], favorites: [line('Saved')] }))).toEqual(['Shown (Acme)', 'Saved (Acme)']);
     expect(knownVacancies(undefined)).toEqual([]);
   });
+
+  it('keeps saved vacancies known after a long conversation', () => {
+    const shownHere = Array.from({ length: 20 }, (_, index) => line(`Shown ${index}`));
+    expect(knownVacancies(facts({ shownHere, favorites: [line('Saved')] }))).toContain('Saved (Acme)');
+  });
 });
