@@ -335,7 +335,7 @@ describe('stage 12 account surfaces', () => {
 
   it('hears and speaks on a paid plan, refuses the free plan and a guest, and reports a dead service', async () => {
     const state = stores();
-    const speech = { transcribe: vi.fn(async () => ({ text: 'привет', language: 'ru' })), synthesize: vi.fn(async () => Buffer.from('RIFFaudio')) };
+    const speech = { transcribe: vi.fn(async () => ({ text: 'привет', language: 'ru' })), synthesize: vi.fn(async () => ({ bytes: Buffer.from('RIFFaudio'), contentType: 'audio/wav' })) };
     app = await createApp(state, undefined, speech);
     const server = app.getHttpServer();
     const bearer = `Bearer ${await register(app)}`;
