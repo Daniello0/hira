@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { VoicePlayer, type PlayerContext, type PlayerGain, type PlayerSource } from './voice-player';
+import { VoicePlayer, type PlayerBuffer, type PlayerContext, type PlayerGain, type PlayerSource } from './voice-player';
 
 function fakeContext(state = 'running') {
   const sources: Array<PlayerSource & { startedAt: number }> = [];
@@ -9,6 +9,7 @@ function fakeContext(state = 'running') {
     destination: {},
     state,
     resume: vi.fn(async () => undefined),
+    close: vi.fn(async () => undefined),
     decodeAudioData: async () => ({ duration: 2, sampleRate: 1000, getChannelData: () => new Float32Array(2000).fill(0.5) }),
     createGain: () => gains.at(gains.push({ gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), cancelScheduledValues: vi.fn() }, connect: vi.fn() }) - 1) as PlayerGain,
     createBufferSource: () => {
@@ -58,6 +59,26 @@ describe('voice player', () => {
     void player.play(bytes);
     await vi.waitFor(() => expect(sources).toHaveLength(3));
     expect(sources[2]?.startedAt).toBe(10);
+  });
+
+  it('stays silent when stopped while a piece is still decoding', async () => {
+    const { context, sources } = fakeContext();
+    let decoded: (buffer: PlayerBuffer) => void = () => undefined;
+    context.decodeAudioData = () => new Promise((resolve) => { decoded = resolve; });
+    const player = new VoicePlayer(context);
+    const piece = player.play(bytes);
+    player.stop();
+    decoded({ duration: 2, sampleRate: 1000, getChannelData: () => new Float32Array(2000) });
+    await piece;
+    expect(sources).toHaveLength(0);
+  });
+
+  it('gives the audio context back when the call ends, once', () => {
+    const { context } = fakeContext();
+    const player = new VoicePlayer(context);
+    player.close();
+    player.close();
+    expect(context.close).toHaveBeenCalledTimes(1);
   });
 
   it('plays every piece below full scale, at the level the loudness rule gives', async () => {

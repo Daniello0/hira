@@ -127,6 +127,8 @@ function useLiveCall(
   const voice = useRef<VoiceSession | null>(null);
   const callId = useRef<string | null>(null);
   const starting = useRef(false);
+  const audio = useRef<VoicePlayer | null>(null);
+  const left = useRef(false);
   const commit = (update: (current: CallViewState) => CallViewState) => {
     latest.current = update(latest.current);
     setState(latest.current);
@@ -135,26 +137,37 @@ function useLiveCall(
   const closeCall = () => {
     voice.current?.close();
     voice.current = null;
+    audio.current?.close();
+    audio.current = null;
     const id = callId.current;
     callId.current = null;
     const token = useSession.getState().accessToken;
     if (id !== null && token !== null) endCall(id, token);
   };
-  useEffect(() => closeCall, []);
+  useEffect(() => {
+    left.current = false;
+    return () => {
+      left.current = true;
+      closeCall();
+    };
+  }, []);
   return {
     start: async (router: ReturnType<typeof useRouter>, setError: (value: string | null) => void) => {
       if (starting.current || latest.current.phase !== CallPhase.Idle) return;
       starting.current = true;
       // Made inside the click: Safari keeps the sound off for a context made later.
       const player = new VoicePlayer(new AudioContext() as unknown as PlayerContext);
+      audio.current = player;
       void player.unlock();
       try {
         await accessToken();
         if (!canStartCall(useSession.getState().status)) return router.push('/login');
         const opened = await openCall();
+        if (opened.kind === 'ok') callId.current = opened.id;
+        // The user left while the call was opening: no microphone on a screen that can no longer end it.
+        if (left.current) return closeCall();
         if (opened.kind === 'unauthorized') return router.push('/login');
         if (opened.kind === 'failed') return setError(CALL_START_FAILED);
-        callId.current = opened.id;
         voice.current = new VoiceSession({
           startMic: startVadMic,
           player,
@@ -176,6 +189,10 @@ function useLiveCall(
         await voice.current.open();
       } finally {
         starting.current = false;
+        if (voice.current === null) {
+          player.close();
+          if (audio.current === player) audio.current = null;
+        }
       }
     },
     end: () => {

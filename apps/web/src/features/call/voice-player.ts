@@ -6,6 +6,7 @@ export interface PlayerContext {
   destination: unknown;
   state: string;
   resume(): Promise<void>;
+  close(): Promise<void>;
   decodeAudioData(bytes: ArrayBuffer): Promise<PlayerBuffer>;
   createBufferSource(): PlayerSource;
   createGain(): PlayerGain;
@@ -55,6 +56,9 @@ interface Piece {
 export class VoicePlayer {
   private readonly pieces: Piece[] = [];
   private endsAt = 0;
+  /** Bumped by `stop`. A piece still decoding from before it stays silent. */
+  private stops = 0;
+  private closed = false;
 
   constructor(private readonly context: PlayerContext) {}
 
@@ -65,7 +69,9 @@ export class VoicePlayer {
 
   /** Queues a piece. Resolves when it has finished, or at once if it was stopped. */
   async play(bytes: ArrayBuffer): Promise<void> {
+    const stops = this.stops;
     const buffer = await this.context.decodeAudioData(bytes);
+    if (stops !== this.stops) return;
     const piece = this.schedule(buffer);
     return new Promise((resolve) => {
       piece.source.onended = () => {
@@ -90,6 +96,7 @@ export class VoicePlayer {
 
   /** Silence now. Everything queued is dropped. */
   stop(): void {
+    this.stops += 1;
     const now = this.context.currentTime;
     for (const piece of [...this.pieces]) {
       piece.gain.gain.cancelScheduledValues(now);
@@ -100,6 +107,14 @@ export class VoicePlayer {
     }
     this.pieces.length = 0;
     this.endsAt = 0;
+  }
+
+  /** The call ended: silence, and the audio context goes back to the browser. */
+  close(): void {
+    this.stop();
+    if (this.closed) return;
+    this.closed = true;
+    void this.context.close();
   }
 
   private schedule(buffer: PlayerBuffer): Piece {
