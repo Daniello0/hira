@@ -142,13 +142,16 @@ function HeaderMenu({ chat }: { chat: ChatSummary }) {
         onError={setError}
         trigger={<IconButton label="Chat actions" tooltip={false}><Ellipsis size={20} aria-hidden="true" /></IconButton>}
       />
-      <RenameDialog key={String(renaming)} chat={chat} open={renaming} onClose={() => setRenaming(false)} onError={setError} />
+      <RenameDialog chat={chat} open={renaming} onClose={() => setRenaming(false)} onError={setError} />
     </>
   );
 }
 
 function RenameDialog({ chat, open, onClose, onError }: { chat: ChatSummary; open: boolean; onClose: () => void; onError: (value: string | null) => void }) {
   const [title, setTitle] = useState(chat.title ?? '');
+  useEffect(() => {
+    if (open) setTitle(chat.title ?? '');
+  }, [open, chat.title]);
   return (
     <Dialog open={open} onClose={onClose} title="Rename chat">
       <form

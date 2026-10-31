@@ -104,7 +104,7 @@ function UserMessage({ content }: { content: string }) {
   return (
     <article className="motion-enter group flex flex-col items-end">
       <p className="max-w-bubble-max rounded-bubble bg-bubble px-4 py-2.5 text-base break-words whitespace-pre-wrap text-on-bubble">{content}</p>
-      <div className="mt-1 flex opacity-100 transition-opacity group-hover:opacity-100 focus-within:opacity-100 md:opacity-0">
+      <div className="mt-1 flex transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
         <CopyAction text={content} />
       </div>
     </article>
