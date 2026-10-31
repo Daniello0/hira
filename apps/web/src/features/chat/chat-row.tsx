@@ -1,42 +1,59 @@
 'use client';
 
 import type { ChatSummary } from '@hira/contracts';
+import { Ellipsis } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useConfirm } from '../../common/hooks/use-confirm';
-import { deleteChat, patchChat } from './chat-api';
+import { AlertText } from '../../common/components/feedback';
+import { IconButton } from '../../common/components/icon-button';
+import { useLeaving } from '../../common/hooks/use-leaving';
+import { deleteChatOnServer, renameChat } from './chat-actions';
+import { ChatActionsMenu } from './chat-actions-menu';
 import { useChatList } from './chat-list.store';
 
-const ACTION_CLASS = 'hover:text-hira-text';
-
-/** One sidebar chat: open, rename in place, archive or restore, delete. */
+/** One sidebar chat. The `…` menu appears on hover and always on touch screens. */
 export function ChatRow({ chat }: { chat: ChatSummary }) {
   const pathname = usePathname();
+  const router = useRouter();
   const selected = pathname === `/chat/${chat.id}`;
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { leaving, leave } = useLeaving();
+  const onDelete = () => void removeChat(chat.id, selected, router, leave, setError);
   return (
-    <li className={selected ? 'rounded-md bg-white/10' : ''}>
+    <li data-leaving={leaving} className="motion-row motion-enter">
       {editing ? (
         <RenameField chat={chat} onDone={() => setEditing(false)} onError={setError} />
       ) : (
-        <Link className="block truncate px-2 py-1" href={`/chat/${chat.id}`}>{chat.title ?? 'New chat'}</Link>
+        <div className={`group relative flex h-row items-center rounded-row transition-colors hover:bg-hover ${selected ? 'bg-hover' : ''}`}>
+          <Link className="min-w-0 flex-1 truncate px-2 py-row-y text-sm text-ink-row" aria-current={selected ? 'page' : undefined} href={`/chat/${chat.id}`}>{chat.title ?? 'New chat'}</Link>
+          <ChatActionsMenu
+            chat={chat}
+            onRename={() => setEditing(true)}
+            onDelete={onDelete}
+            onError={setError}
+            trigger={
+              <IconButton label="Chat actions" tooltip={false} shape="action" className="opacity-100 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 md:opacity-0">
+                <Ellipsis size={18} aria-hidden="true" />
+              </IconButton>
+            }
+          />
+        </div>
       )}
-      <RowActions chat={chat} selected={selected} onRename={() => setEditing(true)} onError={setError} />
-      {error !== null ? <p role="alert" className="px-2 pb-1 text-xs text-red-300">{error}</p> : null}
+      {error !== null ? <AlertText className="px-2 pb-1 text-xs">{error}</AlertText> : null}
     </li>
   );
 }
 
 function RenameField({ chat, onDone, onError }: { chat: ChatSummary; onDone: () => void; onError: (value: string | null) => void }) {
   const [title, setTitle] = useState(chat.title ?? '');
-  const commit = () => void rename(chat, title, onError).finally(onDone);
+  const commit = () => void renameChat(chat, title, onError).finally(onDone);
   return (
     <input
       aria-label="Chat name"
       autoFocus
-      className="w-full rounded-md border border-white/15 bg-hira-bg px-2 py-1 text-sm"
+      className="h-row w-full rounded-row border border-accent-focus bg-transparent px-2 text-sm text-ink outline-none"
       value={title}
       onChange={(event) => setTitle(event.target.value)}
       onBlur={commit}
@@ -48,53 +65,9 @@ function RenameField({ chat, onDone, onError }: { chat: ChatSummary; onDone: () 
   );
 }
 
-function RowActions({ chat, selected, onRename, onError }: { chat: ChatSummary; selected: boolean; onRename: () => void; onError: (value: string | null) => void }) {
-  const router = useRouter();
-  const confirm = useConfirm();
-  const onDelete = () => {
-    if (!confirm.armed) return confirm.arm();
-    confirm.reset();
-    void removeChat(chat.id, selected, router, onError);
-  };
-  return (
-    <div className="flex gap-2 px-2 pb-1 text-xs text-hira-muted">
-      <button type="button" className={ACTION_CLASS} onClick={onRename}>Rename</button>
-      <button type="button" className={ACTION_CLASS} onClick={() => void setArchived(chat, !chat.isArchived, onError)}>
-        {chat.isArchived ? 'Restore' : 'Archive'}
-      </button>
-      <button type="button" className={ACTION_CLASS} onClick={onDelete} onBlur={confirm.reset}>
-        {confirm.armed ? 'Confirm delete' : 'Delete'}
-      </button>
-    </div>
-  );
-}
-
-async function rename(chat: ChatSummary, title: string, onError: (value: string | null) => void): Promise<void> {
-  const next = title.trim();
-  if (next.length === 0 || next === (chat.title ?? '')) return;
-  const updated = await guarded(() => patchChat(chat.id, { title: next }));
-  onError(updated === null ? 'Could not rename the chat' : null);
-  if (updated !== null) useChatList.getState().replace(updated);
-}
-
-async function setArchived(chat: ChatSummary, isArchived: boolean, onError: (value: string | null) => void): Promise<void> {
-  const updated = await guarded(() => patchChat(chat.id, { isArchived }));
-  onError(updated === null ? `Could not ${isArchived ? 'archive' : 'restore'} the chat` : null);
-  if (updated !== null) useChatList.getState().replace(updated);
-}
-
-async function removeChat(chatId: string, selected: boolean, router: ReturnType<typeof useRouter>, onError: (value: string | null) => void): Promise<void> {
-  const ok = await guarded(() => deleteChat(chatId));
-  onError(ok ? null : 'Could not delete the chat');
-  if (ok !== true) return;
-  useChatList.getState().remove(chatId);
+/** The row leaves only after the server agreed; a failure keeps it and shows why. */
+async function removeChat(chatId: string, selected: boolean, router: ReturnType<typeof useRouter>, leave: (remove: () => void) => void, onError: (value: string | null) => void): Promise<void> {
+  if (!(await deleteChatOnServer(chatId, onError))) return;
   if (selected) router.push('/chat');
-}
-
-async function guarded<T>(action: () => Promise<T>): Promise<T | null> {
-  try {
-    return await action();
-  } catch {
-    return null;
-  }
+  leave(() => useChatList.getState().remove(chatId));
 }

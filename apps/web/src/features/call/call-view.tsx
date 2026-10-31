@@ -2,9 +2,12 @@
 
 import { MessageRole } from '@hira/contracts';
 import { useRouter } from 'next/navigation';
+import { Phone, PhoneOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { authedFetch } from '../../common/api/authed-fetch';
 import { Button } from '../../common/components/button';
+import { AlertText, SkeletonList } from '../../common/components/feedback';
+import { AppPage } from '../shell/app-header';
 import { accessToken } from '../auth/session-access';
 import { useSession } from '../auth/session.store';
 import { SessionStatus } from '../auth/session-status';
@@ -15,7 +18,7 @@ import { scheduleSuggestionRefresh } from '../suggestions/suggestion.store';
 import { VacancyCard } from '../vacancy/vacancy-card';
 import { callTurnRequest } from './call-turn';
 import { CALL_START_FAILED, LISTENING_LABEL, MIC_DENIED_MESSAGE, RELISTEN_DELAY_MS, SPEAKING_LABEL } from './call.constants';
-import { CaptionList, LanguageSelect, TypeInstead } from './call-parts';
+import { CaptionList, LanguageSelect, PhaseIndicator, TypeInstead } from './call-parts';
 import { CallPhase } from './call-phase';
 import { endCall } from './end-call';
 import {
@@ -74,43 +77,42 @@ export function CallView() {
   useEndOnLeave(sessionId, token, refs);
   const spoken = assistantText(state.captions);
   useSpeak(state.phase, spoken, synthesisLang(language, spoken), refs.life, () => continueListening(commit, refs));
-  if (status !== SessionStatus.Account) return <p className="p-6">Loading…</p>;
+  if (status !== SessionStatus.Account) return <div className="p-6"><SkeletonList /></div>;
   const onStart = () => {
     setStartError(null);
     void start(router, refs, setSessionId, commit, setStartError);
   };
   return (
-    <section className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Call</h1>
-        <LanguageSelect value={language} onChange={setLanguage} />
-      </div>
-      <p className="text-lg">{phaseLabel(state)}</p>
-      {startError !== null ? <p role="alert">{startError}</p> : null}
-      {micDenied && state.phase !== CallPhase.Idle ? <p role="alert" className="text-sm">{MIC_DENIED_MESSAGE}</p> : null}
-      {state.notice !== null ? <p role="alert" className="text-sm">{state.notice}</p> : null}
-      <CaptionList captions={state.captions} />
-      {state.draft !== null ? <DocumentDraftCard key={`${state.draft.title}-${state.draft.content.length}`} draft={state.draft} /> : null}
-      <div className="space-y-3">
-        {state.cards.map((card) => (
-          <VacancyCard
-            key={card.vacancy.id}
-            result={card}
-            open={openId === card.vacancy.id}
-            onToggle={() => setOpenId(openId === card.vacancy.id ? null : card.vacancy.id)}
-          />
-        ))}
-      </div>
-      <CallActions
-        phase={state.phase}
-        typeInstead={showTypeInstead(speech, micDenied)}
-        typed={typed}
-        onTyped={setTyped}
-        onStart={onStart}
-        onEnd={() => stop(token, refs, setSessionId, commit)}
-        onType={() => void say(typed, refs, commit).then(() => setTyped(''))}
-      />
-    </section>
+    <AppPage actions={<LanguageSelect value={language} onChange={setLanguage} />}>
+      <section className="mx-auto flex min-h-full w-full max-w-thread flex-col gap-6 px-4 pt-4 pb-6">
+        <PhaseIndicator phase={state.phase} label={phaseLabel(state)} />
+        {startError !== null ? <AlertText className="text-center">{startError}</AlertText> : null}
+        {micDenied && state.phase !== CallPhase.Idle ? <AlertText className="text-center">{MIC_DENIED_MESSAGE}</AlertText> : null}
+        {state.notice !== null ? <AlertText className="text-center">{state.notice}</AlertText> : null}
+        <CaptionList captions={state.captions} />
+        {state.draft !== null ? <DocumentDraftCard key={`${state.draft.title}-${state.draft.content.length}`} draft={state.draft} /> : null}
+        <div className="space-y-3">
+          {state.cards.map((card) => (
+            <div key={card.vacancy.id} className="motion-enter">
+              <VacancyCard
+                result={card}
+                open={openId === card.vacancy.id}
+                onToggle={() => setOpenId(openId === card.vacancy.id ? null : card.vacancy.id)}
+              />
+            </div>
+          ))}
+        </div>
+        <CallActions
+          phase={state.phase}
+          typeInstead={showTypeInstead(speech, micDenied)}
+          typed={typed}
+          onTyped={setTyped}
+          onStart={onStart}
+          onEnd={() => stop(token, refs, setSessionId, commit)}
+          onType={() => void say(typed, refs, commit).then(() => setTyped(''))}
+        />
+      </section>
+    </AppPage>
   );
 }
 
@@ -343,20 +345,21 @@ function CallActions(props: {
   onEnd: () => void;
   onType: () => void;
 }) {
-  if (props.phase === CallPhase.Idle)
+  if (props.phase === CallPhase.Idle) {
     return (
-      <Button type="button" onClick={props.onStart}>
-        Start
-      </Button>
+      <div className="mt-auto flex justify-center">
+        <Button onClick={props.onStart}><Phone size={16} aria-hidden="true" /> Start</Button>
+      </div>
     );
+  }
   return (
-    <div className="space-y-3">
-      <Button type="button" tone="quiet" onClick={props.onEnd}>
-        End
-      </Button>
+    <div className="mt-auto space-y-3">
       {props.typeInstead && props.phase === CallPhase.Listening ? (
         <TypeInstead typed={props.typed} onTyped={props.onTyped} onType={props.onType} />
       ) : null}
+      <div className="flex justify-center">
+        <Button variant="danger" onClick={props.onEnd}><PhoneOff size={16} aria-hidden="true" /> End</Button>
+      </div>
     </div>
   );
 }

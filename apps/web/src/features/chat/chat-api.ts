@@ -10,6 +10,12 @@ export async function fetchChats(cursor?: string): Promise<ChatPage<ChatSummary>
   return readJson<ChatPage<ChatSummary>>(await authedFetch(`/api/v1/chats${query(cursor)}`));
 }
 
+/** Chats whose title contains the text. `null` when the request failed. */
+export async function searchChats(text: string): Promise<ChatSummary[] | null> {
+  const page = await readJson<ChatPage<ChatSummary>>(await authedFetch(`/api/v1/chats?q=${encodeURIComponent(text)}`));
+  return page === null ? null : page.items;
+}
+
 /** Creates an empty chat. `limited` is the demo one-chat cap. */
 export async function createChat(): Promise<{ chat: ChatSummary | null; limited: boolean }> {
   const response = await authedFetch('/api/v1/chats', { method: 'POST' });

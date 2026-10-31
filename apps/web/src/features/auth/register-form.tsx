@@ -7,6 +7,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { coreFetch } from '../../common/api/core-api';
 import { Button } from '../../common/components/button';
+import { AlertText } from '../../common/components/feedback';
+import { HiraLogo } from '../../common/components/logo';
 import { TextField } from '../../common/components/text-field';
 import { COULD_NOT_REACH } from './auth.constants';
 import { registerSchema } from './auth.schema';
@@ -29,12 +31,12 @@ export function RegisterForm() {
   const form = useForm<RegisterValues>({ resolver: yupResolver(registerSchema) });
   return (
     <form
-      className="mx-auto flex w-full max-w-sm flex-col gap-4 p-8"
+      className="motion-enter mx-auto flex min-h-dvh w-full max-w-form flex-col justify-center gap-4 px-6 py-8"
       onSubmit={form.handleSubmit(
         (values) => void submit(values, setAccount, setError, setPending, router),
       )}
     >
-      <h1 className="text-2xl font-semibold">Create an account</h1>
+      <div className="flex flex-col items-center gap-4 pb-2"><HiraLogo className="size-control" /><h1 className="text-center text-3xl font-normal">Create an account</h1></div>
       <TextField label="Email" type="email" autoComplete="email" {...form.register('email')} />
       <TextField label="Display name" autoComplete="nickname" {...form.register('displayName')} />
       <TextField
@@ -43,12 +45,12 @@ export function RegisterForm() {
         autoComplete="new-password"
         {...form.register('password')}
       />
-      {form.formState.errors.password ? <p>{form.formState.errors.password.message}</p> : null}
-      {error !== null ? <p>{error}</p> : null}
+      {form.formState.errors.password ? <AlertText>{form.formState.errors.password.message}</AlertText> : null}
+      {error !== null ? <AlertText>{error}</AlertText> : null}
       <Button type="submit" disabled={pending}>
         Create account
       </Button>
-      <Link className="text-sm text-hira-accent" href="/login">
+      <Link className="text-center text-sm text-link transition-colors hover:text-link-hover" href="/login">
         Sign in
       </Link>
     </form>

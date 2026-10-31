@@ -3,6 +3,8 @@
 import type { ProfileDto, ProfileSkillDto, UpdateProfileRequest } from '@hira/contracts';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertText } from '../../common/components/feedback';
+import { PageHeading } from '../../common/components/page-frame';
 import { useSession } from '../auth/session.store';
 import { LocationPicker } from './location-picker';
 import { fetchProfile, fetchProfileSkills, saveProfile } from './profile-api';
@@ -39,18 +41,16 @@ export function ProfileView() {
   const formValues = useMemo(() => (profile === null ? null : profileFormValues(profile)), [profile]);
   if (token === null) return null;
   return (
-    <div className="mx-auto max-w-2xl space-y-8 p-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Profile</h1>
-        <p className="mt-2 text-sm text-hira-muted">
-          Upload a resume from the <Link className="text-hira-accent underline" href="/library">library</Link>. Skills found there are offered for confirmation.
-        </p>
-        {loadError ? <p role="alert" className="mt-2 text-sm">Could not load the profile.</p> : null}
-      </header>
+    <>
+      <PageHeading
+        title="Profile"
+        description={<>Upload a resume from the <Link className="text-link underline" href="/library">library</Link>. Skills found there are offered for confirmation.</>}
+      />
+      {loadError ? <AlertText>Could not load the profile.</AlertText> : null}
       <ProfileForm values={formValues} notice={notice} onSave={(body) => save(body, setNotice, reloadProfile)} />
       <LocationPicker selected={locations} onSaved={setLocations} />
       <ProfileSkills skills={skills} onChange={reloadSkills} />
-    </div>
+    </>
   );
 }
 

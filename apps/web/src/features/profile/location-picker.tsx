@@ -3,6 +3,8 @@
 import type { LocationDto } from '@hira/contracts';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { AlertText, MutedText } from '../../common/components/feedback';
+import { SectionHeading } from '../../common/components/page-frame';
 import { TextField } from '../../common/components/text-field';
 import { useDebounced } from '../../common/hooks/use-debounced';
 import { saveProfile, searchLocations } from './profile-api';
@@ -20,7 +22,7 @@ export function LocationPicker({ selected, onSaved }: LocationPickerProps) {
   const write = (next: number[]) => void saveLocations(next, setError, onSaved);
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-medium">Preferred cities</h2>
+      <SectionHeading>Preferred cities</SectionHeading>
       <Chips selected={selected} labels={labels} onRemove={(id) => write(selected.filter((item) => item !== id))} />
       <LocationSearch
         exclude={selected}
@@ -29,7 +31,7 @@ export function LocationPicker({ selected, onSaved }: LocationPickerProps) {
           write([...selected, location.id]);
         }}
       />
-      {error !== null ? <p role="alert" className="text-sm">{error}</p> : null}
+      {error !== null ? <AlertText>{error}</AlertText> : null}
     </section>
   );
 }
@@ -47,13 +49,13 @@ function useKnownLabels(selected: readonly number[], labels: Record<number, stri
 }
 
 function Chips({ selected, labels, onRemove }: { selected: readonly number[]; labels: Record<number, string>; onRemove: (id: number) => void }) {
-  if (selected.length === 0) return <p className="text-sm text-hira-muted">No cities yet.</p>;
+  if (selected.length === 0) return <MutedText>No cities yet.</MutedText>;
   return (
     <ul className="flex flex-wrap gap-2">
       {selected.map((id) => (
-        <li key={id} className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-sm">
+        <li key={id} className="motion-enter flex items-center gap-1 rounded-full bg-hover px-3 py-1 text-sm">
           {labels[id] ?? `Location #${id}`}
-          <button type="button" aria-label={`Remove ${labels[id] ?? 'city'}`} className="text-hira-muted hover:text-hira-text" onClick={() => onRemove(id)}>
+          <button type="button" aria-label={`Remove ${labels[id] ?? 'city'}`} className="text-ink-tertiary transition-colors hover:text-ink" onClick={() => onRemove(id)}>
             <X size={12} />
           </button>
         </li>
@@ -83,11 +85,11 @@ function LocationSearch({ exclude, onPick }: { exclude: readonly number[]; onPic
   return (
     <div>
       <TextField label="Add a city" value={query} onChange={(event) => setQuery(event.target.value)} />
-      {hits !== null && visible.length === 0 ? <p className="mt-2 text-sm text-hira-muted">No matches</p> : null}
-      <ul className="mt-2 space-y-1">
+      {hits !== null && visible.length === 0 ? <p className="mt-2 text-sm text-ink-tertiary">No matches</p> : null}
+      <ul className="motion-fade mt-2 space-y-0.5">
         {visible.map((hit) => (
           <li key={hit.id}>
-            <button type="button" className="text-sm text-hira-accent" onClick={() => pick(hit)}>{hit.label}</button>
+            <button type="button" className="h-row w-full rounded-row px-2 text-left text-sm text-ink transition-colors hover:bg-hover" onClick={() => pick(hit)}>{hit.label}</button>
           </li>
         ))}
       </ul>

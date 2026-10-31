@@ -3,40 +3,39 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { Drawer } from '../../common/components/drawer';
+import { Sheet } from '../../common/components/sheet';
+import { DESKTOP_QUERY, useMediaQuery } from '../../common/hooks/use-media-query';
 import { renewAccess } from '../auth/session-access';
 import { useSession } from '../auth/session.store';
 import { SessionStatus } from '../auth/session-status';
+import { refreshChatList } from '../chat/chat-sidebar';
 import { fetchFavorites } from '../favorites/favorites-api';
 import { useSavedVacancies } from '../favorites/saved-vacancies.store';
 import { ResumeSuggestionsModal } from '../suggestions/resume-suggestions-modal';
 import { SuggestionModal } from '../suggestions/suggestion-modal';
 import { useSuggestions } from '../suggestions/suggestion.store';
-import { ChatSidebar, refreshChatList } from '../chat/chat-sidebar';
 import { VacancyDetailDrawer } from '../vacancy/vacancy-detail-drawer';
+import { SearchChatsDialog } from './search-chats-dialog';
 import { useShell } from './shell.store';
+import { DesktopSidebar, SidebarContent } from './sidebar';
 
-/** Dark shell: sidebar, Call, and the page. */
+/** App frame: sidebar column or sheet, the page, and the overlays every page shares. */
 export function AppShell({ children }: { children: ReactNode }) {
   const status = useSession((state) => state.status);
   const token = useSession((state) => state.accessToken);
-  const user = useSession((state) => state.user);
   useBootstrap();
   useAccountData(status, token);
+  useLayoutMemory();
   const account = status === SessionStatus.Account && token !== null;
   return (
-    <div className="min-h-screen bg-hira-bg text-hira-text">
+    <div className="flex h-dvh overflow-hidden bg-surface pt-safe-top text-ink">
       {account ? <SuggestionModal /> : null}
       {account ? <ResumeSuggestionsModal /> : null}
       <VacancyDetailDrawer />
-      <MobileBar />
-      <div className="md:grid md:min-h-screen md:grid-cols-[16rem_1fr]">
-        <aside className="hidden border-r border-white/10 bg-hira-panel/30 p-4 md:block">
-          <ChatSidebar user={user} />
-        </aside>
-        <SidebarDrawer user={user} />
-        <div className="min-h-screen">{children}</div>
-      </div>
+      <SearchChatsDialog />
+      <DesktopSidebar />
+      <SidebarSheet />
+      <main className="page-transition relative min-w-0 flex-1 pb-safe-bottom">{children}</main>
     </div>
   );
 }
@@ -69,28 +68,31 @@ function useAccountData(status: SessionStatus, token: string | null): void {
   }, [status, token]);
 }
 
-function MobileBar() {
-  const setSidebar = useShell((state) => state.setSidebar);
-  return (
-    <header className="flex items-center justify-between border-b border-white/10 px-4 py-3 md:hidden">
-      <button type="button" onClick={() => setSidebar(true)}>
-        Menu
-      </button>
-      <span className="font-medium">Hira</span>
-    </header>
-  );
+/** Restores the saved layout and opens chat search on Cmd or Ctrl+K. */
+function useLayoutMemory(): void {
+  useEffect(() => {
+    useShell.getState().load();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      useShell.getState().setSearch(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 }
 
-function SidebarDrawer({ user }: { user: ReturnType<typeof useSession.getState>['user'] }) {
+function SidebarSheet() {
   const open = useShell((state) => state.sidebarOpen);
   const setSidebar = useShell((state) => state.setSidebar);
+  const desktop = useMediaQuery(DESKTOP_QUERY);
   const pathname = usePathname();
   useEffect(() => {
     setSidebar(false);
   }, [pathname, setSidebar]);
   return (
-    <Drawer open={open} label="Chats" onClose={() => setSidebar(false)}>
-      <ChatSidebar user={user} />
-    </Drawer>
+    <Sheet open={open && !desktop} label="Sidebar" onClose={() => setSidebar(false)}>
+      <SidebarContent onClose={() => setSidebar(false)} />
+    </Sheet>
   );
 }

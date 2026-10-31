@@ -1,11 +1,14 @@
+import { AppPage } from '../../../features/shell/app-header';
 import { RequireAccount } from '../../../features/account/require-account';
 import { FavoritesView } from '../../../features/favorites/favorites-view';
 
 /** Saved vacancies. There is no separate vacancy catalog. */
 export default function FavoritesPage() {
   return (
-    <RequireAccount>
-      <FavoritesView />
-    </RequireAccount>
+    <AppPage>
+      <RequireAccount>
+        <FavoritesView />
+      </RequireAccount>
+    </AppPage>
   );
 }

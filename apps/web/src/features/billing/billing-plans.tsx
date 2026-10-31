@@ -1,37 +1,47 @@
 'use client';
 
+import { Check } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../common/components/button';
+import { Card } from '../../common/components/card';
+import { PageHeading } from '../../common/components/page-frame';
 import { BILLING_PLANS, PAYMENT_UNAVAILABLE, planPrice, yearlySavings, type BillingPeriod } from './billing.constants';
+
+const PERIODS: readonly { value: BillingPeriod; label: string }[] = [
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'yearly', label: 'Yearly' },
+];
 
 /** Static prices. Upgrade does not start a payment. */
 export function BillingPlans() {
   const [period, setPeriod] = useState<BillingPeriod>('monthly');
   const [notice, setNotice] = useState<string | null>(null);
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Billing</h1>
-        <p className="mt-2 text-sm text-hira-muted">A preview of plans. No payment is taken.</p>
-      </header>
-      <div className="flex gap-2">
-        <Button type="button" tone={period === 'monthly' ? 'accent' : 'quiet'} onClick={() => setPeriod('monthly')}>Monthly</Button>
-        <Button type="button" tone={period === 'yearly' ? 'accent' : 'quiet'} onClick={() => setPeriod('yearly')}>Yearly</Button>
+    <>
+      <PageHeading title="Billing" description="A preview of plans. No payment is taken." />
+      <div role="radiogroup" aria-label="Billing period" className="inline-flex rounded-full bg-surface-raised p-1">
+        {PERIODS.map(({ value, label }) => (
+          <button key={value} type="button" role="radio" aria-checked={period === value} className={`h-action rounded-full px-4 text-sm transition-colors ${period === value ? 'bg-surface-control text-ink' : 'text-ink-tertiary hover:text-ink'}`} onClick={() => setPeriod(value)}>
+            {label}
+          </button>
+        ))}
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         {BILLING_PLANS.map((plan) => (
-          <article key={plan.id} className="flex flex-col gap-3 rounded-lg border border-white/10 bg-hira-panel/40 p-4">
+          <Card key={plan.id} className="flex flex-col gap-3">
             <h2 className="text-lg font-medium">{plan.name}</h2>
-            <p className="text-xl">{planPrice(plan, period)}</p>
-            {period === 'yearly' && yearlySavings(plan) !== null ? <p className="text-sm text-hira-accent">{yearlySavings(plan)}</p> : null}
-            <ul className="space-y-1 text-sm text-hira-muted">
-              {plan.features.map((feature) => <li key={feature}>{feature}</li>)}
+            <p key={period} className="motion-fade text-xl">{planPrice(plan, period)}</p>
+            {period === 'yearly' && yearlySavings(plan) !== null ? <p className="motion-fade text-sm text-link">{yearlySavings(plan)}</p> : null}
+            <ul className="space-y-2 text-sm text-ink-secondary">
+              {plan.features.map((feature) => (
+                <li key={feature} className="flex items-start gap-2"><Check size={16} aria-hidden="true" className="mt-0.5 shrink-0" />{feature}</li>
+              ))}
             </ul>
-            <Button type="button" className="mt-auto" onClick={() => setNotice(PAYMENT_UNAVAILABLE)}>Upgrade</Button>
-          </article>
+            <Button className="mt-auto" onClick={() => setNotice(PAYMENT_UNAVAILABLE)}>Upgrade</Button>
+          </Card>
         ))}
       </div>
-      {notice !== null ? <p role="status">{notice}</p> : null}
-    </div>
+      {notice !== null ? <p role="status" className="motion-fade text-sm text-ink-secondary">{notice}</p> : null}
+    </>
   );
 }

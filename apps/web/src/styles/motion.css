@@ -10,6 +10,7 @@
   --duration-moderate: 200ms;
   --duration-enter: 250ms;
   --duration-relaxed: 300ms;
+  --stagger-step: 40ms;
   --ease-basic: ease;
   --ease-enter: cubic-bezier(0.19, 1, 0.22, 1);
   --ease-enter-snappy: cubic-bezier(0.23, 1, 0.32, 1);
@@ -151,6 +152,7 @@
   [data-state='open'] > .motion-chevron { transform: rotate(180deg); }
 
   .motion-enter { animation: enter-up var(--duration-enter) var(--ease-enter) backwards; }
+  .motion-stagger { animation-delay: calc(var(--stagger-index, 0) * var(--stagger-step)); }
   .motion-fade { animation: fade-in var(--duration-moderate) var(--ease-basic) backwards; }
   .motion-bar { transform-origin: left; animation: bar-grow var(--duration-relaxed) var(--ease-enter) backwards; }
   .motion-pulse { animation: pulse-soft 1.6s var(--ease-in-out) infinite; }

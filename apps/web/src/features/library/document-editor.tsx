@@ -3,8 +3,9 @@
 import { DocumentFormat, type DocumentDetailDto } from '@hira/contracts';
 import { useEffect, useState } from 'react';
 import { Button } from '../../common/components/button';
-import { TextField } from '../../common/components/text-field';
-import { useConfirm } from '../../common/hooks/use-confirm';
+import { ConfirmDialog } from '../../common/components/confirm-dialog';
+import { AlertText, MutedText } from '../../common/components/feedback';
+import { TextArea, TextField } from '../../common/components/text-field';
 import { deleteDocument, patchDocument } from './library-api';
 
 interface DocumentEditorProps {
@@ -21,35 +22,23 @@ export function DocumentEditor({ detail, onChange, onClose }: DocumentEditorProp
   const [title, setTitle] = useState(detail.title);
   const [content, setContent] = useState(detail.extractedText);
   const [error, setError] = useState<string | null>(null);
-  const confirm = useConfirm();
-  const { reset } = confirm;
+  const [confirming, setConfirming] = useState(false);
   useEffect(() => {
     setTitle(detail.title);
     setContent(detail.extractedText);
-    reset();
-  }, [detail, reset]);
-  const onDelete = () => {
-    if (!confirm.armed) return confirm.arm();
-    confirm.reset();
-    void remove(detail.id, setError, onChange, onClose);
-  };
+  }, [detail]);
   return (
-    <section className="space-y-3 rounded-lg border border-white/10 p-4" aria-label={`Edit ${detail.title}`}>
+    <section className="mt-3 space-y-4" aria-label={`Edit ${detail.title}`}>
       <TextField label="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
-      <label className="block text-sm text-hira-muted">
-        Text
-        <textarea className="mt-1 w-full rounded-md border border-white/15 bg-hira-bg px-3 py-2 text-hira-text" rows={10} value={content} readOnly={locked} onChange={(event) => setContent(event.target.value)} />
-      </label>
-      {locked ? <p className="text-sm text-hira-muted">PDF text is read-only. The file stays in the library.</p> : null}
-      {error !== null ? <p role="alert">{error}</p> : null}
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={() => void patch(detail.id, locked ? { title } : { title, content }, setError, onChange)}>Save</Button>
-        <Button type="button" tone="quiet" onClick={() => void patch(detail.id, { isPinned: !detail.isPinned }, setError, onChange)}>{detail.isPinned ? 'Unpin' : 'Pin'}</Button>
-        <Button type="button" tone="quiet" onClick={onDelete} onBlur={confirm.reset}>
-          {confirm.armed ? 'Confirm delete' : 'Delete'}
-        </Button>
-        <Button type="button" tone="quiet" onClick={onClose}>Close</Button>
+      <TextArea label="Text" rows={10} value={content} readOnly={locked} onChange={(event) => setContent(event.target.value)} />
+      {locked ? <MutedText>PDF text is read-only. The file stays in the library.</MutedText> : null}
+      {error !== null ? <AlertText>{error}</AlertText> : null}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button variant="danger" className="mr-auto" onClick={() => setConfirming(true)}>Delete</Button>
+        <Button variant="secondary" onClick={() => void patch(detail.id, { isPinned: !detail.isPinned }, setError, onChange)}>{detail.isPinned ? 'Unpin' : 'Pin'}</Button>
+        <Button onClick={() => void patch(detail.id, locked ? { title } : { title, content }, setError, onChange)}>Save</Button>
       </div>
+      <ConfirmDialog open={confirming} title="Delete file?" body={`This will delete “${detail.title}”.`} confirmLabel="Delete" onConfirm={() => void remove(detail.id, setError, onChange, onClose)} onClose={() => setConfirming(false)} />
     </section>
   );
 }

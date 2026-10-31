@@ -1,16 +1,56 @@
 import { create } from 'zustand';
 
 interface ShellState {
+  /** Phone sheet with the sidebar. */
   sidebarOpen: boolean;
+  /** Desktop column narrowed to the icon rail. */
+  sidebarCollapsed: boolean;
+  /** Context panel: a column on desktop, a sheet on a phone. */
   contextOpen: boolean;
+  searchOpen: boolean;
   setSidebar: (open: boolean) => void;
+  toggleCollapsed: () => void;
   setContext: (open: boolean) => void;
+  setSearch: (open: boolean) => void;
+  /** Reads the saved layout once the page runs in a browser. */
+  load: () => void;
 }
 
-/** Mobile drawers. Desktop columns ignore these flags. */
-export const useShell = create<ShellState>((set) => ({
+const COLLAPSED_KEY = 'hira-sidebar-collapsed';
+const CONTEXT_KEY = 'hira-context-open';
+
+/** Shell layout. Only the sidebar column and the context panel survive a reload. */
+export const useShell = create<ShellState>((set, get) => ({
   sidebarOpen: false,
+  sidebarCollapsed: false,
   contextOpen: false,
+  searchOpen: false,
   setSidebar: (sidebarOpen) => set({ sidebarOpen }),
-  setContext: (contextOpen) => set({ contextOpen }),
+  toggleCollapsed: () => {
+    const sidebarCollapsed = !get().sidebarCollapsed;
+    remember(COLLAPSED_KEY, sidebarCollapsed);
+    set({ sidebarCollapsed });
+  },
+  setContext: (contextOpen) => {
+    remember(CONTEXT_KEY, contextOpen);
+    set({ contextOpen });
+  },
+  setSearch: (searchOpen) => set({ searchOpen }),
+  load: () => set({ sidebarCollapsed: recall(COLLAPSED_KEY), contextOpen: recall(CONTEXT_KEY) }),
 }));
+
+function remember(key: string, value: boolean): void {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    // Blocked storage only loses the layout after a reload.
+  }
+}
+
+function recall(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === 'true';
+  } catch {
+    return false;
+  }
+}

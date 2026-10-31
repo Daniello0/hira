@@ -2,7 +2,11 @@
 
 import { SkillImportance, VacancyStatus, type VacancyDetailDto, type VacancyDto, type VacancySkillDto } from '@hira/contracts';
 import { X } from 'lucide-react';
-import { Drawer } from '../../common/components/drawer';
+import { Badge } from '../../common/components/badge';
+import { MutedText, AlertText, SkeletonList } from '../../common/components/feedback';
+import { IconButton } from '../../common/components/icon-button';
+import { Sheet } from '../../common/components/sheet';
+import { useLastDefined } from '../../common/hooks/use-last-defined';
 import { employmentLabel, seniorityLabel, skillImportanceLabel, workFormatLabel } from '../../common/utils/enum-labels';
 import { useSession } from '../auth/session.store';
 import { SessionStatus } from '../auth/session-status';
@@ -15,35 +19,36 @@ import { ForeignRemoteBadge, PostingLink } from './vacancy-links';
 
 const IMPORTANCE_ORDER: readonly SkillImportance[] = [SkillImportance.Required, SkillImportance.Preferred, SkillImportance.Mentioned];
 
-/** Right-side drawer with the full vacancy. Mounted once in the shell. */
+/** Right-side panel with the full vacancy. Mounted once in the shell; it keeps its content while sliding out. */
 export function VacancyDetailDrawer() {
   const openId = useVacancyDetail((state) => state.openId);
   const close = useVacancyDetail((state) => state.close);
+  const shownId = useLastDefined(openId);
   return (
-    <Drawer open={openId !== null} label="Vacancy" onClose={close} side="right" mobileOnly={false} widthClass="w-full sm:w-[34rem]">
-      <div className="flex justify-end">
-        <button type="button" aria-label="Close" className="rounded-md p-1 text-hira-muted hover:text-hira-text" onClick={close}>
-          <X size={18} />
-        </button>
+    <Sheet open={openId !== null} label="Vacancy" onClose={close} side="right" widthClass="w-full md:w-vacancy">
+      <div className="flex h-header shrink-0 items-center justify-end px-2">
+        <IconButton label="Close" onClick={close}><X size={20} aria-hidden="true" /></IconButton>
       </div>
-      {openId !== null ? <VacancyDetailBody key={openId} id={openId} /> : null}
-    </Drawer>
+      <div className="px-5 pb-8">
+        {shownId !== null ? <VacancyDetailBody key={shownId} id={shownId} /> : null}
+      </div>
+    </Sheet>
   );
 }
 
 function VacancyDetailBody({ id }: { id: string }) {
   const account = useSession((state) => state.status) === SessionStatus.Account;
   const data = useVacancyDetailData(id, account);
-  if (data.loading) return <p className="text-sm">Loading…</p>;
-  if (data.detail === null) return <p role="alert" className="text-sm">Could not load this vacancy.</p>;
+  if (data.loading) return <SkeletonList />;
+  if (data.detail === null) return <AlertText>Could not load this vacancy.</AlertText>;
   return (
-    <div className="space-y-6">
+    <div className="motion-fade space-y-6">
       <DetailHeader detail={data.detail} />
       {account ? <SkillGapView gap={data.gap} failed={data.gapFailed} /> : null}
       <SkillSection skills={data.detail.skills} />
       <section className="space-y-2 text-sm">
         <h3 className="font-medium">Description</h3>
-        <p className="whitespace-pre-wrap text-hira-muted">{data.detail.description}</p>
+        <p className="whitespace-pre-wrap text-ink-tertiary">{data.detail.description}</p>
       </section>
       <SimilarList items={data.similar} />
     </div>
@@ -60,8 +65,8 @@ function DetailHeader({ detail }: { detail: VacancyDetailDto }) {
   return (
     <header className="space-y-2">
       <h2 className="text-xl font-semibold">{detail.title}</h2>
-      <p className="text-sm text-hira-muted">{[detail.companyName, detail.locationLabel].filter(Boolean).join(' · ')}</p>
-      <p className="text-sm text-hira-muted">{[payLabel(detail), ...facts].join(' · ')}</p>
+      <p className="text-sm text-ink-tertiary">{[detail.companyName, detail.locationLabel].filter(Boolean).join(' · ')}</p>
+      <p className="text-sm text-ink-tertiary">{[payLabel(detail), ...facts].join(' · ')}</p>
       <div className="flex flex-wrap items-center gap-3">
         <ForeignRemoteBadge show={detail.isForeignRemote} />
         <PostingLink url={detail.url} closed={detail.status !== VacancyStatus.Active} />
@@ -87,12 +92,12 @@ function SkillGroup({ importance, skills }: { importance: SkillImportance; skill
   if (skills.length === 0) return null;
   return (
     <div>
-      <p className="text-hira-muted">{skillImportanceLabel(importance)}</p>
+      <p className="text-ink-tertiary">{skillImportanceLabel(importance)}</p>
       <ul className="mt-1 space-y-1">
         {skills.map((skill) => (
           <li key={skill.skillId}>
-            <span className="rounded-full bg-white/10 px-2 py-0.5">{skill.name}</span>
-            {skill.evidenceSpan ? <q className="ml-2 text-xs text-hira-muted">{skill.evidenceSpan}</q> : null}
+            <Badge>{skill.name}</Badge>
+            {skill.evidenceSpan ? <q className="ml-2 text-xs text-ink-tertiary">{skill.evidenceSpan}</q> : null}
           </li>
         ))}
       </ul>
@@ -102,7 +107,7 @@ function SkillGroup({ importance, skills }: { importance: SkillImportance; skill
 
 function SimilarList({ items }: { items: readonly VacancyDto[] | null }) {
   const open = useVacancyDetail((state) => state.open);
-  if (items === null) return <p className="text-sm text-hira-muted">Similar vacancies are unavailable.</p>;
+  if (items === null) return <MutedText>Similar vacancies are unavailable.</MutedText>;
   if (items.length === 0) return null;
   return (
     <section className="space-y-2 text-sm">
@@ -110,8 +115,8 @@ function SimilarList({ items }: { items: readonly VacancyDto[] | null }) {
       <ul className="space-y-2">
         {items.map((item) => (
           <li key={item.id}>
-            <button type="button" className="text-left text-hira-accent hover:underline" onClick={() => open(item.id)}>{item.title}</button>
-            <p className="text-xs text-hira-muted">{[item.companyName, item.locationLabel, payLabel(item)].filter(Boolean).join(' · ')}</p>
+            <button type="button" className="text-left text-link transition-colors hover:text-link-hover" onClick={() => open(item.id)}>{item.title}</button>
+            <p className="text-xs text-ink-tertiary">{[item.companyName, item.locationLabel, payLabel(item)].filter(Boolean).join(' · ')}</p>
           </li>
         ))}
       </ul>
