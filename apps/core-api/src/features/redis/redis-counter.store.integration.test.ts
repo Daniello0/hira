@@ -7,6 +7,7 @@ import { DEMO_QUOTA_PREFIX } from '../auth/auth.constants';
 import { LoginRateLimitService } from '../rate-limit/login-rate-limit.service';
 import { SearchQuotaService } from '../rate-limit/search-quota.service';
 import { RedisCounterStore } from './redis-counter.store';
+import { createRedisClient } from './redis.module';
 
 const exec = promisify(execFile);
 const CONTAINER = 'hira-redis-auth-test';
@@ -51,7 +52,38 @@ describe('redis counters', () => {
     }
     expect(await limits.consume('203.0.113.9', 'ada@example.com')).toBe(2);
   });
+
+  it('answers the first command on a client that has not connected yet', async () => {
+    const client = createRedisClient({ REDIS_URL: redisUrl() });
+    try {
+      expect(await client.ping()).toBe('PONG');
+    } finally {
+      client.disconnect();
+    }
+  });
+
+  it('answers again after Redis restarts', async () => {
+    const client = createRedisClient({ REDIS_URL: redisUrl() });
+    try {
+      await client.ping();
+      await exec('docker', ['restart', CONTAINER]);
+      await waitForPing();
+      expect(await pingWithin(client, 10_000)).toBe('PONG');
+    } finally {
+      client.disconnect();
+    }
+  }, START_TIMEOUT_MS);
 });
+
+async function pingWithin(client: Redis, ms: number): Promise<string> {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    const answer = await client.ping().catch(() => null);
+    if (answer !== null) return answer;
+    await delay(200);
+  }
+  return 'no answer';
+}
 
 function redisUrl(): string {
   return `redis://127.0.0.1:${HOST_PORT}`;
