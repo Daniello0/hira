@@ -26,6 +26,13 @@ describe('account activity', () => {
     expect(mergeActivity([{ kind: 'chat', title: 'x', summary: null, queries: [], vacancies: [], at: new Date() }], [], 0)).toEqual([]);
   });
 
+  it('keeps earlier chats in the block when one question in them is a pasted text', () => {
+    const row = (title: string, queries: string[]) => ({ kind: 'chat' as const, title, summary: null, queries, vacancies: [], at: new Date() });
+    const pasted = 'я'.repeat(4000);
+    const merged = mergeActivity([row('resume', [pasted, pasted]), row('older', ['python']), row('oldest', ['qa'])], [], 10);
+    expect(fitFacts(facts({ activity: merged }), 6000).activity.map((item) => item.title)).toEqual(['resume', 'older', 'oldest']);
+  });
+
   it('lists the latest search first and keeps the order shown', () => {
     const shown = shownInOrder([[vacancy('old')], [vacancy('a'), vacancy('b'), vacancy('old')]]);
     expect(shown.map((item) => item.title)).toEqual(['Job a', 'Job b', 'Job old']);

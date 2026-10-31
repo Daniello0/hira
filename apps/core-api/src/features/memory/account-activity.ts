@@ -8,6 +8,8 @@ export interface ActivityRecord extends PromptActivity {
 /** Most vacancies listed per earlier chat, and most questions quoted from it. */
 export const ACTIVITY_VACANCIES = 10;
 export const ACTIVITY_QUERIES = 5;
+/** A question is quoted up to this long, so one pasted text cannot push every other chat out of the block. */
+export const ACTIVITY_QUERY_MAX_CHARS = 300;
 /** Most vacancies listed from this conversation. */
 export const SHOWN_HERE_MAX = 20;
 /** Size of the facts block in characters. When it grows past this, the oldest entries go first. */
@@ -57,7 +59,11 @@ export function mergeActivity(chats: readonly ActivityRecord[], calls: readonly 
   return [...chats, ...calls]
     .sort((left, right) => right.at.getTime() - left.at.getTime())
     .slice(0, limit)
-    .map(({ at: _at, ...activity }) => activity);
+    .map(({ at: _at, ...activity }) => ({ ...activity, queries: activity.queries.map(clipQuery) }));
+}
+
+function clipQuery(query: string): string {
+  return query.length <= ACTIVITY_QUERY_MAX_CHARS ? query : `${query.slice(0, ACTIVITY_QUERY_MAX_CHARS)}…`;
 }
 
 /** Vacancies of one conversation, the latest search first, each search in the order shown, without repeats. */
