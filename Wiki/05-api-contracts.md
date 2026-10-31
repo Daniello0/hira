@@ -219,6 +219,7 @@ interface VacancyResult {
 | `POST` | `/internal/v1/extract-skills` | `{ vacancies: { id, title, description }[] }` → `{ results: ExtractedSkills[] }` |
 | `POST` | `/internal/v1/title-chat` | `{ firstMessage }` → `{ title }` |
 | `POST` | `/internal/v1/parse-resume` | `{ resumeText }` → `{ skills[], experience[] }` |
+| `POST` | `/internal/v1/speak` | `{ text, voice }` → MP3 (голос через OpenRouter, ADR-050) |
 
 Для `/understand`: `history[]` — `{ role: USER | ASSISTANT, content }`, `memory[]` — `{ content }`. `summary` — сводка текущего чата, не факт памяти. `documents[]` — `{ title, kind, content }` закреплённых и ближайших файлов; в `memory[]` они не входят. `canonicalId` в `intent.skills` всегда `null` — [02-retrieval-layer.md](02-retrieval-layer.md), S0.
 
