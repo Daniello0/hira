@@ -1,13 +1,13 @@
 import { VacancySource, type TurnFacts, type VacancyDto } from '@hira/contracts';
 import { describe, expect, it } from 'vitest';
-import { fitFacts, knownVacancies, mergeActivity, promptVacancy, shownInOrder } from './account-activity';
+import { FACTS_MAX_CHARS, FAVORITES_IN_FACTS, fitFacts, knownVacancies, mergeActivity, promptVacancy, shownInOrder } from './account-activity';
 
 const vacancy = (id: string, overrides: Partial<VacancyDto> = {}) =>
   ({ id, title: `Job ${id}`, companyName: 'Acme', locationLabel: 'Минск', source: VacancySource.RabotaBy, workFormat: null, ...overrides }) as VacancyDto;
 
 const line = (title: string) => ({ title, company: 'Acme', city: null, source: 'rabota.by', workFormat: null });
 
-const facts = (partial: Partial<TurnFacts>): TurnFacts => ({ catalog: null, profile: null, memory: [], favorites: [], activity: [], shownHere: [], ...partial });
+const facts = (partial: Partial<TurnFacts>): TurnFacts => ({ catalog: null, profile: null, memory: [], favorites: [], favoritesTotal: 0, activity: [], shownHere: [], ...partial });
 
 describe('account activity', () => {
   it('names the site and the city of a vacancy', () => {
@@ -31,6 +31,14 @@ describe('account activity', () => {
     const pasted = 'я'.repeat(4000);
     const merged = mergeActivity([row('resume', [pasted, pasted]), row('older', ['python']), row('oldest', ['qa'])], [], 10);
     expect(fitFacts(facts({ activity: merged }), 6000).activity.map((item) => item.title)).toEqual(['resume', 'older', 'oldest']);
+  });
+
+  it('leaves room for earlier chats beside a full list of saved vacancies', () => {
+    const row = (title: string) => ({ title: `${title} ведущий системный аналитик`, company: 'Большая компания', city: 'Минск', source: 'career.habr.com', workFormat: 'REMOTE' });
+    const catalog = { total: 182, byRegion: [], topCities: Array.from({ length: 30 }, (_, index) => ({ city: `Город ${index}`, count: 3 })), noLocation: 32, remote: 20, foreignRemote: 1, bySource: [] };
+    const activity = Array.from({ length: 10 }, (_, index) => ({ kind: 'chat' as const, title: `Чат ${index}`, summary: 'с'.repeat(400), queries: ['найди работу в Минске'], vacancies: [row('a'), row('b'), row('c')] }));
+    const favorites = Array.from({ length: FAVORITES_IN_FACTS }, (_, index) => row(`Saved ${index}`));
+    expect(fitFacts(facts({ catalog, favorites, activity }), FACTS_MAX_CHARS).activity.length).toBeGreaterThanOrEqual(3);
   });
 
   it('lists the latest search first and keeps the order shown', () => {

@@ -10,7 +10,7 @@ import { FAVORITE_STORE, type FavoriteStore } from '../favorite/favorite.store';
 import { CHAT_STORE, type ChatStore, type MessageRecord } from '../chat/chat.store';
 import type { Caller } from '../chat/resolve-actor';
 import { LIBRARY_STORE, TEXT_EMBEDDER, type LibraryStore } from '../library/library.store';
-import { FACTS_MAX_CHARS, fitFacts, mergeActivity, promptFavorite, promptProfile, type ActivityRecord } from './account-activity';
+import { FACTS_MAX_CHARS, FAVORITES_IN_FACTS, fitFacts, mergeActivity, promptFavorite, promptProfile, type ActivityRecord } from './account-activity';
 import { applyMemoryCandidates } from './apply-candidates';
 import { assembleTurnContext, type TurnContext } from './assemble-context';
 import { enqueueUser } from './follow-up-queue';
@@ -94,7 +94,8 @@ export class TurnContextService {
         catalog,
         profile: profile === null ? null : promptProfile(account?.displayName ?? null, profile, skills),
         memory: context.memory,
-        favorites: favorites.map(promptFavorite),
+        favorites: favorites.slice(0, FAVORITES_IN_FACTS).map(promptFavorite),
+        favoritesTotal: favorites.length,
         activity: mergeActivity(chatRows, callRows, chats),
         shownHere: input.shownHere ?? [],
       },
@@ -186,7 +187,7 @@ export class TurnContextService {
 
 /** A guest has no account data: only the catalog and what this chat showed. */
 function guestFacts(catalog: TurnFacts['catalog'], input: ContextLoad): TurnFacts {
-  return { catalog, profile: null, memory: [], favorites: [], activity: [], shownHere: input.shownHere ?? [] };
+  return { catalog, profile: null, memory: [], favorites: [], favoritesTotal: 0, activity: [], shownHere: input.shownHere ?? [] };
 }
 
 function toTurn(message: MessageRecord): PromptTurn {

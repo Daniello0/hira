@@ -13,7 +13,9 @@ export const ACTIVITY_QUERY_MAX_CHARS = 300;
 /** Most vacancies listed from this conversation. */
 export const SHOWN_HERE_MAX = 20;
 /** Size of the facts block in characters. When it grows past this, the oldest entries go first. */
-export const FACTS_MAX_CHARS = 6000;
+export const FACTS_MAX_CHARS = 9000;
+/** Most saved vacancies listed, newest first, so a long list leaves room for earlier chats. */
+export const FAVORITES_IN_FACTS = 15;
 
 /** A vacancy row as Hira may speak about it. */
 export function promptVacancy(vacancy: VacancyDto): PromptVacancy {

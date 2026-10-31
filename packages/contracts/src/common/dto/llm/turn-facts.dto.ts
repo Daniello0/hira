@@ -38,7 +38,10 @@ export interface TurnFacts {
   catalog: CatalogStats | null;
   profile: PromptProfile | null;
   memory: PromptMemory[];
+  /** The latest saved vacancies. */
   favorites: PromptVacancy[];
+  /** All saved vacancies of the account, listed or not. */
+  favoritesTotal: number;
   /** Newest first. */
   activity: PromptActivity[];
   /** Vacancies shown earlier in this conversation, newest search first, in the order shown. */

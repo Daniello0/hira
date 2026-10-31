@@ -12,7 +12,7 @@ function everyLine(facts: TurnFacts): string[] {
     ...catalogLines(facts.catalog),
     ...profileLines(facts.profile),
     ...memoryLines(facts),
-    ...vacancyList('Saved vacancies', facts.favorites),
+    ...savedLines(facts),
     ...vacancyList('Shown earlier in this conversation, latest search first', facts.shownHere),
     ...activityLines(facts.activity),
   ];
@@ -55,6 +55,12 @@ function field(label: string, value: string | null): string | null {
 function memoryLines(facts: TurnFacts): string[] {
   if (facts.memory.length === 0) return [];
   return ['Remembered about the user:', ...facts.memory.map((fact) => `- ${fact.content}`)];
+}
+
+function savedLines({ favorites, favoritesTotal }: TurnFacts): string[] {
+  if (favorites.length === 0) return favoritesTotal === 0 ? [] : [`Saved vacancies: ${favoritesTotal}.`];
+  const title = favorites.length < favoritesTotal ? `Saved vacancies, the latest ${favorites.length} of ${favoritesTotal}` : 'Saved vacancies';
+  return vacancyList(title, favorites);
 }
 
 function vacancyList(title: string, vacancies: readonly PromptVacancy[]): string[] {

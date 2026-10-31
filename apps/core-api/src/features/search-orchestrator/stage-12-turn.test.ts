@@ -61,6 +61,7 @@ describe('stage 12 turn context', () => {
       profile: null,
       memory: [],
       favorites: [{ title: 'Saved', company: 'Acme', city: null, source: 'gsz.gov.by', workFormat: null }],
+      favoritesTotal: 1,
       activity: [],
       shownHere: [],
     };

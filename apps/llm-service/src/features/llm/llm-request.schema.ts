@@ -112,6 +112,7 @@ const factsSchema = z.object({
     .nullable(),
   memory: z.array(memorySchema),
   favorites: z.array(promptVacancySchema),
+  favoritesTotal: z.number(),
   activity: z.array(
     z.object({
       kind: z.enum(['chat', 'call']),

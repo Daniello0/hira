@@ -9,7 +9,7 @@ import type { ProfileService } from '../profile/profile.service';
 
 const CATALOG = { total: 15, byRegion: [], topCities: [], noLocation: 0, remote: 2, foreignRemote: 0, bySource: [] };
 
-function contextService(plan: UserPlan, crossChat = true) {
+function contextService(plan: UserPlan, crossChat = true, saved = 1) {
   const chatActivity = vi.fn(async (_user: string, limit: number) =>
     limit === 0 ? [] : [{ kind: 'chat' as const, title: 'Python', summary: 'Asked about python', queries: ['python'], vacancies: [], at: new Date(2) }],
   );
@@ -26,7 +26,7 @@ function contextService(plan: UserPlan, crossChat = true) {
     unused(),
     { get: async () => ({ headline: 'QA', about: null, seniority: null, desiredRoles: [], preferredWorkFormat: [], preferredLocations: [], preferredEmployment: [], salaryExpectationMin: null, currency: null, education: null }), skills: async () => [{ canonicalName: 'Python' }] } as never,
     { warn: () => undefined } as never,
-    { list: async () => [{ vacancy: { title: 'Saved', companyName: 'Acme', locationLabel: 'Минск', source: 'GSZ', workFormat: null } }] } as never,
+    { list: async () => Array.from({ length: saved }, () => ({ vacancy: { title: 'Saved', companyName: 'Acme', locationLabel: 'Минск', source: 'GSZ', workFormat: null } })) } as never,
     { recentActivity: callActivity } as never,
     { read: async () => CATALOG } as never,
   );
@@ -40,7 +40,7 @@ describe('turn facts', () => {
     const { service, chatActivity } = contextService(UserPlan.Max);
     const shownHere = [{ title: 'Shown', company: 'A', city: null, source: 'gsz.gov.by', workFormat: null }];
     const context = await service.load({ caller: { kind: 'demo', demoSessionId: 'd1' }, query: 'q', useMemory: true, summary: null, shownHere });
-    expect(context.facts).toEqual({ catalog: CATALOG, profile: null, memory: [], favorites: [], activity: [], shownHere });
+    expect(context.facts).toEqual({ catalog: CATALOG, profile: null, memory: [], favorites: [], favoritesTotal: 0, activity: [], shownHere });
     expect(chatActivity).not.toHaveBeenCalled();
   });
 
@@ -51,6 +51,14 @@ describe('turn facts', () => {
     expect(facts?.favorites).toEqual([{ title: 'Saved', company: 'Acme', city: 'Минск', source: 'gsz.gov.by', workFormat: null }]);
     expect(facts?.activity.map((item) => item.kind)).toEqual(['chat', 'call']);
     expect(facts?.catalog).toEqual(CATALOG);
+  });
+
+  it('lists the latest saved vacancies and still knows how many there are', async () => {
+    const { service } = contextService(UserPlan.Pro, true, 40);
+    const { facts } = await service.load({ caller: USER, query: 'q', useMemory: true, summary: null });
+    expect(facts?.favorites).toHaveLength(15);
+    expect(facts?.favoritesTotal).toBe(40);
+    expect(facts?.activity).toHaveLength(2);
   });
 
   it('asks for as many earlier chats as the plan allows, leaving out the open one', async () => {

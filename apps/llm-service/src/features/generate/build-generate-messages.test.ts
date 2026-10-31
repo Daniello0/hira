@@ -89,6 +89,14 @@ describe('buildGenerateMessages', () => {
     }
   });
 
+  it('says how many vacancies are saved when only the latest are listed', () => {
+    const saved = { title: 'Saved job', company: 'Acme', city: null, source: null, workFormat: null };
+    const request = { intent: { ...intent(), intentType: IntentType.SmallTalk }, history: [], results: [] };
+    expect(textOf({ ...request, facts: emptyFacts({ favorites: [saved], favoritesTotal: 30 }) })).toContain('the latest 1 of 30');
+    expect(textOf({ ...request, facts: emptyFacts({ favorites: [], favoritesTotal: 30 }) })).toContain('Saved vacancies: 30');
+    expect(textOf({ ...request, facts: emptyFacts({ favorites: [saved] }) })).not.toContain(' of 1');
+  });
+
   it('asks for a short spoken reply on a call, in the chosen language', () => {
     const spoken = buildGenerateMessages({ intent: intent(), history: [], results: [], voice: { language: VoiceLanguage.German } });
     expect(spoken[0]?.content).toContain('voice call');
@@ -230,5 +238,5 @@ function textOf(request: GenerateRequest): string {
 }
 
 function emptyFacts(partial: Partial<TurnFacts>): TurnFacts {
-  return { catalog: null, profile: null, memory: [], favorites: [], activity: [], shownHere: [], ...partial };
+  return { catalog: null, profile: null, memory: [], favorites: [], favoritesTotal: partial.favorites?.length ?? 0, activity: [], shownHere: [], ...partial };
 }
