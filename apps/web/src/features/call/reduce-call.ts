@@ -33,6 +33,16 @@ export function beginListening(state: CallViewState): CallViewState {
   return { ...state, phase: CallPhase.Listening, searching: false };
 }
 
+/** A phrase is being read, or the reply is on its way. */
+export function beginThinking(state: CallViewState): CallViewState {
+  return { ...state, phase: CallPhase.Thinking, notice: null };
+}
+
+/** The first piece of the reply started playing. */
+export function beginSpeaking(state: CallViewState): CallViewState {
+  return { ...state, phase: CallPhase.Speaking, searching: false };
+}
+
 /** A finished utterance is on its way to core-api. Searching waits for a search intent. */
 export function onFinalTranscript(state: CallViewState, id: string, text: string): CallViewState {
   return {
@@ -54,7 +64,7 @@ export function reduceCallEvent(
   if (raw.event === 'results') return { ...state, searching: false, cards: asResults(raw.data) };
   if (raw.event === 'token') return appendAssistant(state, delta(raw.data));
   if (raw.event === 'document-draft') return { ...state, draft: asDraft(raw.data) ?? state.draft };
-  if (raw.event === 'done') return { ...state, phase: CallPhase.Speaking, searching: false };
+  if (raw.event === 'done') return { ...state, searching: false };
   if (raw.event === 'error')
     return { ...state, phase: CallPhase.Listening, searching: false, cards: [], notice: errorText(raw.data) };
   return state;
@@ -70,21 +80,14 @@ export function finishCall(): CallViewState {
   return emptyCall();
 }
 
-/** A turn that never reached speaking goes back to the microphone. */
-export function resumeCallAfterTurn(state: CallViewState, opened: boolean): CallViewState {
-  if (state.phase === CallPhase.Idle) return state;
-  if (state.phase === CallPhase.Speaking && opened) return state;
-  return beginListening(state);
-}
-
 /** Demo stays in the text chat. */
 export function canStartCall(status: SessionStatus): boolean {
   return status === SessionStatus.Account;
 }
 
-/** The typed fallback is there when the browser has no recognizer or the microphone is blocked. */
-export function showTypeInstead(speechAvailable: boolean, micDenied = false): boolean {
-  return !speechAvailable || micDenied;
+/** The typed fallback is there when the microphone is blocked or the voice service is down. */
+export function showTypeInstead(voiceWorks: boolean): boolean {
+  return !voiceWorks;
 }
 
 /** Caption speaker as the user reads it. */

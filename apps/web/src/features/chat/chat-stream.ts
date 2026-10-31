@@ -13,16 +13,16 @@ export interface StreamResult {
  * Posts one turn and reads SSE. A network failure before headers is not an open stream.
  * A 401 is refreshed and repeated once by `authedFetch`; the server stored nothing then.
  */
-export async function postStream(path: string, body: object, onEvent: (event: ParsedSse) => void): Promise<StreamResult> {
-  const response = await post(path, body);
+export async function postStream(path: string, body: object, onEvent: (event: ParsedSse) => void, signal?: AbortSignal): Promise<StreamResult> {
+  const response = await post(path, body, signal);
   if (response === null) return { opened: false, status: 0, error: null, interrupted: false };
   if (!response.ok) return { opened: false, status: response.status, error: await readError(response), interrupted: false };
   return readOpenStream(response, onEvent);
 }
 
-async function post(path: string, body: object): Promise<Response | null> {
+async function post(path: string, body: object, signal?: AbortSignal): Promise<Response | null> {
   try {
-    return await authedFetch(path, jsonPost(body));
+    return await authedFetch(path, { ...jsonPost(body), ...(signal === undefined ? {} : { signal }) });
   } catch {
     return null;
   }

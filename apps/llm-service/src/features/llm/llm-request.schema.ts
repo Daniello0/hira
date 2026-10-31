@@ -9,7 +9,7 @@ import {
   type GenerateRequest,
   type UnderstandRequest,
 } from '@hira/contracts';
-import { DocumentKind } from '@hira/contracts';
+import { DocumentKind, VoiceLanguage } from '@hira/contracts';
 import { z } from 'zod';
 
 const turnSchema = z
@@ -132,6 +132,7 @@ const generateRequestSchema = z
     summary: z.string().nullable().optional(),
     documents: z.array(documentSchema).optional(),
     facts: factsSchema.optional(),
+    voice: z.object({ language: stringEnum(Object.values(VoiceLanguage)).nullable() }).strict().optional(),
   })
   .strict();
 

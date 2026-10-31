@@ -178,6 +178,7 @@ function generateBody(
     summary: turn.context.summary,
     documents: withTargetDocument(turn.context.documents, targetDocument(target)),
     ...(turn.context.facts === undefined ? {} : { facts: turn.context.facts }),
+    ...(input.voice === undefined ? {} : { voice: input.voice }),
   };
 }
 

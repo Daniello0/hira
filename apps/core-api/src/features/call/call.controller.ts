@@ -1,7 +1,8 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiProduces, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { VoiceLanguage } from '@hira/contracts';
+import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import type { Request, Response } from 'express';
 import { PlanGate } from '../billing/plan-gate';
 import { readRequestId } from '../../common/interceptors/request-id.interceptor';
@@ -34,6 +35,11 @@ class CallTurnBody {
   @IsOptional()
   @IsBoolean()
   includeForeignRemote?: boolean;
+
+  @ApiPropertyOptional({ enum: VoiceLanguage, description: 'Language to reply in. Absent: the language of the phrase' })
+  @IsOptional()
+  @IsEnum(VoiceLanguage)
+  language?: VoiceLanguage;
 }
 
 /** Voice-call transcripts. A call never appears in the chat list. */
@@ -85,6 +91,7 @@ export class CallController {
           requestId: readRequestId(request),
           useMemory: body.useMemory,
           includeForeignRemote: body.includeForeignRemote,
+          voice: { language: body.language ?? null },
           signal: abortOnClose(response),
         },
         responseSink(response),

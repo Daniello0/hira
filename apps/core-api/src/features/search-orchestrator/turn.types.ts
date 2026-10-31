@@ -1,4 +1,4 @@
-import type { MessageRole, PromptVacancy, RetrievalRequest, RetrievalResponse, SearchIntent, TokenUsage } from '@hira/contracts';
+import type { MessageRole, PromptVacancy, VoiceLanguage, RetrievalRequest, RetrievalResponse, SearchIntent, TokenUsage } from '@hira/contracts';
 import type { ChatRecord, ChatStore } from '../chat/chat.store';
 import type { Caller } from '../chat/resolve-actor';
 import type { DraftTarget } from '../library/draft-target';
@@ -71,6 +71,8 @@ export interface TurnOptions {
   includeForeignRemote?: boolean;
   /** Aborted when the client goes away. Upstream calls stop and follow-ups are skipped. */
   signal?: AbortSignal;
+  /** Set on a call: the reply will be spoken. */
+  voice?: { language: VoiceLanguage | null };
 }
 
 export interface PostMessageInput extends TurnOptions {

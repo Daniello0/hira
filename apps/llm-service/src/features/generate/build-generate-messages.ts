@@ -15,6 +15,8 @@ import {
   LATEST_MESSAGE_LABEL,
   MAX_GENERATE_RESULTS,
   SMALL_TALK_SYSTEM_PROMPT,
+  VOICE_LANGUAGE_NAMES,
+  VOICE_RULE,
 } from '../llm/llm.constants';
 import type { ChatMessage } from '../provider/chat-message';
 
@@ -28,7 +30,7 @@ const SEARCHING = new Set([IntentType.Search, IntentType.Refine, IntentType.Comp
  */
 export function buildGenerateMessages(request: GenerateRequest): ChatMessage[] {
   return [
-    { role: 'system', content: systemPrompt(request.intent.intentType) },
+    { role: 'system', content: systemPrompt(request.intent.intentType) + voiceRule(request) },
     { role: 'user', content: userContent(request) },
   ];
 }
@@ -38,6 +40,11 @@ function systemPrompt(intentType: IntentType): string {
   if (intentType === IntentType.SmallTalk) return SMALL_TALK_SYSTEM_PROMPT;
   if (intentType === IntentType.DraftDocument) return DRAFT_SYSTEM_PROMPT;
   return GENERATE_SYSTEM_PROMPT;
+}
+
+function voiceRule({ voice, intent }: GenerateRequest): string {
+  if (voice === undefined || intent.intentType === IntentType.DraftDocument) return '';
+  return voice.language === null ? VOICE_RULE : `${VOICE_RULE} Reply in ${VOICE_LANGUAGE_NAMES[voice.language]}.`;
 }
 
 function userContent(request: GenerateRequest): string {

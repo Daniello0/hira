@@ -2,6 +2,7 @@ import { IntentType, QueryComplexity, SeniorityLevel, WorkFormat } from '@hira/c
 import pino from 'pino';
 import { describe, expect, it } from 'vitest';
 import { understandCacheKey } from '../cache/understand-cache-key';
+import { SEARCH_INTENT_SCHEMA_VERSION } from '../llm/llm.constants';
 import { LlmOutputError, ProviderTransportError } from '../llm/llm.errors';
 import { understandQuery, type UnderstandDeps } from './understand.service';
 import { validModelIntent } from './understand.fixture';
@@ -25,7 +26,7 @@ describe('understandQuery', () => {
     expect(result.intent.skills[0]?.canonicalId).toBeNull();
     expect(result.meta.tokenUsage).toEqual(usage);
     expect(cache.ttls).toEqual([86_400]);
-    expect(cache.store.has(understandCacheKey('test-model', '2', request))).toBe(true);
+    expect(cache.store.has(understandCacheKey('test-model', SEARCH_INTENT_SCHEMA_VERSION, request))).toBe(true);
     const schema = provider.calls[0]?.schema as { additionalProperties?: boolean };
     expect(schema.additionalProperties).toBe(false);
     expect(provider.calls[0]?.timeoutMs).toBe(7_000);

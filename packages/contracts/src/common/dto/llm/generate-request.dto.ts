@@ -1,3 +1,4 @@
+import type { VoiceLanguage } from '../../enums/voice-language.enum';
 import type { VacancyResult } from '../search/retrieval.dto';
 import type { SearchIntent } from '../search/search-intent.dto';
 import type { PromptDocument } from './prompt-document.dto';
@@ -12,4 +13,6 @@ export interface GenerateRequest {
   summary?: string | null;
   documents?: PromptDocument[];
   facts?: TurnFacts;
+  /** This reply will be spoken on a call. `language` is set when the user chose one. */
+  voice?: { language: VoiceLanguage | null };
 }

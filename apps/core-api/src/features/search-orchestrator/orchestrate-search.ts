@@ -90,7 +90,7 @@ function cardsOf(rows: readonly ShownVacancyRecord[]): VacancyDto[] {
 }
 
 function turnOptions(input: TurnOptions): TurnOptions {
-  return { useMemory: input.useMemory, includeForeignRemote: input.includeForeignRemote, signal: input.signal };
+  return { useMemory: input.useMemory, includeForeignRemote: input.includeForeignRemote, signal: input.signal, voice: input.voice };
 }
 
 async function maybeTitle(deps: OrchestratorDeps, input: PostMessageInput, priorCount: number): Promise<void> {

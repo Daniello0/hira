@@ -5,7 +5,7 @@ import { TextArea } from '../../common/components/text-field';
 import { TYPE_INSTEAD_LABEL } from './call.constants';
 import { CallPhase } from './call-phase';
 import { speakerLabel, type Caption } from './reduce-call';
-import { SPEECH_LANGUAGE_LABELS, SpeechLanguage } from './speech-language';
+import { LANGUAGE_CHOICE_LABELS, type LanguageChoice } from './call-language';
 
 /** Big round mark of the call and what Hira is doing. It pulses while the call is live. */
 export function PhaseIndicator({ phase, label }: { phase: CallPhase; label: string }) {
@@ -35,9 +35,9 @@ export function CaptionList({ captions }: { captions: readonly Caption[] }) {
 }
 
 /** Voice language for listening and speaking. */
-export function LanguageSelect({ value, onChange }: { value: SpeechLanguage; onChange: (value: SpeechLanguage) => void }) {
-  const options = Object.values(SpeechLanguage).map((option) => ({ value: option, label: SPEECH_LANGUAGE_LABELS[option] }));
-  return <Select ariaLabel="Voice language" value={value} options={options} onChange={(next) => onChange(next as SpeechLanguage)} />;
+export function LanguageSelect({ value, onChange }: { value: LanguageChoice; onChange: (value: LanguageChoice) => void }) {
+  const options = (Object.keys(LANGUAGE_CHOICE_LABELS) as LanguageChoice[]).map((option) => ({ value: option, label: LANGUAGE_CHOICE_LABELS[option] }));
+  return <Select ariaLabel="Voice language" value={value} options={options} onChange={(next) => onChange(next as LanguageChoice)} />;
 }
 
 /** Typed phrase when the browser cannot listen. */

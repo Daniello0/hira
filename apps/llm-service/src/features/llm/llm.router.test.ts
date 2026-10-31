@@ -4,6 +4,7 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../app';
 import { understandCacheKey } from '../cache/understand-cache-key';
+import { SEARCH_INTENT_SCHEMA_VERSION } from '../llm/llm.constants';
 import { generateAnswer } from '../generate/generate.service';
 import { ProviderTransportError } from './llm.errors';
 import { createLlmRouter, type LlmRouterDeps } from './llm.router';
@@ -71,7 +72,7 @@ describe('llm routes', () => {
     expect(first.body.requestId).toBeUndefined();
     expect(second.body.intent.rewrittenQuery).toBe(first.body.intent.rewrittenQuery);
     expect(rig.provider.calls).toHaveLength(1);
-    expect(rig.cache.store.has(understandCacheKey('test-model', '2', understandBody))).toBe(true);
+    expect(rig.cache.store.has(understandCacheKey('test-model', SEARCH_INTENT_SCHEMA_VERSION, understandBody))).toBe(true);
   });
 
   it('returns 422 when the model never produces a valid intent', async () => {

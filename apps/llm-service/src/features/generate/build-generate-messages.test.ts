@@ -8,6 +8,7 @@ import {
   SeniorityLevel,
   VacancySource,
   VacancyStatus,
+  VoiceLanguage,
   WorkFormat,
   type GenerateRequest,
   type SearchIntent,
@@ -86,6 +87,21 @@ describe('buildGenerateMessages', () => {
     for (const piece of ['Ada', 'QA lead', 'Python', 'Prefers Minsk', 'Saved job', 'Брест', 'Python search', 'Looked for python', 'python minsk', 'Old job', 'gsz.gov.by']) {
       expect(blob).toContain(piece);
     }
+  });
+
+  it('asks for a short spoken reply on a call, in the chosen language', () => {
+    const spoken = buildGenerateMessages({ intent: intent(), history: [], results: [], voice: { language: VoiceLanguage.German } });
+    expect(spoken[0]?.content).toContain('voice call');
+    expect(spoken[0]?.content).toContain('Reply in German');
+    const free = buildGenerateMessages({ intent: intent(), history: [], results: [], voice: { language: null } });
+    expect(free[0]?.content).toContain('voice call');
+    expect(free[0]?.content).not.toContain('Reply in');
+  });
+
+  it('leaves a chat reply and a file draft as they are', () => {
+    expect(buildGenerateMessages({ intent: intent(), history: [], results: [] })[0]?.content).toBe(GENERATE_SYSTEM_PROMPT);
+    const draft = buildGenerateMessages({ intent: { ...intent(), intentType: IntentType.DraftDocument }, history: [], results: [], voice: { language: null } });
+    expect(draft[0]?.content).not.toContain('voice call');
   });
 
   it('keeps the catalog out of a draft but leaves the profile in', () => {

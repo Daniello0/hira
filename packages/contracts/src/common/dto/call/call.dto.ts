@@ -1,3 +1,5 @@
+import type { VoiceLanguage } from '../../enums/voice-language.enum';
+
 /** A call session. It is not a chat. */
 export interface CallSessionDto {
   id: string;
@@ -9,4 +11,12 @@ export interface CallSessionDto {
 export interface CreateCallTurnRequest {
   content: string;
   useMemory?: boolean;
+  /** Language to reply in. Absent: the language of the phrase. */
+  language?: VoiceLanguage;
+}
+
+/** Answer of `POST /api/v1/speech/transcribe`. `language` is what the recognizer heard. */
+export interface TranscriptDto {
+  text: string;
+  language: string | null;
 }

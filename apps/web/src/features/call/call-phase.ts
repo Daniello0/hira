@@ -1,4 +1,4 @@
-/** Screen state of one call. Speech stays in the browser. */
+/** Screen state of one call. */
 export enum CallPhase {
   Idle = 'idle',
   Listening = 'listening',

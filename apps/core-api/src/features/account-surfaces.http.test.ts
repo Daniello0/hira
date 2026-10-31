@@ -5,7 +5,7 @@ import { Test } from '@nestjs/testing';
 import { DocumentFormat, DocumentKind, MemoryKind, ProfileSuggestionStatus, UserRole, WorkFormat } from '@hira/contracts';
 import { UserPlan } from '@hira/contracts';
 import request from 'supertest';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CLOCK, type Clock } from '../common/utils/clock';
 import { configureHttpApp } from '../configure-http-app';
 import { AppModule } from '../app.module';
@@ -23,12 +23,15 @@ import { MemoryMemoryStore } from './memory/memory-memory.store';
 import { PROFILE_STORE } from './profile/profile.store';
 import { MemoryProfileStore } from './profile/memory-profile.store';
 import { COUNTER_STORE } from './redis/counter.store';
+import { SpeechUnavailableError } from './speech/speech-gateway';
+import { SPEECH_GATEWAY } from './speech/speech.constants';
 import { MemoryCounterStore } from './redis/memory-counter.store';
 import { LLM_GATEWAY, RETRIEVAL_GATEWAY } from './search-orchestrator/search.constants';
 import type { LlmGateway } from './search-orchestrator/upstream-gateway';
 
 const JWT_SECRET = 'test-secret-that-is-at-least-32-characters';
 const PASSWORD = 'correct-horse';
+const NO_SPEECH = { transcribe: async () => ({ text: '', language: null }), synthesize: async () => Buffer.alloc(0) };
 
 describe('stage 12 account surfaces', () => {
   let app: INestApplication | undefined;
@@ -330,6 +333,30 @@ describe('stage 12 account surfaces', () => {
     expect((await file('e')).status).toBe(403);
   });
 
+  it('hears and speaks on a paid plan, refuses the free plan and a guest, and reports a dead service', async () => {
+    const state = stores();
+    const speech = { transcribe: vi.fn(async () => ({ text: 'привет', language: 'ru' })), synthesize: vi.fn(async () => Buffer.from('RIFFaudio')) };
+    app = await createApp(state, undefined, speech);
+    const server = app.getHttpServer();
+    const bearer = `Bearer ${await register(app)}`;
+    const hear = () => request(server).post('/api/v1/speech/transcribe').set('Authorization', bearer).attach('audio', Buffer.from('wav'), 'p.wav');
+    const say = () => request(server).post('/api/v1/speech/synthesize').set('Authorization', bearer).send({ text: 'Привет', language: 'ru' });
+    const heard = await hear();
+    expect(heard.status).toBe(200);
+    expect(heard.body).toEqual({ text: 'привет', language: 'ru' });
+    const spoken = await say();
+    expect(spoken.status).toBe(200);
+    expect(spoken.headers['content-type']).toContain('audio/wav');
+    expect((await request(server).post('/api/v1/speech/synthesize').set('Authorization', bearer).send({ text: 'x', language: 'it' })).status).toBe(400);
+    speech.synthesize.mockRejectedValueOnce(new SpeechUnavailableError());
+    const down = await say();
+    expect(down.status).toBe(503);
+    expect(down.body.errorCode).toBe('SPEECH_UNAVAILABLE');
+    await request(server).put('/api/v1/billing/plan').set('Authorization', bearer).send({ plan: 'FREE' });
+    expect((await hear()).body.errorCode).toBe('PLAN_LIMIT_REACHED');
+    expect((await request(server).post('/api/v1/speech/transcribe').attach('audio', Buffer.from('wav'), 'p.wav')).status).toBe(403);
+  });
+
   it('saves one profile field and leaves the others alone', async () => {
     app = await createApp(stores());
     const token = await register(app);
@@ -440,7 +467,7 @@ function stores() {
   };
 }
 
-async function createApp(state: ReturnType<typeof stores>, pdfText = 'Python developer'): Promise<INestApplication> {
+async function createApp(state: ReturnType<typeof stores>, pdfText = 'Python developer', speech: unknown = NO_SPEECH): Promise<INestApplication> {
   process.env.JWT_SECRET = JWT_SECRET;
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(USER_STORE)
@@ -469,6 +496,8 @@ async function createApp(state: ReturnType<typeof stores>, pdfText = 'Python dev
     .useValue({ read: async () => pdfText })
     .overrideProvider(TEXT_EMBEDDER)
     .useValue(async () => null)
+    .overrideProvider(SPEECH_GATEWAY)
+    .useValue(speech)
     .overrideProvider(LLM_GATEWAY)
     .useValue(fakeLlm())
     .overrideProvider(RETRIEVAL_GATEWAY)

@@ -40,3 +40,6 @@ out/
 
 # Local scratch
 .tmp_coursework/
+
+# Voice model and runtime, copied at build time
+apps/web/public/vad/

@@ -1,3 +1,4 @@
+import { VoiceLanguage } from '@hira/contracts';
 import { afterEach, describe, expect, it } from 'vitest';
 import { callTurnRequest } from './call-turn';
 
@@ -11,6 +12,7 @@ describe('callTurnRequest', () => {
     (globalThis as { window?: Window }).window = {
       localStorage: { getItem: (key: string) => stored.get(key) ?? null },
     } as Window;
-    expect(callTurnRequest('python jobs')).toEqual({ content: 'python jobs', includeForeignRemote: false });
+    expect(callTurnRequest('python jobs', null)).toEqual({ content: 'python jobs', includeForeignRemote: false });
+    expect(callTurnRequest('python jobs', VoiceLanguage.German)).toEqual({ content: 'python jobs', includeForeignRemote: false, language: 'de' });
   });
 });

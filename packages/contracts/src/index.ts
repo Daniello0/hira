@@ -29,6 +29,7 @@ export { UserPlan } from './common/enums/user-plan.enum';
 export { UserRole } from './common/enums/user-role.enum';
 export { VacancySource } from './common/enums/vacancy-source.enum';
 export { VacancyStatus } from './common/enums/vacancy-status.enum';
+export { VoiceLanguage, asVoiceLanguage } from './common/enums/voice-language.enum';
 export { WorkFormat } from './common/enums/work-format.enum';
 
 export {
@@ -77,7 +78,7 @@ export {
   type ProfileSuggestionPayload,
   type UpdateProfileRequest,
 } from './common/dto/profile/profile.dto';
-export { type CallSessionDto, type CreateCallTurnRequest } from './common/dto/call/call.dto';
+export { type CallSessionDto, type CreateCallTurnRequest, type TranscriptDto } from './common/dto/call/call.dto';
 export {
   type CollectionDto,
   type CreateCollectionRequest,
