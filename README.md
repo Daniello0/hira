@@ -65,6 +65,10 @@ COMPOSE_BAKE=0 docker compose up --build postgres redis migrate core-api llm-ser
 
 `retrieval-service` сюда не входит: он зависит от здоровых `tei` и `tei-rerank` и потянет их за собой. Без TEI сбор и извлечение навыков работают, прогоны `EMBED` завершаются ошибкой `TEI_EMBED_URL`/сети до подъёма TEI.
 
+### Голос
+
+Контейнер `speech` (образ Speaches) распознаёт речь и озвучивает ответы в Call. Модели лежат в томе `speech-models`, недостающие core-api докачивает при первом обращении, около 1 ГБ. `docker compose up -d speech` поднимает его отдельно. Без него звонок работает текстом: «Type instead».
+
 ### Один прогон вручную
 
 `ingestion-service` слушает только внутри сети Compose, запрос идёт из контейнера с внутренним токеном:
