@@ -69,6 +69,8 @@ COMPOSE_BAKE=0 docker compose up --build postgres redis migrate core-api llm-ser
 
 В `.env` добавь адрес Mac к разрешённым: `WEB_ORIGIN=http://localhost:3000,http://192.168.1.39:3000`, затем `docker compose up -d core-api`. Сайт откроется на `http://192.168.1.39:3000`. По http браузер телефона не даёт микрофон: звонок работает, но фразы надо печатать.
 
+Для микрофона нужен https. В `.env` задай `LAN_HOST=192.168.1.39`, добавь `https://192.168.1.39:3443` в `WEB_ORIGIN` и выполни `docker compose --profile lan up -d https`. Сайт откроется на `https://192.168.1.39:3443`, телефон один раз предупредит о сертификате: он выдан самим стендом. Наружу ничего не открывается.
+
 ### Голос
 
 Контейнер `speech` (образ Speaches) распознаёт речь и озвучивает ответы в Call. Модели лежат в томе `speech-models`, недостающие core-api докачивает при первом обращении, около 1 ГБ. `docker compose up -d speech` поднимает его отдельно. Без него звонок работает текстом: «Type instead».

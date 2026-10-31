@@ -59,6 +59,21 @@ services:
       <<: *tei-health
     restart: unless-stopped
 
+  https:
+    image: caddy:2.10-alpine
+    profiles: ['lan']
+    environment:
+      LAN_HOST: ${LAN_HOST:-localhost}
+    ports:
+      - '3443:3443'
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - https-data:/data
+    depends_on:
+      - core-api
+      - web
+    restart: unless-stopped
+
   speech:
     image: ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu
     environment:
@@ -260,3 +275,4 @@ volumes:
   tei-rerank:
   library-data:
   speech-models:
+  https-data:
