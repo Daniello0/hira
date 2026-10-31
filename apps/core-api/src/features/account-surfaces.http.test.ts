@@ -3,8 +3,9 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { DocumentFormat, DocumentKind, MemoryKind, ProfileSuggestionStatus, UserRole, WorkFormat } from '@hira/contracts';
+import { UserPlan } from '@hira/contracts';
 import request from 'supertest';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CLOCK, type Clock } from '../common/utils/clock';
 import { configureHttpApp } from '../configure-http-app';
 import { AppModule } from '../app.module';
@@ -22,12 +23,15 @@ import { MemoryMemoryStore } from './memory/memory-memory.store';
 import { PROFILE_STORE } from './profile/profile.store';
 import { MemoryProfileStore } from './profile/memory-profile.store';
 import { COUNTER_STORE } from './redis/counter.store';
+import { SpeechUnavailableError } from './speech/speech-gateway';
+import { SPEECH_GATEWAY } from './speech/speech.constants';
 import { MemoryCounterStore } from './redis/memory-counter.store';
 import { LLM_GATEWAY, RETRIEVAL_GATEWAY } from './search-orchestrator/search.constants';
 import type { LlmGateway } from './search-orchestrator/upstream-gateway';
 
 const JWT_SECRET = 'test-secret-that-is-at-least-32-characters';
 const PASSWORD = 'correct-horse';
+const NO_SPEECH = { transcribe: async () => ({ text: '', language: null }), synthesize: async () => Buffer.alloc(0) };
 
 describe('stage 12 account surfaces', () => {
   let app: INestApplication | undefined;
@@ -276,6 +280,137 @@ describe('stage 12 account surfaces', () => {
     expect(state.library.documents).toHaveLength(0);
   });
 
+  it('changes the plan at once and reports it on the account', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const token = await register(app);
+    const put = (plan: string) => request(server).put('/api/v1/billing/plan').set('Authorization', `Bearer ${token}`).send({ plan });
+    const up = await put('MAX');
+    expect(up.status).toBe(200);
+    expect(up.body).toMatchObject({ plan: 'MAX', searchQuota: { limit: 500 } });
+    const me = await request(server).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
+    expect(me.body.plan).toBe('MAX');
+    expect((await put('FREE')).body).toMatchObject({ plan: 'FREE', searchQuota: { limit: 20 } });
+    expect((await put('TEAM')).status).toBe(400);
+  });
+
+  it('refuses a guest a plan change', async () => {
+    app = await createApp(stores());
+    const response = await request(app.getHttpServer()).put('/api/v1/billing/plan').send({ plan: 'PRO' });
+    expect(response.status).toBe(401);
+  });
+
+  it('holds the free plan to its limits on the server', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const token = await register(app);
+    const bearer = `Bearer ${token}`;
+    await request(server).put('/api/v1/billing/plan').set('Authorization', bearer).send({ plan: 'FREE' });
+    const call = await request(server).post('/api/v1/calls').set('Authorization', bearer);
+    expect(call.status).toBe(403);
+    expect(call.body).toMatchObject({ errorCode: 'PLAN_LIMIT_REACHED', details: { feature: 'call', requiredPlan: 'PRO' } });
+    const memory = await request(server).patch('/api/v1/settings/memory').set('Authorization', bearer).send({ crossChatMemory: true });
+    expect(memory.body.details).toMatchObject({ feature: 'crossChatMemory' });
+    const file = (title: string) =>
+      request(server).post('/api/v1/documents').set('Authorization', bearer).send({ kind: DocumentKind.Note, title, format: DocumentFormat.Txt, content: 'hello' });
+    for (const title of ['a', 'b', 'c']) expect((await file(title)).status).toBe(201);
+    const fourth = await file('d');
+    expect(fourth.status).toBe(403);
+    expect(fourth.body.details).toMatchObject({ feature: 'libraryFiles', requiredPlan: 'PRO' });
+  });
+
+  it('keeps saved data after a downgrade and refuses only new additions', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const token = await register(app);
+    const bearer = `Bearer ${token}`;
+    const file = (title: string) =>
+      request(server).post('/api/v1/documents').set('Authorization', bearer).send({ kind: DocumentKind.Note, title, format: DocumentFormat.Txt, content: 'hello' });
+    for (const title of ['a', 'b', 'c', 'd']) await file(title);
+    await request(server).put('/api/v1/billing/plan').set('Authorization', bearer).send({ plan: 'FREE' });
+    const listed = await request(server).get('/api/v1/documents').set('Authorization', bearer);
+    expect(listed.body).toHaveLength(4);
+    expect((await file('e')).status).toBe(403);
+  });
+
+  it('hears and speaks on a paid plan, refuses the free plan and a guest, and reports a dead service', async () => {
+    const state = stores();
+    const speech = { transcribe: vi.fn(async () => ({ text: 'привет', language: 'ru' })), synthesize: vi.fn(async () => ({ bytes: Buffer.from('RIFFaudio'), contentType: 'audio/wav' })) };
+    app = await createApp(state, undefined, speech);
+    const server = app.getHttpServer();
+    const bearer = `Bearer ${await register(app)}`;
+    const hear = () => request(server).post('/api/v1/speech/transcribe').set('Authorization', bearer).attach('audio', Buffer.from('wav'), 'p.wav');
+    const say = () => request(server).post('/api/v1/speech/synthesize').set('Authorization', bearer).send({ text: 'Привет', language: 'ru' });
+    const heard = await hear();
+    expect(heard.status).toBe(200);
+    expect(heard.body).toEqual({ text: 'привет', language: 'ru' });
+    const spoken = await say();
+    expect(spoken.status).toBe(200);
+    expect(spoken.headers['content-type']).toContain('audio/wav');
+    expect((await request(server).post('/api/v1/speech/synthesize').set('Authorization', bearer).send({ text: 'x', language: 'it' })).status).toBe(400);
+    speech.synthesize.mockRejectedValueOnce(new SpeechUnavailableError());
+    const down = await say();
+    expect(down.status).toBe(503);
+    expect(down.body.errorCode).toBe('SPEECH_UNAVAILABLE');
+    await request(server).put('/api/v1/billing/plan').set('Authorization', bearer).send({ plan: 'FREE' });
+    expect((await hear()).body.errorCode).toBe('PLAN_LIMIT_REACHED');
+    expect((await request(server).post('/api/v1/speech/transcribe').attach('audio', Buffer.from('wav'), 'p.wav')).status).toBe(403);
+  });
+
+  it('saves one profile field and leaves the others alone', async () => {
+    app = await createApp(stores());
+    const token = await register(app);
+    const put = (body: object) =>
+      request(app!.getHttpServer()).put('/api/v1/profile').set('Authorization', `Bearer ${token}`).send(body);
+    const first = await put({ headline: 'QA', desiredRoles: ['QA'], preferredWorkFormat: [], preferredEmployment: [] });
+    expect(first.status).toBe(200);
+    const second = await put({ preferredLocations: [1] });
+    expect(second.status).toBe(200);
+    expect(second.body).toMatchObject({ headline: 'QA', desiredRoles: ['QA'], preferredLocations: [1] });
+    const third = await put({ desiredRoles: null });
+    expect(third.body.desiredRoles).toEqual(['QA']);
+  });
+
+  it('moves a guest chat with messages into the account and only once', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const opened = await request(server).post('/api/v1/chats');
+    const cookie = demoCookie(opened);
+    await request(server).post(`/api/v1/chats/${opened.body.id}/messages`).set('Cookie', cookie).send({ content: 'hello' });
+    const token = await register(app);
+    const claim = () => request(server).post('/api/v1/chats/claim-guest').set('Cookie', cookie).set('Authorization', `Bearer ${token}`);
+    const claimed = await claim();
+    expect(claimed.status).toBe(201);
+    expect(claimed.body.chat.id).toBe(opened.body.id);
+    expect((await claim()).body.chat).toBeNull();
+    const listed = await request(server).get('/api/v1/chats').set('Authorization', `Bearer ${token}`);
+    expect(listed.body.items.map((chat: { id: string }) => chat.id)).toEqual([opened.body.id]);
+    const detail = await request(server).get(`/api/v1/chats/${opened.body.id}`).set('Authorization', `Bearer ${token}`);
+    expect(detail.body.messages.length).toBeGreaterThan(0);
+  });
+
+  it('leaves an empty guest chat behind and does not reset the guest counter', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const opened = await request(server).post('/api/v1/chats');
+    const cookie = demoCookie(opened);
+    const token = await register(app);
+    const claimed = await request(server).post('/api/v1/chats/claim-guest').set('Cookie', cookie).set('Authorization', `Bearer ${token}`);
+    expect(claimed.body.chat).toBeNull();
+    const still = await request(server).get(`/api/v1/chats/${opened.body.id}`).set('Cookie', cookie);
+    expect(still.status).toBe(200);
+  });
+
+  it('answers null without a guest cookie and refuses a guest caller', async () => {
+    app = await createApp(stores());
+    const server = app.getHttpServer();
+    const token = await register(app);
+    const none = await request(server).post('/api/v1/chats/claim-guest').set('Authorization', `Bearer ${token}`);
+    expect(none.body.chat).toBeNull();
+    const guest = await request(server).post('/api/v1/chats/claim-guest');
+    expect(guest.status).toBe(403);
+  });
+
   it('rejects an empty PDF and a missing profile skill', async () => {
     const state = stores();
     app = await createApp(state, '');
@@ -332,7 +467,7 @@ function stores() {
   };
 }
 
-async function createApp(state: ReturnType<typeof stores>, pdfText = 'Python developer'): Promise<INestApplication> {
+async function createApp(state: ReturnType<typeof stores>, pdfText = 'Python developer', speech: unknown = NO_SPEECH): Promise<INestApplication> {
   process.env.JWT_SECRET = JWT_SECRET;
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(USER_STORE)
@@ -361,6 +496,8 @@ async function createApp(state: ReturnType<typeof stores>, pdfText = 'Python dev
     .useValue({ read: async () => pdfText })
     .overrideProvider(TEXT_EMBEDDER)
     .useValue(async () => null)
+    .overrideProvider(SPEECH_GATEWAY)
+    .useValue(speech)
     .overrideProvider(LLM_GATEWAY)
     .useValue(fakeLlm())
     .overrideProvider(RETRIEVAL_GATEWAY)
@@ -379,6 +516,12 @@ async function register(app: INestApplication, email = 'ada@example.com'): Promi
     displayName: 'Ada',
   });
   return response.body.accessToken as string;
+}
+
+function demoCookie(response: { headers: Record<string, unknown> }): string {
+  const cookies = response.headers['set-cookie'] as unknown as string[];
+  const demo = cookies.find((cookie) => cookie.startsWith('demoSessionId='));
+  return (demo ?? '').split(';')[0] ?? '';
 }
 
 function fakeLlm(): LlmGateway {
@@ -408,10 +551,17 @@ class MemoryUserStore implements UserStore {
   async findById(id: string) { return this.accounts.find((account) => account.id === id) ?? null; }
   async insert(input: NewAccount): Promise<Account> {
     if ((await this.findByEmail(input.email)) !== null) throw new EmailTakenError();
-    const account: Account = { id: randomUUID(), email: input.email, displayName: input.displayName, role: UserRole.User, passwordHash: input.passwordHash, crossChatMemoryEnabled: true };
+    const account: Account = { id: randomUUID(), email: input.email, displayName: input.displayName, role: UserRole.User, passwordHash: input.passwordHash, plan: UserPlan.Pro, crossChatMemoryEnabled: true };
     this.accounts.push(account);
     return account;
   }
+  async setPlan(userId: string, plan: UserPlan) {
+    const account = await this.findById(userId);
+    if (account === null) return false;
+    account.plan = plan;
+    return true;
+  }
+
   async setCrossChatMemory(userId: string, enabled: boolean) {
     const account = await this.findById(userId);
     if (account === null) return false;

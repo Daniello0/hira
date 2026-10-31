@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuthorKind, type CollectionDto, type CreateCollectionRequest, type CreateFavoriteRequest, type FavoriteDto, type UpdateCollectionRequest, type UpdateFavoriteRequest } from '@hira/contracts';
+import { PlanGate } from '../billing/plan-gate';
 import { DEFAULT_COLLECTION_NAME } from './favorite.constants';
 import { CollectionMissingError, CollectionNameError, DefaultCollectionProtectedError, FavoriteMissingError, VacancyMissingError } from './favorite.errors';
 import { isUniqueViolation } from './is-unique-violation';
@@ -8,7 +9,10 @@ import { FAVORITE_STORE, type FavoriteListQuery, type FavoriteStore } from './fa
 /** Account favorites. A second save of the same vacancy returns the existing row. */
 @Injectable()
 export class FavoriteService {
-  constructor(@Inject(FAVORITE_STORE) private readonly store: FavoriteStore) {}
+  constructor(
+    @Inject(FAVORITE_STORE) private readonly store: FavoriteStore,
+    @Inject(PlanGate) private readonly plans: PlanGate,
+  ) {}
 
   /** Saved vacancies, optionally inside one collection or matching a note. */
   async list(userId: string, query: FavoriteListQuery): Promise<FavoriteDto[]> {
@@ -21,6 +25,7 @@ export class FavoriteService {
     if ((await this.store.vacancySummary(body.vacancyId)) === null) throw new VacancyMissingError();
     const existing = await this.store.findByVacancy(userId, body.vacancyId);
     if (existing !== null) return existing;
+    await this.plans.requireRoom(userId, 'favorites', (await this.store.list(userId, {})).length);
     return this.insert(userId, body);
   }
 
@@ -46,7 +51,8 @@ export class FavoriteService {
   }
 
   /** Creates a non-default collection. */
-  createCollection(userId: string, body: CreateCollectionRequest): Promise<CollectionDto> {
+  async createCollection(userId: string, body: CreateCollectionRequest): Promise<CollectionDto> {
+    await this.plans.requireFeature(userId, 'collections');
     return this.store.insertCollection({
       userId,
       name: collectionName(body.name),

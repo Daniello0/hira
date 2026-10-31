@@ -9,7 +9,7 @@ import {
   type GenerateRequest,
   type UnderstandRequest,
 } from '@hira/contracts';
-import { DocumentKind } from '@hira/contracts';
+import { DocumentKind, VoiceLanguage } from '@hira/contracts';
 import { z } from 'zod';
 
 const turnSchema = z
@@ -40,6 +40,7 @@ const understandRequestSchema = z
     memory: z.array(memorySchema),
     summary: z.string().nullable().optional(),
     documents: z.array(documentSchema).optional(),
+    knownVacancies: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -72,6 +73,58 @@ const intentSchema = z
   })
   .strict();
 
+const promptVacancySchema = z.object({
+  title: z.string(),
+  company: z.string(),
+  city: z.string().nullable(),
+  source: z.string().nullable(),
+  workFormat: z.string().nullable(),
+});
+
+const countRow = (key: string) => z.object({ [key]: z.string(), count: z.number() });
+
+/** Built by core-api, so unknown keys pass through; the prompt reads only what it knows. */
+const factsSchema = z.object({
+  catalog: z
+    .object({
+      total: z.number(),
+      byRegion: z.array(countRow('region')),
+      topCities: z.array(countRow('city')),
+      noLocation: z.number(),
+      remote: z.number(),
+      foreignRemote: z.number(),
+      bySource: z.array(countRow('source')),
+    })
+    .nullable(),
+  profile: z
+    .object({
+      name: z.string().nullable(),
+      headline: z.string().nullable(),
+      about: z.string().nullable(),
+      seniority: z.string().nullable(),
+      desiredRoles: z.array(z.string()),
+      workFormats: z.array(z.string()),
+      salaryMin: z.number().nullable(),
+      currency: z.string().nullable(),
+      education: z.string().nullable(),
+      skills: z.array(z.string()),
+    })
+    .nullable(),
+  memory: z.array(memorySchema),
+  favorites: z.array(promptVacancySchema),
+  favoritesTotal: z.number(),
+  activity: z.array(
+    z.object({
+      kind: z.enum(['chat', 'call']),
+      title: z.string().nullable(),
+      summary: z.string().nullable(),
+      queries: z.array(z.string()),
+      vacancies: z.array(promptVacancySchema),
+    }),
+  ),
+  shownHere: z.array(promptVacancySchema),
+});
+
 const generateRequestSchema = z
   .object({
     intent: intentSchema,
@@ -79,6 +132,8 @@ const generateRequestSchema = z
     results: z.array(resultSchema()),
     summary: z.string().nullable().optional(),
     documents: z.array(documentSchema).optional(),
+    facts: factsSchema.optional(),
+    voice: z.object({ language: stringEnum(Object.values(VoiceLanguage)).nullable() }).strict().optional(),
   })
   .strict();
 

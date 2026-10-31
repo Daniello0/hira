@@ -3,6 +3,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { OTHER_CITIES_REGION } from '@hira/contracts';
 import { Client } from 'pg';
 import type { Response as SupertestResponse } from 'supertest';
 import request from 'supertest';
@@ -23,7 +24,7 @@ const DB_PASSWORD = 'hira';
 const DB_NAME = 'hira';
 const START_TIMEOUT_MS = 900_000;
 const QUERY_TIMEOUT_MS = 30_000;
-const SEED_COUNT = 13;
+const SEED_COUNT = 14;
 
 const EXPECTED_REGIONS = [
   'Брестская область',
@@ -33,6 +34,7 @@ const EXPECTED_REGIONS = [
   'Минская область',
   'Могилёвская область',
   'Минск',
+  OTHER_CITIES_REGION,
 ];
 
 const EXPECTED_CITIES = ['Брест', 'Витебск', 'Гомель', 'Гродно', 'Могилёв', 'Минск'];
@@ -267,7 +269,9 @@ describe('postgres schema', () => {
       const session = await registerAccount(application);
       await expectAccountRow((sql) => rowsOf(sql));
       await expectRefreshHash((sql) => rowsOf(sql), session.refreshToken);
-      await expectLoginAndReuse(application, session.refreshToken);
+      await expectLoginAndReuse(application, session.refreshToken, async () => {
+        await client.query(`UPDATE refresh_tokens SET revoked_at = revoked_at - interval '1 minute' WHERE revoked_at IS NOT NULL`);
+      });
     } finally {
       await application?.close();
       restoreAuthEnv(previous);
@@ -515,12 +519,14 @@ async function expectRefreshHash(query: SqlQuery, rawToken: string): Promise<voi
   expect(rows[0]?.token_hash).not.toBe(rawToken);
 }
 
-async function expectLoginAndReuse(app: INestApplication, firstToken: string): Promise<void> {
+async function expectLoginAndReuse(app: INestApplication, firstToken: string, endGrace: () => Promise<void>): Promise<void> {
   expect((await postLogin(app, 'wrong-password-1')).status).toBe(401);
   expect((await postLogin(app, AUTH_PASSWORD)).status).toBe(200);
   const rotated = await postRefresh(app, firstToken);
   expect(rotated.status).toBe(200);
   const next = requiredCookie(rotated, 'refreshToken');
+  expect((await postRefresh(app, firstToken)).status).toBe(200);
+  await endGrace();
   expect((await postRefresh(app, firstToken)).body.errorCode).toBe('AUTH_REFRESH_REUSED');
   expect((await postRefresh(app, next)).body.errorCode).toBe('AUTH_REFRESH_REUSED');
   expect((await postRegister(app)).status).toBe(409);

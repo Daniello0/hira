@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { formatLocationLabel, type LocationDto } from '@hira/contracts';
+import { OTHER_CITIES_REGION, formatLocationLabel, type LocationDto } from '@hira/contracts';
 import { DataSource } from 'typeorm';
 import { typeormRows } from '../database/typeorm-rows';
 import { latinToCyrillic } from './latin-to-cyrillic';
 import { LOCATION_PAGE_SIZE } from './location.constants';
 
 const LOCATIONS_SQL = `SELECT id, region, city FROM locations
-  WHERE $1::text IS NULL
+  WHERE region <> '${OTHER_CITIES_REGION}' AND ($1::text IS NULL
      OR city ILIKE $1 ESCAPE '\\' OR region ILIKE $1 ESCAPE '\\'
-     OR city ILIKE $3 ESCAPE '\\' OR region ILIKE $3 ESCAPE '\\'
+     OR city ILIKE $3 ESCAPE '\\' OR region ILIKE $3 ESCAPE '\\')
   ORDER BY region, city NULLS FIRST, id
   LIMIT $2`;
 

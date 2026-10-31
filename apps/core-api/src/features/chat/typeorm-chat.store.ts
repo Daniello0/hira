@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import type { ActivityRecord } from '../memory/account-activity';
 import type { PageCursor } from './chat-cursor';
 import { DemoChatLimitError } from './chat.errors';
 import type {
@@ -35,6 +36,16 @@ export class TypeOrmChatStore implements ChatStore {
   /** @inheritdoc */
   findChat(id: string): Promise<ChatRecord | null> {
     return rows.findChat(rows.asSql(this.dataSource), id);
+  }
+
+  /** @inheritdoc */
+  claimDemoChat(demoSessionId: string, userId: string): Promise<ChatRecord | null> {
+    return rows.claimDemoChat(rows.asSql(this.dataSource), demoSessionId, userId);
+  }
+
+  /** @inheritdoc */
+  recentActivity(userId: string, limit: number, exceptChatId: string | null): Promise<ActivityRecord[]> {
+    return rows.recentActivity(rows.asSql(this.dataSource), userId, limit, exceptChatId);
   }
 
   /** @inheritdoc */

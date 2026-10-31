@@ -50,7 +50,7 @@ export class ProfileService {
 
   /** Writes the fields the client sent. */
   save(userId: string, patch: Partial<ProfileDto>): Promise<ProfileDto> {
-    return this.store.save(userId, patch);
+    return this.store.save(userId, sentFields(patch));
   }
 
   /** Skills on the profile. */
@@ -187,4 +187,12 @@ function skillItem(skill: ParsedResumeSkill): ExtractedSuggestion {
 
 function educationItem(text: string): ExtractedSuggestion {
   return { ...skillItem({ surface: 'x', level: null, years: null }), kind: ProfileSuggestionKind.Education, surface: null, education: text };
+}
+
+const LIST_FIELDS: ReadonlySet<string> = new Set(['desiredRoles', 'preferredWorkFormat', 'preferredEmployment', 'preferredLocations']);
+
+/** Drops fields the client did not send. A list column cannot be null, so a null list is not sent either. */
+function sentFields(patch: Partial<ProfileDto>): Partial<ProfileDto> {
+  const entries = Object.entries(patch).filter(([key, value]) => value !== undefined && !(value === null && LIST_FIELDS.has(key)));
+  return Object.fromEntries(entries) as Partial<ProfileDto>;
 }

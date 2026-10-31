@@ -1,9 +1,16 @@
+import { VoiceLanguage } from '@hira/contracts';
+
 export const LLM_PROVIDER_HEADER = 'X-LLM-Provider';
 export const LLM_PROVIDER_ID = 'openrouter';
 export const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 export const OPENROUTER_CHAT_COMPLETIONS_PATH = '/chat/completions';
+export const OPENROUTER_SPEECH_PATH = '/audio/speech';
+/** Hira's voice. Voice ids belong to this model and live in core-api with the languages. */
+export const SPEECH_MODEL = 'microsoft/mai-voice-2.1-flash';
+/** A call cannot wait longer: past this core-api speaks with the local voice. */
+export const SPEAK_TIMEOUT_MS = 8_000;
 export const SEARCH_INTENT_SCHEMA_NAME = 'search_intent';
-export const SEARCH_INTENT_SCHEMA_VERSION = '2';
+export const SEARCH_INTENT_SCHEMA_VERSION = '3';
 export const UNDERSTAND_TEMPERATURE = 0;
 export const GENERATE_TEMPERATURE = 0.2;
 export const OPENROUTER_REASONING_EFFORT = 'minimal';
@@ -63,19 +70,31 @@ export const VALIDATION_FAILED_STATUS = 400;
 export const SSE_TOKEN_EVENT = 'token';
 export const SSE_DONE_EVENT = 'done';
 export const SSE_ERROR_EVENT = 'error';
-export const GENERATE_SYSTEM_PROMPT =
-  'You are Hira, a job-search assistant. Always answer in the language of the latest user message. Use only the vacancies and explanations provided. Do not invent vacancies.';
+/** Added to every reply prompt that may carry the facts block. */
+const FACTS_RULE =
+  " Lines under 'Known facts' are true data about the catalog and this user: answer questions about the catalog size, regions, remote work, the user's profile, saved vacancies, earlier chats and calls from them. Each vacancy line states its city and its site: say them when asked. Say a value is unknown only when its line says so.";
+export const GENERATE_SYSTEM_PROMPT = `You are Hira, a job-search assistant. Always answer in the language of the latest user message. Use only the vacancies, explanations, and known facts provided. Do not invent vacancies.${FACTS_RULE}`;
 export const CAREER_ADVICE_SYSTEM_PROMPT =
-  "You are Hira, a career assistant. Always answer in the language of the latest user message. Give practical, specific career advice for that message, using the chat summary and the user's files when they help. Do not list or invent vacancies; offer a search if one would help.";
+  `You are Hira, a career assistant. Always answer in the language of the latest user message. Give practical, specific career advice for that message, using the chat summary and the user's files when they help. Do not list or invent vacancies; offer a search if one would help.${FACTS_RULE}`;
 export const SMALL_TALK_SYSTEM_PROMPT =
-  'You are Hira, a job-search assistant. Always answer in the language of the latest user message. Reply briefly and naturally, and offer to help find vacancies or plan a career step when it fits. Do not invent vacancies.';
+  `You are Hira, a job-search assistant. Always answer in the language of the latest user message. Reply briefly and naturally, and offer to help find vacancies or plan a career step when it fits. Do not invent vacancies.${FACTS_RULE}`;
+/** Added on a call: the reply is heard, not read, and the cards on screen carry the details. */
+export const VOICE_RULE =
+  ' This is a voice call and your reply will be spoken aloud. Answer in two or three short spoken sentences, in plain words, with no Markdown, lists, tables, or links. Mention at most the top two vacancies; the screen shows the rest. Speak like a person on the phone: short natural phrases, numbers and abbreviations written out as words so they read well aloud. A reply marked as cut off was heard only up to that point. If the user asks you to go on, continue from exactly the word where they cut in, without repeating or apologizing. Otherwise answer what they just said.';
+export const VOICE_LANGUAGE_NAMES: Readonly<Record<VoiceLanguage, string>> = {
+  [VoiceLanguage.Russian]: 'Russian',
+  [VoiceLanguage.English]: 'English',
+  [VoiceLanguage.Spanish]: 'Spanish',
+  [VoiceLanguage.German]: 'German',
+  [VoiceLanguage.French]: 'French',
+};
 export const DRAFT_SYSTEM_PROMPT =
   "Write the full text of the file the user asked for, in Markdown, in the language of the latest user message. Output only the file text: no preamble, no closing remarks, no code fences. When the user names one of the given files, return that whole file updated and keep what still applies. Take facts from the user's files and the chat; never invent employers, dates, or contacts - leave a short placeholder such as [Company] instead.";
 export const EMPTY_RESULTS_LINE = 'No vacancies were retrieved.';
 export const UNDERSTAND_SYSTEM_PROMPT =
-  'Rewrite the query so it stands alone, using the history and memory. Extract role, skills, seniority, constraints, complexity, and intent. A stated work format, city, or salary floor is a hard constraint. Do not guess an employment type. intentType: SEARCH, REFINE, or COMPARE for vacancy searches; CAREER_ADVICE for career questions that need no vacancy list; SMALL_TALK for greetings and chit-chat; DRAFT_DOCUMENT when the user asks to write, draft, save, or extend a file such as a cover letter, notes, preferences, or an interview script.';
+  'Rewrite the query so it stands alone, using the history and memory. Extract role, skills, seniority, constraints, complexity, and intent. A stated work format, city, or salary floor is a hard constraint. Do not guess an employment type. intentType: SEARCH, REFINE, or COMPARE for vacancy searches; CAREER_ADVICE for career questions that need no vacancy list; SMALL_TALK for greetings, chit-chat, asking to go on with a reply that was cut off, and questions about what Hira already knows: how many vacancies there are, the profile or saved vacancies of the user, earlier chats, or the city or site of a vacancy already shown; DRAFT_DOCUMENT when the user asks to write, draft, save, or extend a file such as a cover letter, notes, preferences, or an interview script.';
 /** Shown to the model beside the intent enum in the JSON schema. */
 export const INTENT_TYPE_DESCRIPTION =
-  'SEARCH/REFINE/COMPARE: find or adjust vacancies. CAREER_ADVICE: career question, no vacancy list. SMALL_TALK: greeting or chit-chat. DRAFT_DOCUMENT: write, save, draft, or extend a letter, notes, preferences, or script file.';
+  'SEARCH/REFINE/COMPARE: find or adjust vacancies. CAREER_ADVICE: career question, no vacancy list. SMALL_TALK: greeting, chit-chat, or a question about the catalog size, the saved vacancies of the user, earlier chats, or a vacancy already shown. DRAFT_DOCUMENT: write, save, draft, or extend a letter, notes, preferences, or script file.';
 export const LATEST_MESSAGE_LABEL = 'Latest user message';
 export const ZERO_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0 } as const;

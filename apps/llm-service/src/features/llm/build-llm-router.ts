@@ -14,6 +14,7 @@ import { summarizeChat } from '../summarize-chat/summarize-chat.service';
 import { extractSkills } from '../extract-skills/extract-skills.service';
 import { understandQuery } from '../understand/understand.service';
 import { createLlmRouter } from './llm.router';
+import { createSpeaker } from '../speak/speak.service';
 import { readLlmConfig } from './read-llm-config';
 
 /** Wires OpenRouter and Redis into the internal router. */
@@ -31,6 +32,7 @@ export function buildLlmRouter(logger: Logger, env: NodeJS.ProcessEnv): Router {
     extractMemory: (request) => extractMemory({ provider, sleep: delay, now: Date.now }, request),
     parseResume: (request) =>
       parseResume({ provider, cache, sleep: delay, model: config.model, logger, now: Date.now }, request),
+    speak: createSpeaker(config),
   });
 }
 

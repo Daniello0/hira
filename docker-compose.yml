@@ -59,6 +59,40 @@ services:
       <<: *tei-health
     restart: unless-stopped
 
+  https:
+    image: caddy:2.10-alpine
+    profiles: ['lan']
+    environment:
+      LAN_HOST: ${LAN_HOST:-localhost}
+    ports:
+      - '3443:3443'
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - https-data:/data
+    depends_on:
+      - core-api
+      - web
+    restart: unless-stopped
+
+  speech:
+    image: ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu
+    environment:
+      WHISPER__COMPUTE_TYPE: int8
+      WHISPER__CPU_THREADS: 4
+      STT_MODEL_TTL: -1
+      TTS_MODEL_TTL: -1
+      HF_HUB_DISABLE_XET: 1
+      PRELOAD_MODELS: '["Systran/faster-whisper-base","speaches-ai/piper-ru_RU-irina-medium","speaches-ai/piper-en_US-amy-medium","speaches-ai/piper-es_MX-claude-high","speaches-ai/piper-de_DE-kerstin-low","speaches-ai/piper-fr_FR-siwis-medium"]'
+    volumes:
+      - speech-models:/home/ubuntu/.cache/huggingface/hub
+    healthcheck:
+      test: ['CMD', 'curl', '--fail', 'http://127.0.0.1:8000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
   migrate:
     build:
       context: .
@@ -95,6 +129,7 @@ services:
       INGESTION_SERVICE_URL: http://ingestion-service:4003
       TEI_EMBED_URL: http://tei:80
       LIBRARY_ROOT: /app/storage
+      SPEECH_URL: http://speech:8000
     ports:
       - '4000:4000'
     volumes:
@@ -239,3 +274,5 @@ volumes:
   tei-embed:
   tei-rerank:
   library-data:
+  speech-models:
+  https-data:

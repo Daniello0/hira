@@ -1,8 +1,10 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiProduces, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { VoiceLanguage } from '@hira/contracts';
+import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import type { Request, Response } from 'express';
+import { PlanGate } from '../billing/plan-gate';
 import { readRequestId } from '../../common/interceptors/request-id.interceptor';
 import { MAX_MESSAGE_LENGTH } from '../chat/chat.constants';
 import { validatedBody } from '../auth/validation-exception';
@@ -15,6 +17,9 @@ import { ChatService } from '../chat/chat.service';
 import { CallMissingError } from './call.errors';
 import { CALL_STORE, type CallStore } from './call.store';
 import { SearchOrchestratorService } from '../search-orchestrator/search-orchestrator.service';
+
+/** Longer than any spoken reply can be. */
+const INTERRUPTED_AT_MAX_CHARS = 20_000;
 
 class CallTurnBody {
   @ApiProperty({ type: String, minLength: 1, maxLength: MAX_MESSAGE_LENGTH })
@@ -33,6 +38,17 @@ class CallTurnBody {
   @IsOptional()
   @IsBoolean()
   includeForeignRemote?: boolean;
+
+  @ApiPropertyOptional({ enum: VoiceLanguage, description: 'Language to reply in. Absent: the language of the phrase' })
+  @IsOptional()
+  @IsEnum(VoiceLanguage)
+  language?: VoiceLanguage;
+
+  @ApiPropertyOptional({ type: String, maxLength: INTERRUPTED_AT_MAX_CHARS, description: 'The user cut off the previous reply: the words of it they heard' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(INTERRUPTED_AT_MAX_CHARS)
+  interruptedAt?: string;
 }
 
 /** Voice-call transcripts. A call never appears in the chat list. */
@@ -44,6 +60,7 @@ export class CallController {
   constructor(
     @Inject(ChatService) private readonly chats: ChatService,
     @Inject(CALL_STORE) private readonly calls: CallStore,
+    @Inject(PlanGate) private readonly plans: PlanGate,
     @Inject(SearchOrchestratorService) private readonly search: SearchOrchestratorService,
   ) {}
 
@@ -52,6 +69,7 @@ export class CallController {
   @ApiOperation({ summary: 'Start a call' })
   start(@Req() request: Request) {
     return this.call(request, async (userId) => {
+      await this.plans.requireFeature(userId, 'call');
       const session = await this.calls.insertSession(userId, new Date());
       return { id: session.id, startedAt: session.startedAt.toISOString(), endedAt: null };
     });
@@ -71,6 +89,7 @@ export class CallController {
   ): Promise<void> {
     try {
       const userId = requireUserId(this.chats.caller(actorHint(request)));
+      await this.plans.requireFeature(userId, 'call');
       const session = await this.calls.findSession(id);
       if (session === null || session.userId !== userId) throw new CallMissingError();
       await this.search.postCall(
@@ -81,6 +100,8 @@ export class CallController {
           requestId: readRequestId(request),
           useMemory: body.useMemory,
           includeForeignRemote: body.includeForeignRemote,
+          voice: { language: body.language ?? null },
+          interruptedAt: body.interruptedAt,
           signal: abortOnClose(response),
         },
         responseSink(response),

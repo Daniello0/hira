@@ -4,6 +4,7 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../app';
 import { understandCacheKey } from '../cache/understand-cache-key';
+import { SEARCH_INTENT_SCHEMA_VERSION } from '../llm/llm.constants';
 import { generateAnswer } from '../generate/generate.service';
 import { ProviderTransportError } from './llm.errors';
 import { createLlmRouter, type LlmRouterDeps } from './llm.router';
@@ -21,6 +22,22 @@ describe('llm routes', () => {
     const response = await request(app).post('/internal/v1/understand').send(understandBody);
     expect(response.status).toBe(401);
     expect(response.body.errorCode).toBe('INTERNAL_TOKEN_INVALID');
+  });
+
+  it('answers speak with the sound, and a failure as the shared error', async () => {
+    const body = { text: 'Привет', voice: 'ru-RU-Harper:MAI-Voice-2.1-Flash' };
+    const speak = vi.fn(async () => Buffer.from('sound'));
+    const ok = await request(createTestApp({ ...configured(), speak })).post('/internal/v1/speak').set('X-Internal-Token', 'secret').send(body);
+    expect(ok.status).toBe(200);
+    expect(ok.headers['content-type']).toContain('audio/mpeg');
+    expect(ok.body.toString()).toBe('sound');
+    const failing = vi.fn(async () => { throw new ProviderTransportError('down'); });
+    const down = await request(createTestApp({ ...configured(), speak: failing })).post('/internal/v1/speak').set('X-Internal-Token', 'secret').send(body);
+    expect(down.status).toBeGreaterThanOrEqual(500);
+    const untouched = vi.fn();
+    const bad = await request(createTestApp({ ...configured(), speak: untouched })).post('/internal/v1/speak').set('X-Internal-Token', 'secret').send({ text: '' });
+    expect(bad.status).toBe(400);
+    expect(untouched).not.toHaveBeenCalled();
   });
 
   it('returns 503 when the key or the model is missing and does not call the provider', async () => {
@@ -71,7 +88,7 @@ describe('llm routes', () => {
     expect(first.body.requestId).toBeUndefined();
     expect(second.body.intent.rewrittenQuery).toBe(first.body.intent.rewrittenQuery);
     expect(rig.provider.calls).toHaveLength(1);
-    expect(rig.cache.store.has(understandCacheKey('test-model', '2', understandBody))).toBe(true);
+    expect(rig.cache.store.has(understandCacheKey('test-model', SEARCH_INTENT_SCHEMA_VERSION, understandBody))).toBe(true);
   });
 
   it('returns 422 when the model never produces a valid intent', async () => {
@@ -169,6 +186,7 @@ function configured(): LlmRouterDeps {
     summarize: vi.fn(),
     extractMemory: vi.fn(),
     parseResume: vi.fn(),
+    speak: vi.fn(),
   };
 }
 

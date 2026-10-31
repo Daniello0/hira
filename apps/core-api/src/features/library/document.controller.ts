@@ -16,6 +16,7 @@ import { OptionalAccessGuard } from '../auth/optional-access.guard';
 import { mapAccountError } from '../auth/account-http';
 import { requireUserId } from '../auth/require-user-id';
 import { actorHint } from '../chat/actor-hint';
+import { PlanGate } from '../billing/plan-gate';
 import { ChatService } from '../chat/chat.service';
 import { ProfileService } from '../profile/profile.service';
 import { DocumentNotFoundError, LibraryInputError, LibraryService } from './library.service';
@@ -99,6 +100,7 @@ export class DocumentController {
   constructor(
     @Inject(ChatService) private readonly chats: ChatService,
     @Inject(LibraryService) private readonly library: LibraryService,
+    @Inject(PlanGate) private readonly plans: PlanGate,
     @Inject(ProfileService) private readonly profiles: ProfileService,
     @Inject(LLM_GATEWAY) private readonly llm: LlmGateway,
     @Inject(LOGGER) private readonly logger: Logger,
@@ -133,6 +135,7 @@ export class DocumentController {
   @ApiOperation({ summary: 'Create a document' })
   create(@UploadedFile() file: UploadFile | undefined, @Body() body: Partial<TextDocumentBody>, @Req() request: Request) {
     return this.call(request, async (userId) => {
+      await this.plans.requireRoom(userId, 'libraryFiles', (await this.library.summaries(userId)).length);
       if (file !== undefined) {
         assertResumeFile(body);
         return this.createPdf(userId, file, request);

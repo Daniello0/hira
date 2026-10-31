@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthorKind, UserRole, VacancyStatus, WorkFormat, type VacancyCardSummary } from '@hira/contracts';
+import { UserPlan } from '@hira/contracts';
 import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CLOCK, type Clock } from '../../common/utils/clock';
@@ -48,6 +49,32 @@ describe('stage 14 favorites and skills', () => {
     expect(favorites.body.errorCode).toBe('ACCOUNT_REQUIRED');
     expect(skills.status).toBe(403);
     expect(skills.body.errorCode).toBe('ACCOUNT_REQUIRED');
+  });
+
+  it('holds the free plan to 20 saved vacancies and no collections, and keeps them after a downgrade', async () => {
+    const state = stores();
+    const ids = Array.from({ length: 21 }, () => randomUUID());
+    for (const id of ids) state.favorites.vacancies.set(id, summary(id));
+    app = await createApp(state);
+    const server = app.getHttpServer();
+    const register = await request(server).post('/api/v1/auth/register').send({ email: 'free@example.com', password: PASSWORD, displayName: 'Free' });
+    const bearer = `Bearer ${register.body.accessToken as string}`;
+    await request(server).put('/api/v1/billing/plan').set('Authorization', bearer).send({ plan: 'FREE' });
+    for (const vacancyId of ids.slice(0, 20)) {
+      expect((await request(server).post('/api/v1/favorites').set('Authorization', bearer).send({ vacancyId })).status).toBeLessThan(300);
+    }
+    const over = await request(server).post('/api/v1/favorites').set('Authorization', bearer).send({ vacancyId: ids[20] });
+    expect(over.status).toBe(403);
+    expect(over.body).toMatchObject({ errorCode: 'PLAN_LIMIT_REACHED', details: { feature: 'favorites', requiredPlan: 'PRO' } });
+    const again = await request(server).post('/api/v1/favorites').set('Authorization', bearer).send({ vacancyId: ids[0] });
+    expect(again.status).toBeLessThan(300);
+    const collection = await request(server).post('/api/v1/collections').set('Authorization', bearer).send({ name: 'Shortlist' });
+    expect(collection.body.details).toMatchObject({ feature: 'collections' });
+    await request(server).put('/api/v1/billing/plan').set('Authorization', bearer).send({ plan: 'PRO' });
+    expect((await request(server).post('/api/v1/favorites').set('Authorization', bearer).send({ vacancyId: ids[20] })).status).toBeLessThan(300);
+    await request(server).put('/api/v1/billing/plan').set('Authorization', bearer).send({ plan: 'FREE' });
+    const listed = await request(server).get('/api/v1/favorites').set('Authorization', bearer);
+    expect(listed.body).toHaveLength(21);
   });
 
   it('keeps one row when the same vacancy is saved twice', async () => {
@@ -269,10 +296,17 @@ class MemoryUserStore implements UserStore {
   async findById(id: string) { return this.accounts.find((account) => account.id === id) ?? null; }
   async insert(input: NewAccount): Promise<Account> {
     if ((await this.findByEmail(input.email)) !== null) throw new EmailTakenError();
-    const account: Account = { id: randomUUID(), email: input.email, displayName: input.displayName, role: UserRole.User, passwordHash: input.passwordHash, crossChatMemoryEnabled: true };
+    const account: Account = { id: randomUUID(), email: input.email, displayName: input.displayName, role: UserRole.User, passwordHash: input.passwordHash, plan: UserPlan.Pro, crossChatMemoryEnabled: true };
     this.accounts.push(account);
     return account;
   }
+  async setPlan(userId: string, plan: UserPlan) {
+    const account = await this.findById(userId);
+    if (account === null) return false;
+    account.plan = plan;
+    return true;
+  }
+
   async setCrossChatMemory(userId: string, enabled: boolean) {
     const account = await this.findById(userId);
     if (account === null) return false;

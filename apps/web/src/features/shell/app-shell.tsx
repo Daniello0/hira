@@ -5,7 +5,9 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sheet } from '../../common/components/sheet';
 import { DESKTOP_QUERY, useMediaQuery } from '../../common/hooks/use-media-query';
-import { renewAccess } from '../auth/session-access';
+import { startDataSync, useDataVersion } from '../../common/data/data-version.store';
+import { refreshAccount } from '../auth/refresh-account';
+import { bootstrapSession, syncSession } from '../auth/session-access';
 import { useSession } from '../auth/session.store';
 import { SessionStatus } from '../auth/session-status';
 import { refreshChatList } from '../chat/chat-sidebar';
@@ -44,17 +46,26 @@ export function AppShell({ children }: { children: ReactNode }) {
 function useBootstrap(): void {
   useEffect(() => {
     if (useSession.getState().status !== SessionStatus.Unknown) return;
-    void renewAccess().then((token) => {
-      if (token === null) useSession.getState().setAnonymous();
-    });
+    void bootstrapSession();
   }, []);
 }
 
 function useAccountData(status: SessionStatus, token: string | null): void {
+  const chats = useDataVersion('chats');
+  const favorites = useDataVersion('favorites');
+  const account = useDataVersion('account');
+  const session = useDataVersion('session');
+  useEffect(() => startDataSync(), []);
+  useEffect(() => {
+    if (session > 0) void syncSession();
+  }, [session]);
+  useEffect(() => {
+    if (account > 0) void refreshAccount();
+  }, [account]);
   useEffect(() => {
     if (status === SessionStatus.Unknown) return;
     void refreshChatList();
-  }, [status, token]);
+  }, [status, token, chats]);
   useEffect(() => {
     if (status === SessionStatus.Anonymous) {
       useSuggestions.getState().clear();
@@ -66,7 +77,7 @@ function useAccountData(status: SessionStatus, token: string | null): void {
     void fetchFavorites().then((rows) => {
       if (rows !== null) useSavedVacancies.getState().setAll(rows);
     });
-  }, [status, token]);
+  }, [status, token, favorites]);
 }
 
 /** Restores the saved layout and opens chat search on Cmd or Ctrl+K. */

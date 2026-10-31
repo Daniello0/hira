@@ -30,7 +30,7 @@ export class TypeOrmRefreshTokenStore implements RefreshTokenStore {
     await this.dataSource.manager.update(
       RefreshToken,
       { tokenHash: hashToken(rawToken), revokedAt: IsNull() },
-      { revokedAt: now },
+      { revokedAt: now, expiresAt: now },
     );
   }
 
@@ -43,6 +43,7 @@ export class TypeOrmRefreshTokenStore implements RefreshTokenStore {
     const row = await this.findLocked(manager, tokenHash);
     const decision = decideRefresh(row, now);
     if (decision === 'rotate' && row !== null) return this.replace(manager, row, now, meta);
+    if (decision === 'grace' && row !== null) return this.again(manager, row, now, meta);
     if (decision === 'reused' && row !== null) return this.reuse(manager, row, now);
     return { decision: 'invalid' };
   }
@@ -58,11 +59,21 @@ export class TypeOrmRefreshTokenStore implements RefreshTokenStore {
     return { decision: 'rotate', userId: row.userId, refreshToken };
   }
 
+  private async again(
+    manager: EntityManager,
+    row: RefreshToken,
+    now: Date,
+    meta: ClientMeta,
+  ): Promise<RotateResult> {
+    const refreshToken = await this.insert(manager, row.userId, now, meta);
+    return { decision: 'rotate', userId: row.userId, refreshToken };
+  }
+
   private async reuse(manager: EntityManager, row: RefreshToken, now: Date): Promise<RotateResult> {
     await manager.update(
       RefreshToken,
       { userId: row.userId, revokedAt: IsNull() },
-      { revokedAt: now },
+      { revokedAt: now, expiresAt: now },
     );
     return { decision: 'reused', userId: row.userId };
   }

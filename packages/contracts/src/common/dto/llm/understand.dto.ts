@@ -21,6 +21,8 @@ export interface UnderstandRequest {
   memory: PromptMemory[];
   summary?: string | null;
   documents?: PromptDocument[];
+  /** Vacancies the user may refer to: saved, or shown in this conversation. */
+  knownVacancies?: string[];
 }
 
 /** Intent plus provider token counts. */

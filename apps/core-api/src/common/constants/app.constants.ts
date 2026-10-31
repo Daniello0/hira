@@ -21,6 +21,7 @@ export const ENV = {
   llmServiceUrl: 'LLM_SERVICE_URL',
   teiEmbedUrl: 'TEI_EMBED_URL',
   libraryRoot: 'LIBRARY_ROOT',
+  speechUrl: 'SPEECH_URL',
 } as const;
 
 export const LOGGER = Symbol('LOGGER');

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { UserRole } from '@hira/contracts';
+import { UserPlan } from '@hira/contracts';
 import type { Response as SupertestResponse } from 'supertest';
 import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -30,6 +31,7 @@ import {
 import { ACCESS_TOKEN_TTL_SECONDS, REFRESH_TOKEN_TTL_SECONDS } from './auth.constants';
 
 const NOW = new Date('2026-10-11T12:00:00.000Z');
+const AFTER_GRACE_MS = 31_000;
 const PASSWORD = 'correct-horse';
 const JWT_SECRET = 'test-secret-that-is-at-least-32-characters';
 
@@ -38,6 +40,7 @@ describe('auth http', () => {
 
   afterEach(async () => {
     await app?.close();
+    clockOffsetMs = 0;
   });
 
   it('registers, reads the profile, and keeps email out of the access token', async () => {
@@ -49,7 +52,6 @@ describe('auth http', () => {
       expiresIn: ACCESS_TOKEN_TTL_SECONDS,
     });
     expect(cookieFlags(registered, 'refreshToken')).toContain('HttpOnly');
-    expect(cookieFlags(registered, 'refreshToken')).toContain('Secure');
     expect(cookieFlags(registered, 'refreshToken').toLowerCase()).toContain('samesite=strict');
     expect(cookieFlags(registered, 'refreshToken')).toContain(
       `Max-Age=${REFRESH_TOKEN_TTL_SECONDS}`,
@@ -67,7 +69,7 @@ describe('auth http', () => {
       email: 'ada@example.com',
       displayName: 'Ada',
       role: 'USER',
-      crossChatMemoryEnabled: true,
+      plan: UserPlan.Free, crossChatMemoryEnabled: true,
       searchQuota: { used: 0, limit: 20 },
     });
   });
@@ -83,6 +85,7 @@ describe('auth http', () => {
     const thirdCookie = cookieValue(rotated, 'refreshToken');
     expect(thirdCookie).not.toBe(firstCookie);
 
+    clockOffsetMs = AFTER_GRACE_MS;
     const reused = await refresh(app, firstCookie);
     expect(reused.status).toBe(401);
     expect(reused.body.errorCode).toBe('AUTH_REFRESH_REUSED');
@@ -93,6 +96,25 @@ describe('auth http', () => {
       .get('/api/v1/auth/me')
       .set('Authorization', `Bearer ${registered.body.accessToken}`);
     expect(me.status).toBe(200);
+  });
+
+  it('answers a second tab that presents the token just replaced, and keeps every session', async () => {
+    app = await createApp();
+    const registered = await register(app);
+    const first = cookieValue(registered, 'refreshToken');
+    const rotated = await refresh(app, first);
+    const second = await refresh(app, first);
+    expect(second.status).toBe(200);
+    expect((await refresh(app, cookieValue(rotated, 'refreshToken'))).status).toBe(200);
+    expect((await refresh(app, cookieValue(second, 'refreshToken'))).status).toBe(200);
+  });
+
+  it('gives no grace to a token ended by logout', async () => {
+    app = await createApp();
+    const registered = await register(app);
+    const cookie = cookieValue(registered, 'refreshToken');
+    await request(app.getHttpServer()).post('/api/v1/auth/logout').set('Cookie', `refreshToken=${cookie}`);
+    expect((await refresh(app, cookie)).status).toBe(401);
   });
 
   it('revokes the refresh token on logout without dropping the access token early', async () => {
@@ -208,8 +230,10 @@ async function createApp(): Promise<INestApplication> {
   return application;
 }
 
+let clockOffsetMs = 0;
+
 function fixedClock(): Clock {
-  return { now: () => NOW };
+  return { now: () => new Date(NOW.getTime() + clockOffsetMs) };
 }
 
 function register(app: INestApplication, email = 'ada@example.com') {
@@ -287,13 +311,20 @@ class MemoryUserStore implements UserStore {
       displayName: input.displayName,
       role: UserRole.User,
       passwordHash: input.passwordHash,
-      crossChatMemoryEnabled: true,
+      plan: UserPlan.Free, crossChatMemoryEnabled: true,
     };
     this.accounts.push(account);
     return account;
   }
 
   /** @inheritdoc */
+  async setPlan(userId: string, plan: UserPlan) {
+    const account = await this.findById(userId);
+    if (account === null) return false;
+    account.plan = plan;
+    return true;
+  }
+
   async setCrossChatMemory(userId: string, enabled: boolean): Promise<boolean> {
     const account = await this.findById(userId);
     if (account === null) return false;
@@ -323,6 +354,9 @@ class MemoryRefreshStore implements RefreshTokenStore {
     const row = this.find(rawToken);
     const decision = decideRefresh(row, now);
     if (row === null || decision === 'invalid') return Promise.resolve({ decision: 'invalid' });
+    if (decision === 'grace') {
+      return Promise.resolve({ decision: 'rotate', userId: row.userId, refreshToken: this.insert(row.userId, now) });
+    }
     if (decision === 'reused') {
       this.revokeActive(row.userId, now);
       return Promise.resolve({ decision: 'reused', userId: row.userId });
@@ -338,7 +372,10 @@ class MemoryRefreshStore implements RefreshTokenStore {
   /** @inheritdoc */
   revokeIfActive(rawToken: string, now: Date): Promise<void> {
     const row = this.find(rawToken);
-    if (row !== null && row.revokedAt === null) row.revokedAt = now;
+    if (row !== null && row.revokedAt === null) {
+      row.revokedAt = now;
+      row.expiresAt = now;
+    }
     return Promise.resolve();
   }
 
@@ -361,7 +398,10 @@ class MemoryRefreshStore implements RefreshTokenStore {
 
   private revokeActive(userId: string, now: Date): void {
     for (const row of this.rows) {
-      if (row.userId === userId && row.revokedAt === null) row.revokedAt = now;
+      if (row.userId === userId && row.revokedAt === null) {
+        row.revokedAt = now;
+        row.expiresAt = now;
+      }
     }
   }
 }

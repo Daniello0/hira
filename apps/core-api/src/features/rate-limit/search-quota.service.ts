@@ -16,7 +16,7 @@ import {
 
 /**
  * Search quotas from Wiki/05 §1.6.
- * Demo is 3 searches for the life of the session. Registered accounts get 20 per UTC day.
+ * Demo is 3 searches for the life of the session. Registered accounts get their plan's limit per UTC day.
  * Chat and call routes consume a quota when they run a search; this service is that counter.
  */
 @Injectable()
@@ -42,28 +42,28 @@ export class SearchQuotaService {
   }
 
   /** Reads today's counter without spending it. A spent day reports the seconds until UTC midnight. */
-  async peekRegistered(userId: string): Promise<QuotaConsumption> {
-    const { used } = await this.readRegistered(userId);
-    return decideQuota(used + 1, REGISTERED_SEARCH_LIMIT, secondsUntilUtcMidnight(this.clock.now()));
+  async peekRegistered(userId: string, limit: number = REGISTERED_SEARCH_LIMIT): Promise<QuotaConsumption> {
+    const { used } = await this.readRegistered(userId, limit);
+    return decideQuota(used + 1, limit, secondsUntilUtcMidnight(this.clock.now()));
   }
 
   /**
    * Searches already used today. A missing key is zero.
    * This does not call `increment`.
    */
-  async readRegistered(userId: string): Promise<{ used: number; limit: number }> {
+  async readRegistered(userId: string, limit: number = REGISTERED_SEARCH_LIMIT): Promise<{ used: number; limit: number }> {
     const count = await this.counters.read(userQuotaKey(userId, this.clock.now()));
-    return { used: count ?? 0, limit: REGISTERED_SEARCH_LIMIT };
+    return { used: count ?? 0, limit };
   }
 
   /** Consumes one registered search. A denial reports the seconds until UTC midnight. */
-  async consumeRegistered(userId: string): Promise<QuotaConsumption> {
+  async consumeRegistered(userId: string, limit: number = REGISTERED_SEARCH_LIMIT): Promise<QuotaConsumption> {
     const now = this.clock.now();
     const count = await this.counters.increment(
       userQuotaKey(userId, now),
       secondsUntilUtcMidnight(now),
     );
-    const retryAfter = count > REGISTERED_SEARCH_LIMIT ? secondsUntilUtcMidnight(now) : null;
-    return decideQuota(count, REGISTERED_SEARCH_LIMIT, retryAfter);
+    const retryAfter = count > limit ? secondsUntilUtcMidnight(now) : null;
+    return decideQuota(count, limit, retryAfter);
   }
 }

@@ -14,7 +14,18 @@ describe('refresh decision', () => {
     expect(decideRefresh({ revokedAt: null, expiresAt: now }, now)).toBe('invalid');
   });
 
-  it('treats a revoked token as reuse', () => {
-    expect(decideRefresh({ revokedAt: now, expiresAt: future }, now)).toBe('reused');
+  it('lets a token replaced moments ago through, so a second tab does not end the session', () => {
+    const replaced = new Date(now.getTime() - 29_000);
+    expect(decideRefresh({ revokedAt: replaced, expiresAt: future }, now)).toBe('grace');
+    expect(decideRefresh({ revokedAt: now, expiresAt: future }, now)).toBe('grace');
+  });
+
+  it('treats an older revoked token as reuse', () => {
+    const replaced = new Date(now.getTime() - 31_000);
+    expect(decideRefresh({ revokedAt: replaced, expiresAt: future }, now)).toBe('reused');
+  });
+
+  it('gives a token ended by logout no grace', () => {
+    expect(decideRefresh({ revokedAt: now, expiresAt: now }, now)).toBe('reused');
   });
 });

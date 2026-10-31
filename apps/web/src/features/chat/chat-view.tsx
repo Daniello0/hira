@@ -5,6 +5,7 @@ import { Ellipsis, PanelRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useDataVersion } from '../../common/data/data-version.store';
 import { Button, buttonClass } from '../../common/components/button';
 import { Dialog } from '../../common/components/dialog';
 import { IconButton } from '../../common/components/icon-button';
@@ -173,6 +174,8 @@ function RenameDialog({ chat, open, onClose, onError }: { chat: ChatSummary; ope
 
 /** Profile and memory for the panel. Re-read after every finished turn, since Hira may have learned something. */
 function useAccountPanel(status: SessionStatus, finishedTurns: number): AccountContext {
+  const memory = useDataVersion('memory');
+  const profile = useDataVersion('profile');
   const [context, setContext] = useState<AccountContext>(EMPTY_ACCOUNT_CONTEXT);
   useEffect(() => {
     if (status !== SessionStatus.Account) return;
@@ -185,6 +188,6 @@ function useAccountPanel(status: SessionStatus, finishedTurns: number): AccountC
     return () => {
       active = false;
     };
-  }, [status, finishedTurns]);
+  }, [status, finishedTurns, memory, profile]);
   return context;
 }

@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { SessionStatus } from '../auth/session-status';
 import { CallPhase } from './call-phase';
 import {
+  beginSpeaking,
   canStartCall,
   emptyCall,
   finishCall,
   onFinalTranscript,
   reduceCallEvent,
-  resumeCallAfterTurn,
   showTypeInstead,
 } from './reduce-call';
 
@@ -23,7 +23,7 @@ describe('call phase', () => {
     expect(state.phase).toBe(CallPhase.Thinking);
     state = reduceCallEvent(state, { event: 'results', data: { results: [] } });
     expect(state.cards).toHaveLength(0);
-    state = reduceCallEvent(state, { event: 'done', data: {} });
+    state = beginSpeaking(reduceCallEvent(state, { event: 'done', data: {} }));
     expect(state.phase).toBe(CallPhase.Speaking);
   });
 
@@ -57,14 +57,12 @@ describe('call phase', () => {
     expect(new Set(assistants.map((caption) => caption.id)).size).toBe(2);
   });
 
-  it('returns to listening when the turn never starts speaking', () => {
+  it('does not start speaking until the first piece of voice plays', () => {
     const thinking = onFinalTranscript(emptyCall(), 'u1', 'python');
-    expect(resumeCallAfterTurn(thinking, false).phase).toBe(CallPhase.Listening);
-    const speaking = reduceCallEvent(thinking, { event: 'done', data: {} });
-    expect(resumeCallAfterTurn(speaking, true).phase).toBe(CallPhase.Speaking);
+    expect(reduceCallEvent(thinking, { event: 'done', data: {} }).phase).toBe(CallPhase.Thinking);
   });
 
-  it('shows type-instead only when recognition is missing', () => {
+  it('shows type-instead only when the voice does not work', () => {
     expect(showTypeInstead(false)).toBe(true);
     expect(showTypeInstead(true)).toBe(false);
     const searching = reduceCallEvent(onFinalTranscript(emptyCall(), 'u1', 'python'), {

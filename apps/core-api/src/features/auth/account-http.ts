@@ -5,6 +5,7 @@ import { ApiHttpException } from '../../common/filters/api-http.exception';
 import { apiError } from '../auth/auth-http';
 import { AccountRequiredError } from '../auth/account-required.error';
 import { UnauthorizedError } from '../auth/auth.errors';
+import { PlanLimitError } from '../billing/plan-limit.error';
 import { CallMissingError } from '../call/call.errors';
 import {
   ACCOUNT_REQUIRED,
@@ -12,6 +13,7 @@ import {
   CALL_NOT_FOUND,
   DOCUMENT_NOT_FOUND,
   MEMORY_NOT_FOUND,
+  PLAN_LIMIT_REACHED,
   SKILL_EXISTS,
   SKILL_NOT_FOUND,
   SUGGESTION_NOT_FOUND,
@@ -36,6 +38,9 @@ import { SkillExistsError, SkillMissingError, SuggestionClosedError } from '../p
 
 /** Maps account, library, and profile failures onto the shared error body. */
 export function mapAccountError(error: unknown, request: Request): ApiHttpException | null {
+  if (error instanceof PlanLimitError) {
+    return apiError(HttpStatus.FORBIDDEN, PLAN_LIMIT_REACHED, error.message, request, { feature: error.feature, requiredPlan: error.requiredPlan });
+  }
   if (error instanceof UnauthorizedError) return apiError(HttpStatus.UNAUTHORIZED, AUTH_UNAUTHORIZED, error.message, request);
   if (error instanceof AccountRequiredError) return apiError(HttpStatus.FORBIDDEN, ACCOUNT_REQUIRED, error.message, request);
   if (error instanceof LibraryInputError) return apiError(HttpStatus.BAD_REQUEST, VALIDATION_ERROR_CODE, error.message, request);

@@ -148,6 +148,17 @@ Demo-чат создаётся автоматически при первом з
 
 ---
 
+### 1.9 Тарифы, голос, перенос гостевого чата
+
+| Метод | Путь | Назначение |
+|---|---|---|
+| `PUT` | `/api/v1/billing/plan` | `{ plan: FREE \| PRO \| MAX }` → `CurrentUserDto`. Сразу, без оплаты. Гость: 401 |
+| `POST` | `/api/v1/speech/transcribe` | multipart `audio`, необязательный `language` → `{ text, language }`. Нужен план с `call` |
+| `POST` | `/api/v1/speech/synthesize` | `{ text, language }` → `audio/wav`. Нужен план с `call` |
+| `POST` | `/api/v1/chats/claim-guest` | Токен аккаунта и cookie гостя → `{ chat: ChatSummary \| null }`. Повтор и отсутствие чата дают `null` |
+
+`POST /calls/{id}/turns` принимает необязательный `interruptedAt`: какие слова прошлого ответа пользователь услышал, прежде чем его перебить (пустая строка: ни одного). `POST /calls/{id}/turns` принимает необязательный `language`: на каком языке отвечать. Сверх лимита плана: 403 `PLAN_LIMIT_REACHED`, в `details` `{ feature, requiredPlan }`. Голосовой сервис не отвечает: 503 `SPEECH_UNAVAILABLE`. `CurrentUserDto` содержит `plan`, а `searchQuota.limit` зависит от плана.
+
 ## 2. Внутренний API: `retrieval-service`
 
 ### `POST /internal/v1/search`
@@ -208,6 +219,7 @@ interface VacancyResult {
 | `POST` | `/internal/v1/extract-skills` | `{ vacancies: { id, title, description }[] }` → `{ results: ExtractedSkills[] }` |
 | `POST` | `/internal/v1/title-chat` | `{ firstMessage }` → `{ title }` |
 | `POST` | `/internal/v1/parse-resume` | `{ resumeText }` → `{ skills[], experience[] }` |
+| `POST` | `/internal/v1/speak` | `{ text, voice }` → MP3 (голос через OpenRouter, ADR-050) |
 
 Для `/understand`: `history[]` — `{ role: USER | ASSISTANT, content }`, `memory[]` — `{ content }`. `summary` — сводка текущего чата, не факт памяти. `documents[]` — `{ title, kind, content }` закреплённых и ближайших файлов; в `memory[]` они не входят. `canonicalId` в `intent.skills` всегда `null` — [02-retrieval-layer.md](02-retrieval-layer.md), S0.
 

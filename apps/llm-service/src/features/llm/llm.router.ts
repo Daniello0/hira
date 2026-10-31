@@ -28,6 +28,7 @@ import { parseExtractSkillsRequest } from '../extract-skills/extract-skills.sche
 import { parseGenerateRequest, parseUnderstandRequest } from './llm-request.schema';
 import { parseExtractMemoryRequest } from '../extract-memory/extract-memory.schema';
 import { parseParseResumeRequest } from '../parse-resume/parse-resume.schema';
+import { parseSpeakRequest, type SpeakRequest } from '../speak/speak.service';
 import { parseSummarizeRequest } from '../summarize-chat/summarize-chat.schema';
 import { toRouteError } from './route-error';
 
@@ -40,6 +41,7 @@ export interface LlmRouterDeps {
   summarize: (request: SummarizeChatRequest) => Promise<SummarizeChatResponse>;
   extractMemory: (request: ExtractMemoryRequest) => Promise<ExtractMemoryResponse>;
   parseResume: (request: ParseResumeRequest) => Promise<ParseResumeResponse>;
+  speak: (request: SpeakRequest) => Promise<Buffer>;
 }
 
 /** Internal understand and generate routes. Health stays on the parent app. */
@@ -69,6 +71,10 @@ export function createLlmRouter(deps: LlmRouterDeps): Router {
     '/parse-resume',
     asyncHandler((req, res) => postJson(deps, req, res, () => deps.parseResume(readResume(req.body)))),
   );
+  router.post(
+    '/speak',
+    asyncHandler((req, res) => postSpeak(deps, req, res)),
+  );
   return router;
 }
 
@@ -93,6 +99,17 @@ async function postJson(
     assertConfigured(deps);
     res.setHeader(LLM_PROVIDER_HEADER, LLM_PROVIDER_ID);
     res.status(200).json(await run());
+  } catch (error) {
+    sendFailure(res, req, error);
+  }
+}
+
+async function postSpeak(deps: LlmRouterDeps, req: Request, res: Response): Promise<void> {
+  try {
+    assertConfigured(deps);
+    const audio = await deps.speak(parseSpeakRequest(req.body));
+    res.setHeader(LLM_PROVIDER_HEADER, LLM_PROVIDER_ID);
+    res.status(200).type('audio/mpeg').send(audio);
   } catch (error) {
     sendFailure(res, req, error);
   }

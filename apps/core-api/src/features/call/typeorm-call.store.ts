@@ -4,7 +4,8 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { AuthorKind } from '@hira/contracts';
 import { DataSource } from 'typeorm';
 import { typeormRows } from '../database/typeorm-rows';
-import type { CallSessionRecord, CallStore, CallTurnRecord } from './call.store';
+import type { ActivityRecord } from '../memory/account-activity';
+import { callActivity, type CallSessionRecord, type CallStore, type CallTurnRecord } from './call.store';
 
 /** PostgreSQL calls. Rows are not written into `chats`. */
 @Injectable()
@@ -42,20 +43,46 @@ export class TypeOrmCallStore implements CallStore {
     const rows = await this.query(
       `INSERT INTO call_turns (id, session_id, role, content, use_memory, results)
        VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-       RETURNING id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, created_at AS "createdAt"`,
+       RETURNING id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, heard_text AS "heardText", created_at AS "createdAt"`,
       [turn.id || randomUUID(), turn.sessionId, turn.role, turn.content, turn.useMemory, JSON.stringify(turn.results)],
     );
     return turnOf(rows[0]);
   }
 
   /** @inheritdoc */
+  async markHeard(turnId: string, heardText: string): Promise<void> {
+    await this.query(`UPDATE call_turns SET heard_text = $2 WHERE id = $1`, [turnId, heardText]);
+  }
+
+  /** @inheritdoc */
   async recentTurns(sessionId: string, limit: number): Promise<CallTurnRecord[]> {
     const rows = await this.query(
-      `SELECT id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, created_at AS "createdAt"
+      `SELECT id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, heard_text AS "heardText", created_at AS "createdAt"
        FROM call_turns WHERE session_id = $1 ORDER BY created_at ASC, id ASC`,
       [sessionId],
     );
     return rows.map(turnOf).slice(-limit);
+  }
+
+  /** @inheritdoc */
+  async recentActivity(userId: string, limit: number, exceptSessionId: string | null): Promise<ActivityRecord[]> {
+    if (limit <= 0) return [];
+    const sessions = await this.query(
+      `SELECT s.id, s.started_at AS "startedAt" FROM call_sessions s
+       WHERE s.user_id = $1 AND ($2::uuid IS NULL OR s.id <> $2::uuid)
+         AND EXISTS (SELECT 1 FROM call_turns t WHERE t.session_id = s.id)
+       ORDER BY s.started_at DESC, s.id LIMIT $3`,
+      [userId, exceptSessionId, limit],
+    );
+    const turns = await this.query(
+      `SELECT id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, heard_text AS "heardText", created_at AS "createdAt"
+       FROM call_turns WHERE session_id = ANY($1::uuid[]) ORDER BY created_at DESC, id DESC`,
+      [sessions.map((session) => String(session.id))],
+    );
+    const records = turns.map(turnOf);
+    return sessions.map((session) =>
+      callActivity(new Date(session.startedAt as string), records.filter((turn) => turn.sessionId === session.id)),
+    );
   }
 
   private async ownedSession(id: string, userId: string): Promise<CallSessionRecord | null> {
@@ -97,6 +124,7 @@ function turnOf(row: Record<string, unknown> | undefined): CallTurnRecord {
     content: String(row.content),
     useMemory: row.useMemory !== false,
     results: (row.results as CallTurnRecord['results']) ?? null,
+    heardText: typeof row.heardText === 'string' ? row.heardText : null,
     createdAt: new Date(row.createdAt as string),
   };
 }

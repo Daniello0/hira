@@ -16,12 +16,14 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { readIssuedDemoSession } from '../auth/demo-session.middleware';
 import { OptionalAccessGuard } from '../auth/optional-access.guard';
+import { requireUserId } from '../auth/require-user-id';
 import { validatedBody } from '../auth/validation-exception';
 import { actorHint } from './actor-hint';
 import { CHAT_PAGE_SIZE } from './chat.constants';
 import { ChatPageQueryDto, UpdateChatBodyDto } from './chat.dto';
-import { mapChatError } from './chat-http';
+import { mapChatError, mapRouteError } from './chat-http';
 import { ChatService } from './chat.service';
 
 /** Chat list and lifecycle. Sending a message lives on the search orchestrator. */
@@ -51,6 +53,21 @@ export class ChatController {
       const caller = this.chats.caller(actorHint(request));
       return this.chats.create(caller);
     });
+  }
+
+  /** Moves the guest chat behind the cookie into the account. The token proves the account, the cookie the chat. */
+  @Post('claim-guest')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Move the guest chat into the account' })
+  async claimGuest(@Req() request: Request) {
+    try {
+      const userId = requireUserId(this.chats.caller(actorHint(request)));
+      return { chat: await this.chats.claimGuest(userId, readIssuedDemoSession(request)) };
+    } catch (error) {
+      const http = mapRouteError(error, request);
+      if (http !== null) throw http;
+      throw error;
+    }
   }
 
   /** Older messages, oldest first inside the page. */

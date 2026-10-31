@@ -1,7 +1,7 @@
 import { INestApplication, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
-import { readWebOrigin } from './features/auth/auth.config';
+import { readWebOrigins } from './features/auth/auth.config';
 import { REFRESH_COOKIE_NAME } from './features/auth/auth.constants';
 import { validationException } from './features/auth/validation-exception';
 
@@ -9,7 +9,7 @@ import { validationException } from './features/auth/validation-exception';
 export function configureHttpApp(app: INestApplication): void {
   app.setGlobalPrefix('api/v1', { exclude: healthAndDocs() });
   app.use(cookieParser());
-  app.enableCors({ origin: readWebOrigin(process.env), credentials: true });
+  app.enableCors({ origin: readWebOrigins(process.env), credentials: true });
   app.useGlobalPipes(validationPipe());
   setupSwagger(app);
 }

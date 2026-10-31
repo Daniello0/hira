@@ -2,11 +2,12 @@
 
 import type { FormEvent } from 'react';
 import type { CollectionDto, FavoriteDto } from '@hira/contracts';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../../common/components/button';
 import { AlertText, MutedText, SkeletonList } from '../../common/components/feedback';
 import { PageColumn, PageHeading } from '../../common/components/page-frame';
 import { TextField } from '../../common/components/text-field';
+import { useDataVersion } from '../../common/data/data-version.store';
 import { useSession } from '../auth/session.store';
 import { createCollection, fetchCollections, fetchFavorites } from './favorites-api';
 import { FavoriteCard } from './favorite-card-view';
@@ -28,7 +29,10 @@ export function FavoritesView() {
   const [query, setQuery] = useState('');
   const [data, setData] = useState<FavoritesData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const version = useDataVersion('favorites');
+  const applied = useRef('');
   const reload = useCallback(async (note?: string) => {
+    applied.current = note ?? '';
     const [saved, groups] = await Promise.all([fetchFavorites(note).catch(() => null), fetchCollections().catch(() => null)]);
     if (saved === null || groups === null) return setError(FAVORITES_LOAD_ERROR_MESSAGE);
     setError(null);
@@ -36,8 +40,8 @@ export function FavoritesView() {
     if (note === undefined || note.trim().length === 0) useSavedVacancies.getState().setAll(saved);
   }, []);
   useEffect(() => {
-    if (token !== null) void reload();
-  }, [token, reload]);
+    if (token !== null) void reload(applied.current);
+  }, [token, reload, version]);
   if (token === null) return null;
   const onDone = () => reload(query);
   return (

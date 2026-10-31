@@ -25,9 +25,11 @@ export { SkillEdgeType } from './common/enums/skill-edge-type.enum';
 export { SkillImportance } from './common/enums/skill-importance.enum';
 export { SkillLevel } from './common/enums/skill-level.enum';
 export { SkillType } from './common/enums/skill-type.enum';
+export { UserPlan } from './common/enums/user-plan.enum';
 export { UserRole } from './common/enums/user-role.enum';
 export { VacancySource } from './common/enums/vacancy-source.enum';
 export { VacancyStatus } from './common/enums/vacancy-status.enum';
+export { VoiceLanguage, asVoiceLanguage } from './common/enums/voice-language.enum';
 export { WorkFormat } from './common/enums/work-format.enum';
 
 export {
@@ -76,7 +78,7 @@ export {
   type ProfileSuggestionPayload,
   type UpdateProfileRequest,
 } from './common/dto/profile/profile.dto';
-export { type CallSessionDto, type CreateCallTurnRequest } from './common/dto/call/call.dto';
+export { type CallSessionDto, type CreateCallTurnRequest, type TranscriptDto } from './common/dto/call/call.dto';
 export {
   type CollectionDto,
   type CreateCollectionRequest,
@@ -123,12 +125,29 @@ export {
   type UnderstandRequest,
   type UnderstandResponse,
 } from './common/dto/llm/understand.dto';
+export {
+  PLAN_LIMITS,
+  PLAN_NAMES,
+  PLAN_ORDER,
+  PLAN_PRICES,
+  isUpgrade,
+  type PlanFeature,
+  type PlanLimits,
+} from './common/dto/billing/plan-limits';
+export { type CatalogStats } from './common/dto/catalog/catalog-stats.dto';
+export {
+  type PromptActivity,
+  type PromptProfile,
+  type PromptVacancy,
+  type TurnFacts,
+} from './common/dto/llm/turn-facts.dto';
 export { type AuthSessionDto } from './common/dto/auth/auth-session.dto';
 export { type CurrentUserDto, type SearchQuota } from './common/dto/auth/current-user.dto';
 export { type LoginRequest } from './common/dto/auth/login-request.dto';
 export { type RegisterRequest } from './common/dto/auth/register-request.dto';
 export { type VacancyDto } from './common/dto/vacancy/vacancy.dto';
-export { formatLocationLabel } from './common/dto/vacancy/location-label';
+export { OTHER_CITIES_REGION, formatLocationLabel } from './common/dto/vacancy/location-label';
+export { vacancySourceSite } from './common/dto/vacancy/source-label';
 export { type DocumentDraftDto } from './common/dto/chat/document-draft.dto';
 export {
   type SimilarVacanciesDto,

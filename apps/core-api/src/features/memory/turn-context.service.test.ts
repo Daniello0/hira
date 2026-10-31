@@ -1,11 +1,96 @@
-import { MessageRole } from '@hira/contracts';
-import { describe, expect, it } from 'vitest';
+import { MessageRole, UserPlan } from '@hira/contracts';
+import { describe, expect, it, vi } from 'vitest';
 import type { ChatStore, MessageRecord } from '../chat/chat.store';
 import type { MemoryStore } from './memory.store';
 import { TurnContextService } from './turn-context.service';
 import type { FollowUpJob } from '../search-orchestrator/orchestrate-search';
 import type { LlmGateway } from '../search-orchestrator/upstream-gateway';
 import type { ProfileService } from '../profile/profile.service';
+
+const CATALOG = { total: 15, byRegion: [], topCities: [], noLocation: 0, remote: 2, foreignRemote: 0, bySource: [] };
+
+function contextService(plan: UserPlan, crossChat = true, saved = 1) {
+  const chatActivity = vi.fn(async (_user: string, limit: number) =>
+    limit === 0 ? [] : [{ kind: 'chat' as const, title: 'Python', summary: 'Asked about python', queries: ['python'], vacancies: [], at: new Date(2) }],
+  );
+  const callActivity = vi.fn(async (_user: string, limit: number) =>
+    limit === 0 ? [] : [{ kind: 'call' as const, title: null, summary: null, queries: ['remote?'], vacancies: [], at: new Date(1) }],
+  );
+  const memoryList = vi.fn(async () => []);
+  const service = new TurnContextService(
+    { findById: async () => ({ id: 'u1', displayName: 'Ada', plan, crossChatMemoryEnabled: crossChat }) } as never,
+    { recentActivity: chatActivity } as never,
+    { list: memoryList } as never,
+    { forPrompt: async () => [] } as never,
+    async () => null,
+    unused(),
+    { get: async () => ({ headline: 'QA', about: null, seniority: null, desiredRoles: [], preferredWorkFormat: [], preferredLocations: [], preferredEmployment: [], salaryExpectationMin: null, currency: null, education: null }), skills: async () => [{ canonicalName: 'Python' }] } as never,
+    { warn: () => undefined } as never,
+    { list: async () => Array.from({ length: saved }, () => ({ vacancy: { title: 'Saved', companyName: 'Acme', locationLabel: 'Минск', source: 'GSZ', workFormat: null } })) } as never,
+    { recentActivity: callActivity } as never,
+    { read: async () => CATALOG } as never,
+  );
+  return { service, chatActivity, memoryList };
+}
+
+const USER = { kind: 'user' as const, userId: 'u1' };
+
+describe('turn facts', () => {
+  it('gives a guest the catalog and this chat, and nothing of any account', async () => {
+    const { service, chatActivity } = contextService(UserPlan.Max);
+    const shownHere = [{ title: 'Shown', company: 'A', city: null, source: 'gsz.gov.by', workFormat: null }];
+    const context = await service.load({ caller: { kind: 'demo', demoSessionId: 'd1' }, query: 'q', useMemory: true, summary: null, shownHere });
+    expect(context.facts).toEqual({ catalog: CATALOG, profile: null, memory: [], favorites: [], favoritesTotal: 0, activity: [], shownHere });
+    expect(chatActivity).not.toHaveBeenCalled();
+  });
+
+  it('gives Pro the profile, favorites, and earlier chats and calls', async () => {
+    const { service } = contextService(UserPlan.Pro);
+    const { facts } = await service.load({ caller: USER, query: 'q', useMemory: true, summary: null });
+    expect(facts?.profile).toMatchObject({ name: 'Ada', headline: 'QA', skills: ['Python'] });
+    expect(facts?.favorites).toEqual([{ title: 'Saved', company: 'Acme', city: 'Минск', source: 'gsz.gov.by', workFormat: null }]);
+    expect(facts?.activity.map((item) => item.kind)).toEqual(['chat', 'call']);
+    expect(facts?.catalog).toEqual(CATALOG);
+  });
+
+  it('lists the latest saved vacancies and still knows how many there are', async () => {
+    const { service } = contextService(UserPlan.Pro, true, 40);
+    const { facts } = await service.load({ caller: USER, query: 'q', useMemory: true, summary: null });
+    expect(facts?.favorites).toHaveLength(15);
+    expect(facts?.favoritesTotal).toBe(40);
+    expect(facts?.activity).toHaveLength(2);
+  });
+
+  it('asks for as many earlier chats as the plan allows, leaving out the open one', async () => {
+    const { service, chatActivity } = contextService(UserPlan.Max);
+    await service.load({ caller: USER, query: 'q', useMemory: true, summary: null, chatId: 'open' });
+    expect(chatActivity).toHaveBeenCalledWith('u1', 50, 'open');
+  });
+
+  it('gives Free the profile and favorites, but no earlier chats and no memory', async () => {
+    const { service, memoryList } = contextService(UserPlan.Free);
+    const { facts, extract } = await service.load({ caller: USER, query: 'q', useMemory: true, summary: null });
+    expect(facts?.profile).not.toBeNull();
+    expect(facts?.favorites).toHaveLength(1);
+    expect(facts?.activity).toEqual([]);
+    expect(memoryList).not.toHaveBeenCalled();
+    expect(extract).toBe(false);
+  });
+
+  it('leaves earlier chats out when cross-chat memory is off, and keeps the profile and favorites', async () => {
+    const { service } = contextService(UserPlan.Pro, false);
+    const { facts } = await service.load({ caller: USER, query: 'q', useMemory: true, summary: null });
+    expect(facts?.activity).toEqual([]);
+    expect(facts?.memory).toEqual([]);
+    expect(facts?.favorites).toHaveLength(1);
+  });
+
+  it('leaves earlier chats out when this turn says not to use memory', async () => {
+    const { service } = contextService(UserPlan.Pro);
+    const { facts } = await service.load({ caller: USER, query: 'q', useMemory: false, summary: null });
+    expect(facts?.activity).toEqual([]);
+  });
+});
 
 describe('turn follow-up', () => {
   it('logs a summary failure and still extracts facts', async () => {

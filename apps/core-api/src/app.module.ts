@@ -21,10 +21,12 @@ import { VacancyModule } from './features/vacancy/vacancy.module';
 import { FeedbackModule } from './features/feedback/feedback.module';
 import { LocationModule } from './features/location/location.module';
 import { AdminModule } from './features/admin/admin.module';
+import { BillingModule } from './features/billing/billing.module';
+import { SpeechModule } from './features/speech/speech.module';
 
 /** Root module: health, auth, and the cross-cutting request id and error shape. */
 @Module({
-  imports: [DatabaseModule, RedisModule, HealthModule, AuthModule, ChatModule, CallModule, MemoryModule, LibraryModule, ProfileModule, FavoriteModule, SkillModule, SearchOrchestratorModule, VacancyModule, FeedbackModule, LocationModule, AdminModule],
+  imports: [DatabaseModule, RedisModule, HealthModule, AuthModule, BillingModule, SpeechModule, ChatModule, CallModule, MemoryModule, LibraryModule, ProfileModule, FavoriteModule, SkillModule, SearchOrchestratorModule, VacancyModule, FeedbackModule, LocationModule, AdminModule],
   providers: [
     {
       provide: LOGGER,

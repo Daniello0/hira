@@ -58,6 +58,13 @@ export class ChatService {
     return toChatSummary(chat);
   }
 
+  /** Moves the guest chat behind the cookie into the signed-in account. Null when there is nothing to move. */
+  async claimGuest(userId: string, demoSessionId: string | undefined): Promise<ChatSummary | null> {
+    if (demoSessionId === undefined) return null;
+    const chat = await this.chats.claimDemoChat(demoSessionId, userId);
+    return chat === null ? null : toChatSummary(chat);
+  }
+
   /** Chat plus the latest messages, oldest first. */
   async detail(
     caller: Caller,

@@ -1,4 +1,4 @@
-import type { PromptDocument, PromptMemory } from '@hira/contracts';
+import type { PromptDocument, PromptMemory, TurnFacts } from '@hira/contracts';
 import { selectPromptDocuments, type PromptSourceDocument } from '../library/fit-documents';
 import { selectPromptFacts } from './select-memory';
 import type { MemoryFact } from './memory.types';
@@ -18,6 +18,8 @@ export interface TurnContext {
   memory: PromptMemory[];
   documents: PromptDocument[];
   extract: boolean;
+  /** What Hira knows about the catalog and the caller. Absent when nothing loaded it. */
+  facts?: TurnFacts;
 }
 
 /** Cross-chat facts follow the switch and the per-turn flag. Files do not. */

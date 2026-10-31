@@ -2,8 +2,9 @@
 
 import type { CreateMessageRequest } from '@hira/contracts';
 import { useEffect, useRef, useState } from 'react';
+import { invalidate } from '../../common/data/data-version.store';
 import { SIGN_IN_AGAIN } from '../auth/auth.constants';
-import { loadMe } from '../auth/session';
+import { refreshAccount } from '../auth/refresh-account';
 import { accessToken } from '../auth/session-access';
 import { useSession } from '../auth/session.store';
 import { SessionStatus } from '../auth/session-status';
@@ -12,7 +13,6 @@ import { fetchOlder, loadChat } from './chat-api';
 import { useChatDraft } from './chat-draft.store';
 import { findChat, useChatList } from './chat-list.store';
 import { MESSAGE_TOO_LONG, RELOAD_FAILED } from './chat.constants';
-import { refreshChatList } from './chat-sidebar';
 import { takePendingSend } from './start-chat';
 import { postStream, type StreamResult } from './chat-stream';
 import { useForeignRemotePreference } from './foreign-remote-preference';
@@ -138,8 +138,8 @@ function applyEvent(event: ParsedSse, latest: Latest, setTurn: SetTurn, setDraft
   if (event.event === 'user-message') setDraft('');
   publish(reduceChatEvent(latest.current, event), latest, setTurn);
   if (event.event !== 'done' && event.event !== 'error') return;
-  void refreshChatList();
-  void refreshQuota();
+  invalidate('chats');
+  void refreshAccount();
   if (event.event !== 'done') return;
   onDone();
   if (useSession.getState().status === SessionStatus.Account) scheduleSuggestionRefresh();
@@ -170,7 +170,7 @@ async function finishSend(result: StreamResult, text: string, chatId: string, la
   const dropped = result.interrupted || (result.opened && latest.current.phase !== StreamPhase.Idle);
   if (dropped || needsReload(result, text, latest.current)) return replaceFromServer(chatId, latest, setTurn);
   if (result.opened) return;
-  if (result.status === 429) void refreshQuota();
+  if (result.status === 429) void refreshAccount();
   publish({ ...latest.current, phase: StreamPhase.Idle, notice: result.error?.message ?? 'Message was not sent' }, latest, setTurn);
 }
 
@@ -183,16 +183,6 @@ async function replaceFromServer(chatId: string, latest: Latest, setTurn: SetTur
   const loaded = await loadChat(chatId);
   if (loaded.kind !== 'ok') return publish(releaseTurn(latest.current, RELOAD_FAILED), latest, setTurn);
   publish(reloadedTurn(loaded.detail.messages), latest, setTurn);
-}
-
-/** Re-reads the account so the sidebar counter matches the server after any turn. */
-async function refreshQuota(): Promise<void> {
-  const session = useSession.getState();
-  if (session.status !== SessionStatus.Account) return;
-  const token = await accessToken();
-  if (token === null) return;
-  const user = await loadMe(token).catch(() => null);
-  if (user !== null) useSession.getState().patchUser(user);
 }
 
 async function loadOlderMessages(

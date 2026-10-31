@@ -1,6 +1,7 @@
 import { parseSalaryText } from '../../normalize/parse-salary';
 import { stripHtml } from '../../normalize/strip-html';
 import { isArchivedVacancy } from '../archived-page';
+import { readJobPosting } from '../job-posting-ld';
 import type { RawVacancy } from '../raw-vacancy';
 
 export interface RabotaListItem {
@@ -34,7 +35,7 @@ function vacancy(html: string, externalId: string, title: string): RawVacancy {
     companyName: stripHtml(readQa(html, 'vacancy-company-name') ?? ''),
     unp: null,
     region: null,
-    city: cityOf(stripHtml(readQa(html, 'vacancy-view-raw-address') ?? '')),
+    city: cityOf(stripHtml(readQa(html, 'vacancy-view-raw-address') ?? '')) ?? readJobPosting(html)?.city ?? null,
     descriptionHtml: readDiv(html, 'vacancy-description'),
     seniorityRaw: plain(readQa(html, 'vacancy-experience')),
     employmentRaw: plain(readQa(html, 'common-employment-text')),

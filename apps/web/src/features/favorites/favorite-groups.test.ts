@@ -30,7 +30,8 @@ function favorite(id: string, vacancyId: string, collectionId: string | null): F
     createdAt: '2026-10-24T12:00:00.000Z',
     vacancy: {
       id: vacancyId,
-      title: 'Role',
+      source: null,
+    title: 'Role',
       companyName: 'Acme',
       locationLabel: null,
       status: 'ACTIVE' as FavoriteDto['vacancy']['status'],

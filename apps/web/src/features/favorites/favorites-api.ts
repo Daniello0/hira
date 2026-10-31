@@ -1,6 +1,7 @@
 import type { CollectionDto, CreateFavoriteRequest, FavoriteDto, UpdateCollectionRequest, UpdateFavoriteRequest } from '@hira/contracts';
 import { authedFetch, readJson } from '../../common/api/authed-fetch';
 import { jsonRequest } from '../../common/api/core-api';
+import { invalidate } from '../../common/data/data-version.store';
 import { readApiMessage } from '../auth/read-api-message';
 import { COLLECTION_DELETE_ERROR_MESSAGE } from './favorites.constants';
 
@@ -12,7 +13,9 @@ export async function fetchFavorites(noteQuery?: string): Promise<FavoriteDto[] 
 
 /** Saves a vacancy. A second save returns the same row. */
 export async function createFavorite(body: CreateFavoriteRequest): Promise<FavoriteDto | null> {
-  return readJson<FavoriteDto>(await authedFetch('/api/v1/favorites', jsonRequest('POST', body)));
+  const saved = await readJson<FavoriteDto>(await authedFetch('/api/v1/favorites', jsonRequest('POST', body)));
+  if (saved !== null) invalidate('favorites');
+  return saved;
 }
 
 /** Moves a favorite or rewrites its note. */
@@ -25,6 +28,7 @@ export async function patchFavorite(id: string, body: UpdateFavoriteRequest): Pr
 /** Removes a saved vacancy. */
 export async function deleteFavorite(id: string): Promise<boolean> {
   const response = await authedFetch(`/api/v1/favorites/${id}`, { method: 'DELETE' });
+  if (response.ok) invalidate('favorites');
   return response.ok;
 }
 
