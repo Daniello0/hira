@@ -23,6 +23,10 @@ export class CallTurn {
   @Column({ type: 'boolean', default: true })
   useMemory!: boolean;
 
+  /** What the user heard of a reply they cut off. Null: it was spoken to the end. */
+  @Column({ type: 'text', nullable: true })
+  heardText!: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   results!: Record<string, unknown> | null;
 }

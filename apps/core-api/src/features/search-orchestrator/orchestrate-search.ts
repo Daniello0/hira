@@ -6,6 +6,7 @@ import { promptHistory } from '../chat/history-window';
 import type { Caller } from '../chat/resolve-actor';
 import type { CompletedTurn, MessageRecord, ShownVacancyRecord } from '../chat/chat.store';
 import { shownInOrder } from '../memory/account-activity';
+import { spokenContent } from './call-cut';
 import { isAborted, runTurn } from './run-turn';
 import { consumeOrThrow } from './turn-quota';
 import type {
@@ -169,6 +170,7 @@ interface CallTurnRecord {
   content: string;
   createdAt: Date;
   results?: VacancyResult[] | null;
+  heardText?: string | null;
 }
 
 export interface CallTurnInput extends TurnOptions {
@@ -176,8 +178,11 @@ export interface CallTurnInput extends TurnOptions {
   session: { id: string; endedAt: Date | null };
   content: string;
   requestId: string;
+  /** The user cut off the reply before this phrase: the words of it they heard. */
+  interruptedAt?: string;
   calls: {
     recentTurns(sessionId: string, limit: number): Promise<CallTurnRecord[]>;
+    markHeard(turnId: string, heardText: string): Promise<void>;
     insertTurn(turn: {
       id: string;
       sessionId: string;
@@ -195,7 +200,7 @@ export async function postCallTurn(deps: OrchestratorDeps, input: CallTurnInput,
   if (input.session.endedAt !== null) throw new CallEndedError();
   const startedAt = deps.now();
   const useMemory = input.useMemory !== false;
-  const prior = await input.calls.recentTurns(input.session.id, WORKING_WINDOW_SIZE);
+  const prior = await recordCut(input, await input.calls.recentTurns(input.session.id, WORKING_WINDOW_SIZE));
   const user = await input.calls.insertTurn(newTurn(input, 'USER', input.content, useMemory, null, new Date(deps.now())));
   sink.open();
   sink.write(SSE_EVENT.userMessage, turnEvent(user));
@@ -247,12 +252,20 @@ function asMessage(turn: CallTurnRecord): MessageRecord {
     id: turn.id,
     chatId: turn.id,
     role: turn.role === 'ASSISTANT' ? MessageRole.Assistant : MessageRole.User,
-    content: turn.content,
+    content: spokenContent(turn.content, turn.heardText),
     intent: null,
     diagnostics: null,
     tokenUsage: null,
     createdAt: turn.createdAt,
   };
+}
+
+/** Marks the last reply as cut off. If it is not stored yet, there is nothing to mark. */
+async function recordCut(input: CallTurnInput, prior: CallTurnRecord[]): Promise<CallTurnRecord[]> {
+  const last = prior.at(-1);
+  if (input.interruptedAt === undefined || last?.role !== 'ASSISTANT') return prior;
+  await input.calls.markHeard(last.id, input.interruptedAt);
+  return [...prior.slice(0, -1), { ...last, heardText: input.interruptedAt }];
 }
 
 function callFollowUp(input: CallTurnInput, sourceCallTurnId: string, outcome: TurnOutcome): FollowUpJob {

@@ -47,6 +47,13 @@ export class MemoryCallStore implements CallStore {
   }
 
   /** @inheritdoc */
+  async markHeard(turnId: string, heardText: string): Promise<void> {
+    const index = this.turns.findIndex((turn) => turn.id === turnId);
+    const turn = this.turns[index];
+    if (turn !== undefined) this.turns[index] = { ...turn, heardText };
+  }
+
+  /** @inheritdoc */
   async recentTurns(sessionId: string, limit: number): Promise<CallTurnRecord[]> {
     return this.turns.filter((turn) => turn.sessionId === sessionId).slice(-limit);
   }

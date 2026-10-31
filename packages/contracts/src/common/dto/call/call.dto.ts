@@ -13,6 +13,8 @@ export interface CreateCallTurnRequest {
   useMemory?: boolean;
   /** Language to reply in. Absent: the language of the phrase. */
   language?: VoiceLanguage;
+  /** The user cut off the reply before this one: the words of it they heard. Empty: none. */
+  interruptedAt?: string;
 }
 
 /** Answer of `POST /api/v1/speech/transcribe`. `language` is what the recognizer heard. */

@@ -4,7 +4,7 @@ import type { ParsedSse } from '../chat/sse-parser';
 import { CallPhase } from './call-phase';
 import type { LanguageChoice } from './call-language';
 import { emptyCall, type CallViewState } from './reduce-call';
-import { VoiceSession, type MicHandlers, type VoiceDeps } from './voice-session';
+import { cutAtWord, VoiceSession, type MicHandlers, type VoiceDeps } from './voice-session';
 
 const OPEN = { opened: true, status: 200, error: null, interrupted: false };
 
@@ -32,6 +32,7 @@ function rig(overrides: Partial<VoiceDeps> = {}, choice: LanguageChoice = 'auto'
     stop: vi.fn(() => {
       for (const piece of pieces.splice(0)) piece.finish();
     }),
+    playedFraction: vi.fn(() => 0.5),
   };
   const deps: VoiceDeps = {
     startMic: vi.fn(async (handlers) => {
@@ -85,7 +86,7 @@ describe('voice session', () => {
 
   it('hears a phrase, asks, and speaks the reply in the language heard, before the answer has finished', async () => {
     const gate = deferred<typeof OPEN>();
-    const streamTurn = vi.fn(async (_text: string, _language: unknown, _signal: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+    const streamTurn = vi.fn(async (_text: string, _language: unknown, _i: unknown, _signal: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       onEvent(token(SENTENCE));
       return gate.promise;
     });
@@ -102,7 +103,7 @@ describe('voice session', () => {
   });
 
   it('returns to listening once the last piece has played', async () => {
-    const streamTurn = vi.fn(async (_t: string, _l: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       onEvent(token(SENTENCE));
       onEvent({ event: 'done', data: {} });
       return OPEN;
@@ -118,7 +119,7 @@ describe('voice session', () => {
   });
 
   it('speaks what is left when the answer ends without a full stop', async () => {
-    const streamTurn = vi.fn(async (_t: string, _l: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       onEvent(token('**Коротко**'));
       return OPEN;
     });
@@ -132,7 +133,7 @@ describe('voice session', () => {
   it('stops talking and cancels the answer the moment the user speaks', async () => {
     let signal: AbortSignal | null = null;
     const gate = deferred<typeof OPEN>();
-    const streamTurn = vi.fn(async (_t: string, _l: unknown, given: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, given: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       signal = given;
       onEvent(token(SENTENCE));
       return gate.promise;
@@ -166,7 +167,7 @@ describe('voice session', () => {
   it('drops late tokens of an interrupted answer', async () => {
     let emit: (event: ParsedSse) => void = () => undefined;
     const gate = deferred<typeof OPEN>();
-    const streamTurn = vi.fn(async (_t: string, _l: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       emit = onEvent;
       return gate.promise;
     });
@@ -222,7 +223,7 @@ describe('voice session', () => {
 
   it('keeps the words on screen when the voice is down', async () => {
     const onVoiceTrouble = vi.fn();
-    const streamTurn = vi.fn(async (_t: string, _l: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       onEvent(token(SENTENCE));
       return OPEN;
     });
@@ -246,7 +247,7 @@ describe('voice session', () => {
   });
 
   it('speaks and replies in the language from the menu', async () => {
-    const streamTurn = vi.fn(async (_t: string, _l: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       onEvent(token(SENTENCE));
       return OPEN;
     });
@@ -260,7 +261,7 @@ describe('voice session', () => {
   });
 
   it('answers a typed phrase the same way', async () => {
-    const streamTurn = vi.fn(async (_t: string, _l: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       onEvent(token(SENTENCE));
       return OPEN;
     });
@@ -273,7 +274,7 @@ describe('voice session', () => {
   });
 
   it('falls back to the browser language for the voice when nothing tells it otherwise', async () => {
-    const streamTurn = vi.fn(async (_t: string, _l: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       onEvent(token('I found two good vacancies for you in Minsk. '));
       return OPEN;
     });
@@ -282,6 +283,86 @@ describe('voice session', () => {
     void session.sayTyped('hello there');
     await flush();
     expect(deps.synthesize).toHaveBeenCalledWith(expect.anything(), VoiceLanguage.French, expect.anything());
+  });
+
+  it('tells the next turn how far the reply got when the user cuts it off', async () => {
+    const first = 'Нашла для вас две хорошие вакансии в Минске.';
+    const second = 'Первая из них это продуктовый аналитик, зарплата выше рынка.';
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+      if (streamTurn.mock.calls.length > 1) return OPEN;
+      onEvent(token(`${first} ${second} `));
+      onEvent({ event: 'done', data: {} });
+      return OPEN;
+    });
+    const { session, mic, state, pieces } = rig({ streamTurn });
+    await session.open();
+    void mic().onPhrase(PHRASE);
+    await flush();
+    pieces[0]?.finish();
+    await flush();
+    mic().onSpeechStart();
+    const heard = `${first} ${cutAtWord(second, 0.5)}`;
+    expect(state().captions.at(-1)?.content).toBe(heard);
+    void mic().onPhrase(PHRASE);
+    await flush();
+    expect(streamTurn.mock.calls[1]?.[2]).toBe(heard);
+    expect(streamTurn.mock.calls[0]?.[2]).toBeNull();
+  });
+
+  it('says nothing was heard when the reply was cut before its first sound', async () => {
+    const voice = deferred<ArrayBuffer>();
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+      if (streamTurn.mock.calls.length === 1) onEvent(token(SENTENCE));
+      return OPEN;
+    });
+    const { session, mic, state } = rig({ streamTurn, synthesize: vi.fn(() => voice.promise) });
+    await session.open();
+    void mic().onPhrase(PHRASE);
+    await flush();
+    mic().onSpeechStart();
+    expect(state().captions.at(-1)?.role).toBe('USER');
+    void mic().onPhrase(PHRASE);
+    await flush();
+    expect(streamTurn.mock.calls[1]?.[2]).toBe('');
+  });
+
+  it('reports no cut for a reply that was spoken to the end', async () => {
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+      if (streamTurn.mock.calls.length === 1) onEvent(token(SENTENCE));
+      return OPEN;
+    });
+    const { session, mic, pieces } = rig({ streamTurn });
+    await session.open();
+    void mic().onPhrase(PHRASE);
+    await flush();
+    pieces[0]?.finish();
+    await flush();
+    mic().onSpeechStart();
+    void mic().onPhrase(PHRASE);
+    await flush();
+    expect(streamTurn.mock.calls[1]?.[2]).toBeNull();
+  });
+
+  it('gives a voice only to the piece playing and the one after it', async () => {
+    const line = ['Первое предложение ответа про вакансии.', 'Второе предложение ответа про вакансии.', 'Третье предложение ответа про вакансии.', 'Четвёртое предложение ответа про вакансии.'];
+    const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
+      onEvent(token(`${line.join(' ')} `));
+      return OPEN;
+    });
+    const { session, mic, deps, pieces } = rig({ streamTurn });
+    await session.open();
+    void mic().onPhrase(PHRASE);
+    await flush();
+    expect(deps.synthesize).toHaveBeenCalledTimes(2);
+    pieces[0]?.finish();
+    await flush();
+    expect(deps.synthesize).toHaveBeenCalledTimes(3);
+  });
+
+  it('cuts a sentence on a whole word', () => {
+    expect(cutAtWord('Первая вакансия в Минске', 0.5)).toBe('Первая');
+    expect(cutAtWord('Первая вакансия', 0)).toBe('');
+    expect(cutAtWord('Первая вакансия', 1)).toBe('Первая вакансия');
   });
 
   it('closes everything on end, and later events change nothing', async () => {

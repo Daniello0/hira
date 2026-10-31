@@ -3,7 +3,7 @@ import type { StreamResult } from '../chat/chat-stream';
 import type { ParsedSse } from '../chat/sse-parser';
 import { fallbackVoice, languageAfterHeard, languageAfterTyped, type LanguageChoice } from './call-language';
 import { CallPhase } from './call-phase';
-import { beginListening, beginSpeaking, beginThinking, onFinalTranscript, reduceCallEvent, type CallViewState } from './reduce-call';
+import { beginListening, beginSpeaking, beginThinking, cutReply, onFinalTranscript, reduceCallEvent, type CallViewState } from './reduce-call';
 import { speakableText, takeSentences } from './sentence-queue';
 
 /** What the microphone tells the call. `onPhrase` gets a finished phrase as WAV. */
@@ -14,10 +14,10 @@ export interface MicHandlers {
 
 export interface VoiceDeps {
   startMic: (handlers: MicHandlers) => Promise<{ stop: () => void }>;
-  player: { play: (bytes: ArrayBuffer) => Promise<void>; stop: () => void };
+  player: { play: (bytes: ArrayBuffer) => Promise<void>; stop: () => void; playedFraction: () => number };
   transcribe: (audio: Blob, language: VoiceLanguage | null) => Promise<TranscriptDto>;
   synthesize: (text: string, language: VoiceLanguage, signal: AbortSignal) => Promise<ArrayBuffer>;
-  streamTurn: (text: string, language: VoiceLanguage | null, signal: AbortSignal, onEvent: (event: ParsedSse) => void) => Promise<StreamResult>;
+  streamTurn: (text: string, language: VoiceLanguage | null, interruptedAt: string | null, signal: AbortSignal, onEvent: (event: ParsedSse) => void) => Promise<StreamResult>;
   commit: (update: (current: CallViewState) => CallViewState) => CallViewState;
   choice: () => LanguageChoice;
   browserLanguage: () => string | undefined;
@@ -26,10 +26,13 @@ export interface VoiceDeps {
 }
 
 const TURN_FAILED = 'Hira did not answer. Try again.';
+/** Pieces given a voice in advance: the one playing and the one after it. */
+const AHEAD_PIECES = 2;
 
 /**
  * One live call: the microphone stays open, a phrase goes to the recognizer and on to Hira, and the
- * reply is spoken sentence by sentence while it is still being written. Speech during a reply cuts it.
+ * reply is spoken sentence by sentence while it is still being written. Speech during a reply cuts it,
+ * and the next turn tells Hira where: only what was heard counts as said.
  */
 export class VoiceSession {
   /** Bumped by every new phrase and interruption. Work started under an older value is dropped. */
@@ -40,6 +43,9 @@ export class VoiceSession {
   private closed = false;
   /** A phrase whose reading was overtaken by more speech. It opens the next phrase. */
   private carried = '';
+  private line: SpeechLine | null = null;
+  /** What the user heard of the reply they cut off. Goes out with the next turn. */
+  private interruptedAt: string | null = null;
 
   constructor(private readonly deps: VoiceDeps) {}
 
@@ -109,36 +115,40 @@ export class VoiceSession {
     this.language = language;
     this.deps.commit((current) => onFinalTranscript(current, `phrase-${generation}`, text));
     const signal = this.abort?.signal as AbortSignal;
-    const speech = new SpeechLine((sentence) => this.speak(sentence, generation, signal));
+    const speech = this.speechLine(generation, signal);
+    this.line = speech;
     const chosen = this.deps.choice();
-    const result = await this.deps.streamTurn(text, chosen === 'auto' ? null : chosen, signal, (event) => {
+    const interruptedAt = this.interruptedAt;
+    this.interruptedAt = null;
+    const result = await this.deps.streamTurn(text, chosen === 'auto' ? null : chosen, interruptedAt, signal, (event) => {
       if (!this.current(generation)) return;
       this.deps.commit((current) => reduceCallEvent(current, event));
       if (event.event === 'token') speech.add(tokenText(event));
     });
     if (!this.current(generation)) return;
     if (!result.opened) {
+      this.interruptedAt = interruptedAt;
+      this.line = null;
+      speech.finish().catch(() => undefined);
       this.deps.commit((current) => ({ ...beginListening(current), notice: result.error?.message ?? TURN_FAILED }));
       return;
     }
     await speech.finish();
-    if (this.current(generation)) this.deps.commit(beginListening);
+    if (!this.current(generation)) return;
+    this.line = null;
+    this.deps.commit(beginListening);
   }
 
-  /** Starts the voice at once, so a later sentence is ready when the one before ends. */
-  private speak(sentence: string, generation: number, signal: AbortSignal): () => Promise<void> {
-    const audio = this.deps.synthesize(sentence, fallbackVoice(this.language, this.deps.browserLanguage()), signal);
-    audio.catch(() => undefined);
-    return async () => {
-      try {
-        const bytes = await audio;
-        if (!this.current(generation)) return;
+  private speechLine(generation: number, signal: AbortSignal): SpeechLine {
+    return new SpeechLine({
+      synthesize: (sentence) => this.deps.synthesize(sentence, fallbackVoice(this.language, this.deps.browserLanguage()), signal),
+      play: (bytes) => {
         this.deps.commit(beginSpeaking);
-        await this.deps.player.play(bytes);
-      } catch {
-        if (this.current(generation)) this.deps.onVoiceTrouble();
-      }
-    };
+        return this.deps.player.play(bytes);
+      },
+      alive: () => this.current(generation),
+      onTrouble: () => this.deps.onVoiceTrouble(),
+    });
   }
 
   private nextWork(): number {
@@ -148,9 +158,20 @@ export class VoiceSession {
   }
 
   private cancelWork(): void {
+    this.rememberCut();
     this.generation += 1;
     this.abort?.abort();
     this.deps.player.stop();
+  }
+
+  /** Must run before the voice stops: afterwards nothing knows how far it got. */
+  private rememberCut(): void {
+    const line = this.line;
+    this.line = null;
+    if (line === null || !line.wrote) return;
+    const heard = line.heard(this.deps.player.playedFraction());
+    this.interruptedAt = heard;
+    this.deps.commit((current) => cutReply(current, heard));
   }
 
   private current(generation: number): boolean {
@@ -158,14 +179,40 @@ export class VoiceSession {
   }
 }
 
-/** Turns the stream of tokens into pieces of voice that play in order. */
+interface SpeechLineDeps {
+  synthesize: (sentence: string) => Promise<ArrayBuffer>;
+  play: (bytes: ArrayBuffer) => Promise<void>;
+  alive: () => boolean;
+  onTrouble: () => void;
+}
+
+interface SpokenPiece {
+  text: string;
+  audio: Promise<ArrayBuffer> | null;
+}
+
+/**
+ * Turns the stream of tokens into pieces of voice that play in order. The model writes faster than
+ * she speaks, so a piece gets its sound only when its turn is near: the one playing and the one after it.
+ * It also knows how far the voice got, which is what the user really heard.
+ */
 class SpeechLine {
   private buffer = '';
-  private line: Promise<void> = Promise.resolve();
+  private readonly pieces: SpokenPiece[] = [];
+  private playing = 0;
+  private sounding = false;
+  private ended = false;
+  private wake: (() => void) | null = null;
+  private readonly run: Promise<void>;
+  /** Tokens arrived, so core-api stores a reply for this turn. */
+  wrote = false;
 
-  constructor(private readonly start: (sentence: string) => () => Promise<void>) {}
+  constructor(private readonly deps: SpeechLineDeps) {
+    this.run = this.playAll();
+  }
 
   add(text: string): void {
+    if (text.length > 0) this.wrote = true;
     const { sentences, rest } = takeSentences(this.buffer + text);
     this.buffer = rest;
     for (const sentence of sentences) this.queue(sentence);
@@ -174,15 +221,71 @@ class SpeechLine {
   finish(): Promise<void> {
     this.queue(this.buffer);
     this.buffer = '';
-    return this.line;
+    this.ended = true;
+    this.wake?.();
+    return this.run;
+  }
+
+  /** The words already spoken. `fraction` is how much of the current piece has played. */
+  heard(fraction: number): string {
+    const done = this.pieces.slice(0, this.playing).map((piece) => piece.text);
+    const current = this.pieces[this.playing];
+    if (this.sounding && current !== undefined) done.push(cutAtWord(current.text, fraction));
+    return done.join(' ').trim();
   }
 
   private queue(sentence: string): void {
-    const spoken = speakableText(sentence);
-    if (spoken.length === 0) return;
-    const play = this.start(spoken);
-    this.line = this.line.then(play);
+    const text = speakableText(sentence);
+    if (text.length === 0) return;
+    this.pieces.push({ text, audio: null });
+    this.prepareNear();
+    this.wake?.();
   }
+
+  private prepareNear(): void {
+    for (const piece of this.pieces.slice(this.playing, this.playing + AHEAD_PIECES)) {
+      if (piece.audio !== null) continue;
+      piece.audio = this.deps.synthesize(piece.text);
+      piece.audio.catch(() => undefined);
+    }
+  }
+
+  private async playAll(): Promise<void> {
+    while (this.deps.alive()) {
+      const piece = this.pieces[this.playing];
+      if (piece === undefined) {
+        if (this.ended) return;
+        await new Promise<void>((resolve) => {
+          this.wake = resolve;
+        });
+        continue;
+      }
+      await this.playPiece(piece);
+    }
+  }
+
+  private async playPiece(piece: SpokenPiece): Promise<void> {
+    try {
+      const bytes = await (piece.audio as Promise<ArrayBuffer>);
+      if (!this.deps.alive()) return;
+      this.sounding = true;
+      await this.deps.play(bytes);
+    } catch {
+      if (this.deps.alive()) this.deps.onTrouble();
+    }
+    if (!this.deps.alive()) return;
+    this.sounding = false;
+    this.playing += 1;
+    this.prepareNear();
+  }
+}
+
+/** The part of a sentence heard so far, ending on a whole word. */
+export function cutAtWord(text: string, fraction: number): string {
+  if (fraction >= 1) return text;
+  const end = Math.floor(text.length * Math.max(0, fraction));
+  const space = text.lastIndexOf(' ', end);
+  return space <= 0 ? '' : text.slice(0, space);
 }
 
 function joined(first: string, second: string): string {

@@ -124,6 +124,7 @@ describe('data source', () => {
       'DefaultCollectionIndex1765000000000',
       'Stage15FeedbackAndSkillFailures1766000000000',
       'UserPlanAndOtherCities1767000000000',
+      'CallTurnHeardText1768000000000',
     ]);
   });
 

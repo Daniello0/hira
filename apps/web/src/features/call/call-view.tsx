@@ -160,8 +160,8 @@ function useLiveCall(
           player,
           transcribe: transcribePhrase,
           synthesize: synthesizeSpeech,
-          streamTurn: (text, reply, signal, onEvent) =>
-            postStream(`/api/v1/calls/${opened.id}/turns`, callTurnRequest(text, reply), (event) => {
+          streamTurn: (text, reply, interruptedAt, signal, onEvent) =>
+            postStream(`/api/v1/calls/${opened.id}/turns`, callTurnRequest(text, reply, interruptedAt), (event) => {
               onEvent(event);
               if (event.event !== 'done') return;
               scheduleSuggestionRefresh();

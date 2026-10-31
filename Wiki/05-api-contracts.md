@@ -157,7 +157,7 @@ Demo-чат создаётся автоматически при первом з
 | `POST` | `/api/v1/speech/synthesize` | `{ text, language }` → `audio/wav`. Нужен план с `call` |
 | `POST` | `/api/v1/chats/claim-guest` | Токен аккаунта и cookie гостя → `{ chat: ChatSummary \| null }`. Повтор и отсутствие чата дают `null` |
 
-`POST /calls/{id}/turns` принимает необязательный `language`: на каком языке отвечать. Сверх лимита плана: 403 `PLAN_LIMIT_REACHED`, в `details` `{ feature, requiredPlan }`. Голосовой сервис не отвечает: 503 `SPEECH_UNAVAILABLE`. `CurrentUserDto` содержит `plan`, а `searchQuota.limit` зависит от плана.
+`POST /calls/{id}/turns` принимает необязательный `interruptedAt`: какие слова прошлого ответа пользователь услышал, прежде чем его перебить (пустая строка: ни одного). `POST /calls/{id}/turns` принимает необязательный `language`: на каком языке отвечать. Сверх лимита плана: 403 `PLAN_LIMIT_REACHED`, в `details` `{ feature, requiredPlan }`. Голосовой сервис не отвечает: 503 `SPEECH_UNAVAILABLE`. `CurrentUserDto` содержит `plan`, а `searchQuota.limit` зависит от плана.
 
 ## 2. Внутренний API: `retrieval-service`
 

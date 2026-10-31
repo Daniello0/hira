@@ -70,6 +70,14 @@ export function reduceCallEvent(
   return state;
 }
 
+/** The user cut Hira off: the screen keeps only the words that were spoken. */
+export function cutReply(state: CallViewState, heard: string): CallViewState {
+  const last = state.captions.at(-1);
+  if (last?.role !== MessageRole.Assistant) return state;
+  const earlier = state.captions.slice(0, -1);
+  return { ...state, captions: heard.length === 0 ? earlier : [...earlier, { ...last, content: heard }] };
+}
+
 /** Drops the draft card after Save or Dismiss. */
 export function clearCallDraft(state: CallViewState): CallViewState {
   return { ...state, draft: null };

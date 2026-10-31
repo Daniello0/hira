@@ -19,6 +19,8 @@ export interface CallTurnRecord {
   useMemory: boolean;
   results: VacancyResult[] | null;
   createdAt: Date;
+  /** What the user heard of a reply they cut off. Absent: it was spoken to the end. */
+  heardText?: string | null;
 }
 
 export interface CallStore {
@@ -26,6 +28,8 @@ export interface CallStore {
   findSession(id: string): Promise<CallSessionRecord | null>;
   endSession(id: string, userId: string, at: Date): Promise<CallSessionRecord | null>;
   insertTurn(turn: CallTurnRecord): Promise<CallTurnRecord>;
+  /** Records how far a reply got before the user cut it off. */
+  markHeard(turnId: string, heardText: string): Promise<void>;
   recentTurns(sessionId: string, limit: number): Promise<CallTurnRecord[]>;
   /** Earlier calls of an account with turns, newest first, leaving out the open one. */
   recentActivity(userId: string, limit: number, exceptSessionId: string | null): Promise<ActivityRecord[]>;

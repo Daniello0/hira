@@ -43,16 +43,21 @@ export class TypeOrmCallStore implements CallStore {
     const rows = await this.query(
       `INSERT INTO call_turns (id, session_id, role, content, use_memory, results)
        VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-       RETURNING id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, created_at AS "createdAt"`,
+       RETURNING id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, heard_text AS "heardText", created_at AS "createdAt"`,
       [turn.id || randomUUID(), turn.sessionId, turn.role, turn.content, turn.useMemory, JSON.stringify(turn.results)],
     );
     return turnOf(rows[0]);
   }
 
   /** @inheritdoc */
+  async markHeard(turnId: string, heardText: string): Promise<void> {
+    await this.query(`UPDATE call_turns SET heard_text = $2 WHERE id = $1`, [turnId, heardText]);
+  }
+
+  /** @inheritdoc */
   async recentTurns(sessionId: string, limit: number): Promise<CallTurnRecord[]> {
     const rows = await this.query(
-      `SELECT id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, created_at AS "createdAt"
+      `SELECT id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, heard_text AS "heardText", created_at AS "createdAt"
        FROM call_turns WHERE session_id = $1 ORDER BY created_at ASC, id ASC`,
       [sessionId],
     );
@@ -70,7 +75,7 @@ export class TypeOrmCallStore implements CallStore {
       [userId, exceptSessionId, limit],
     );
     const turns = await this.query(
-      `SELECT id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, created_at AS "createdAt"
+      `SELECT id, session_id AS "sessionId", role::text AS role, content, use_memory AS "useMemory", results, heard_text AS "heardText", created_at AS "createdAt"
        FROM call_turns WHERE session_id = ANY($1::uuid[]) ORDER BY created_at DESC, id DESC`,
       [sessions.map((session) => String(session.id))],
     );
@@ -119,6 +124,7 @@ function turnOf(row: Record<string, unknown> | undefined): CallTurnRecord {
     content: String(row.content),
     useMemory: row.useMemory !== false,
     results: (row.results as CallTurnRecord['results']) ?? null,
+    heardText: typeof row.heardText === 'string' ? row.heardText : null,
     createdAt: new Date(row.createdAt as string),
   };
 }

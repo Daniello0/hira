@@ -18,6 +18,9 @@ import { CallMissingError } from './call.errors';
 import { CALL_STORE, type CallStore } from './call.store';
 import { SearchOrchestratorService } from '../search-orchestrator/search-orchestrator.service';
 
+/** Longer than any spoken reply can be. */
+const INTERRUPTED_AT_MAX_CHARS = 20_000;
+
 class CallTurnBody {
   @ApiProperty({ type: String, minLength: 1, maxLength: MAX_MESSAGE_LENGTH })
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
@@ -40,6 +43,12 @@ class CallTurnBody {
   @IsOptional()
   @IsEnum(VoiceLanguage)
   language?: VoiceLanguage;
+
+  @ApiPropertyOptional({ type: String, maxLength: INTERRUPTED_AT_MAX_CHARS, description: 'The user cut off the previous reply: the words of it they heard' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(INTERRUPTED_AT_MAX_CHARS)
+  interruptedAt?: string;
 }
 
 /** Voice-call transcripts. A call never appears in the chat list. */
@@ -92,6 +101,7 @@ export class CallController {
           useMemory: body.useMemory,
           includeForeignRemote: body.includeForeignRemote,
           voice: { language: body.language ?? null },
+          interruptedAt: body.interruptedAt,
           signal: abortOnClose(response),
         },
         responseSink(response),
