@@ -1,7 +1,7 @@
 import { VoiceLanguage } from '@hira/contracts';
 import { describe, expect, it, vi } from 'vitest';
-import { SpeechUnavailableError, closedWav, createSpeechGateway } from './speech-gateway';
-import { TRANSCRIBE_MODEL, VOICES } from './speech.constants';
+import { SpeechUnavailableError, closedWav, createCloudSpeaker, createSpeechGateway } from './speech-gateway';
+import { CLOUD_VOICES, TRANSCRIBE_MODEL, VOICES } from './speech.constants';
 
 const BASE = 'http://speech:8000';
 
@@ -33,11 +33,45 @@ describe('speech gateway', () => {
     }
   });
 
+  it('speaks with the cloud voice of the language, for all five', async () => {
+    for (const language of Object.values(VoiceLanguage)) {
+      const speak = vi.fn(async () => Buffer.from('natural'));
+      const local = vi.fn();
+      const audio = await createSpeechGateway(BASE, local as unknown as typeof fetch, { speak, onFailure: vi.fn() }).synthesize('Текст', language);
+      expect(speak).toHaveBeenCalledWith('Текст', CLOUD_VOICES[language]);
+      expect(audio).toEqual({ bytes: Buffer.from('natural'), contentType: 'audio/mpeg' });
+      expect(local).not.toHaveBeenCalled();
+    }
+  });
+
+  it('falls back to the local voice when the cloud one fails, and says so', async () => {
+    const failure = new Error('no credits');
+    const onFailure = vi.fn();
+    const local = vi.fn(async () => new Response('local'));
+    const audio = await createSpeechGateway(BASE, local as unknown as typeof fetch, { speak: async () => { throw failure; }, onFailure }).synthesize('x', VoiceLanguage.German);
+    expect(audio.bytes.toString()).toBe('local');
+    expect(audio.contentType).toBe('audio/wav');
+    expect(onFailure).toHaveBeenCalledWith(failure);
+  });
+
+  it('asks llm-service for the cloud voice, and fails on a bad answer', async () => {
+    const request = vi.fn(async () => new Response('sound'));
+    const speak = createCloudSpeaker({ baseUrl: 'http://llm:4002/', token: 'secret' }, request as typeof fetch);
+    expect((await speak('Текст', 'voice-id')).toString()).toBe('sound');
+    const [url, init] = request.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://llm:4002/internal/v1/speak');
+    expect(new Headers(init.headers).get('x-internal-token')).toBe('secret');
+    expect(JSON.parse(String(init.body))).toEqual({ text: 'Текст', voice: 'voice-id' });
+    const refused = vi.fn(async () => new Response('no', { status: 502 }));
+    await expect(createCloudSpeaker({ baseUrl: 'http://llm', token: 't' }, refused as typeof fetch)('x', 'v')).rejects.toThrow('502');
+  });
+
   it('fetches a missing model once and tries again', async () => {
     const replies = [new Response('missing', { status: 404 }), new Response('ok'), new Response('audio')];
     const request = vi.fn(async () => replies.shift() as Response);
     const audio = await createSpeechGateway(BASE, request as typeof fetch).synthesize('x', VoiceLanguage.French);
-    expect(audio.toString()).toBe('audio');
+    expect(audio.bytes.toString()).toBe('audio');
+    expect(audio.contentType).toBe('audio/wav');
     expect((request.mock.calls[1] as unknown as [string])[0]).toBe(`${BASE}/v1/models/${VOICES[VoiceLanguage.French].model}`);
     expect(request).toHaveBeenCalledTimes(3);
   });

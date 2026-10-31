@@ -6,7 +6,20 @@ export const DEFAULT_SPEECH_URL = 'http://127.0.0.1:8000';
 /** Fast enough on a CPU for a phrase in about three seconds; it tells the five languages apart. */
 export const TRANSCRIBE_MODEL = 'Systran/faster-whisper-base';
 
-/** Hira's voice in each language. All are female; Wiki/10 ADR-045 records how that was checked. */
+/** Hira's voice: one person across all five languages (MAI-Voice-2.1-Flash through OpenRouter, ADR-050). */
+export const CLOUD_VOICES: Readonly<Record<VoiceLanguage, string>> = {
+  [VoiceLanguage.Russian]: 'ru-RU-Harper:MAI-Voice-2.1-Flash',
+  [VoiceLanguage.English]: 'en-US-Harper:MAI-Voice-2.1-Flash',
+  [VoiceLanguage.Spanish]: 'es-MX-Harper:MAI-Voice-2.1-Flash',
+  [VoiceLanguage.German]: 'de-DE-Harper:MAI-Voice-2.1-Flash',
+  [VoiceLanguage.French]: 'fr-FR-Harper:MAI-Voice-2.1-Flash',
+};
+export const CLOUD_AUDIO_TYPE = 'audio/mpeg';
+export const LOCAL_AUDIO_TYPE = 'audio/wav';
+/** A little over llm-service's own limit, so its answer arrives first. */
+export const CLOUD_VOICE_TIMEOUT_MS = 9_000;
+
+/** The local voice, for when the cloud one fails. All are female; Wiki/10 ADR-045 records how that was checked. */
 export const VOICES: Readonly<Record<VoiceLanguage, { model: string; voice: string }>> = {
   [VoiceLanguage.Russian]: { model: 'speaches-ai/piper-ru_RU-irina-medium', voice: 'irina' },
   [VoiceLanguage.English]: { model: 'speaches-ai/piper-en_US-amy-medium', voice: 'amy' },

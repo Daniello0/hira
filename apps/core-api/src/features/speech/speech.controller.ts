@@ -58,14 +58,14 @@ export class SpeechController {
     });
   }
 
-  /** Hira's voice saying a text, as WAV. */
+  /** Hira's voice saying a text: MP3 from the cloud voice, WAV from the local one. */
   @Post('synthesize')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Speak a text' })
   async synthesize(@Body(validatedBody(SynthesizeBody)) body: SynthesizeBody, @Req() request: Request, @Res() response: Response): Promise<void> {
     const audio = await this.call(request, () => this.speech.synthesize(body.text, body.language));
-    response.setHeader('Content-Type', 'audio/wav');
-    response.send(audio);
+    response.setHeader('Content-Type', audio.contentType);
+    response.send(audio.bytes);
   }
 
   private async call<T>(request: Request, run: () => Promise<T>): Promise<T> {

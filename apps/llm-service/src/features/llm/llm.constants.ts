@@ -4,6 +4,11 @@ export const LLM_PROVIDER_HEADER = 'X-LLM-Provider';
 export const LLM_PROVIDER_ID = 'openrouter';
 export const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 export const OPENROUTER_CHAT_COMPLETIONS_PATH = '/chat/completions';
+export const OPENROUTER_SPEECH_PATH = '/audio/speech';
+/** Hira's voice. Voice ids belong to this model and live in core-api with the languages. */
+export const SPEECH_MODEL = 'microsoft/mai-voice-2.1-flash';
+/** A call cannot wait longer: past this core-api speaks with the local voice. */
+export const SPEAK_TIMEOUT_MS = 8_000;
 export const SEARCH_INTENT_SCHEMA_NAME = 'search_intent';
 export const SEARCH_INTENT_SCHEMA_VERSION = '3';
 export const UNDERSTAND_TEMPERATURE = 0;

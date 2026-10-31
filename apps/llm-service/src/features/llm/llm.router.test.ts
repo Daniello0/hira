@@ -24,6 +24,22 @@ describe('llm routes', () => {
     expect(response.body.errorCode).toBe('INTERNAL_TOKEN_INVALID');
   });
 
+  it('answers speak with the sound, and a failure as the shared error', async () => {
+    const body = { text: 'Привет', voice: 'ru-RU-Harper:MAI-Voice-2.1-Flash' };
+    const speak = vi.fn(async () => Buffer.from('sound'));
+    const ok = await request(createTestApp({ ...configured(), speak })).post('/internal/v1/speak').set('X-Internal-Token', 'secret').send(body);
+    expect(ok.status).toBe(200);
+    expect(ok.headers['content-type']).toContain('audio/mpeg');
+    expect(ok.body.toString()).toBe('sound');
+    const failing = vi.fn(async () => { throw new ProviderTransportError('down'); });
+    const down = await request(createTestApp({ ...configured(), speak: failing })).post('/internal/v1/speak').set('X-Internal-Token', 'secret').send(body);
+    expect(down.status).toBeGreaterThanOrEqual(500);
+    const untouched = vi.fn();
+    const bad = await request(createTestApp({ ...configured(), speak: untouched })).post('/internal/v1/speak').set('X-Internal-Token', 'secret').send({ text: '' });
+    expect(bad.status).toBe(400);
+    expect(untouched).not.toHaveBeenCalled();
+  });
+
   it('returns 503 when the key or the model is missing and does not call the provider', async () => {
     const understand = vi.fn();
     const missingKey = await request(createTestApp({ ...configured(), apiKey: '', understand }))
@@ -170,6 +186,7 @@ function configured(): LlmRouterDeps {
     summarize: vi.fn(),
     extractMemory: vi.fn(),
     parseResume: vi.fn(),
+    speak: vi.fn(),
   };
 }
 
