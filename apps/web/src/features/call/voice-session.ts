@@ -72,7 +72,8 @@ export class VoiceSession {
   /** A typed phrase, for a browser without a microphone or a service that is down. */
   async sayTyped(text: string): Promise<void> {
     const generation = this.nextWork();
-    await this.runTurn(text, languageAfterTyped(this.deps.choice(), this.language, text), generation);
+    const choice = this.deps.choice();
+    await this.runTurn(text, languageAfterTyped(choice, this.language, text), choice === 'auto' ? null : choice, generation);
   }
 
   private onSpeechStart(): void {
@@ -108,19 +109,20 @@ export class VoiceSession {
       this.deps.commit(beginListening);
       return;
     }
-    await this.runTurn(text, languageAfterHeard(choice, this.language, { language: heard.language, text }), generation);
+    const language = languageAfterHeard(choice, this.language, { language: heard.language, text });
+    await this.runTurn(text, language, language, generation);
   }
 
-  private async runTurn(text: string, language: VoiceLanguage | null, generation: number): Promise<void> {
+  /** `replyIn` is what Hira is asked to answer in: a spoken phrase keeps the reply and the voice together. */
+  private async runTurn(text: string, language: VoiceLanguage | null, replyIn: VoiceLanguage | null, generation: number): Promise<void> {
     this.language = language;
     this.deps.commit((current) => onFinalTranscript(current, `phrase-${generation}`, text));
     const signal = this.abort?.signal as AbortSignal;
     const speech = this.speechLine(generation, signal);
     this.line = speech;
-    const chosen = this.deps.choice();
     const interruptedAt = this.interruptedAt;
     this.interruptedAt = null;
-    const result = await this.deps.streamTurn(text, chosen === 'auto' ? null : chosen, interruptedAt, signal, (event) => {
+    const result = await this.deps.streamTurn(text, replyIn, interruptedAt, signal, (event) => {
       if (!this.current(generation)) return;
       this.deps.commit((current) => reduceCallEvent(current, event));
       if (event.event === 'token') speech.add(tokenText(event));

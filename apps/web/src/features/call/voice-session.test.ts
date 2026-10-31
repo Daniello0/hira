@@ -260,6 +260,28 @@ describe('voice session', () => {
     expect(deps.synthesize).toHaveBeenCalledWith(expect.anything(), VoiceLanguage.German, expect.anything());
   });
 
+  it('keeps the reply in the voice language when a short phrase does not change it', async () => {
+    const transcribe = vi.fn().mockResolvedValueOnce({ text: 'Найди работу в Минске сейчас', language: 'ru' }).mockResolvedValueOnce({ text: 'Hello', language: 'en' });
+    const streamTurn = vi.fn(async () => OPEN);
+    const { session, mic } = rig({ transcribe, streamTurn });
+    await session.open();
+    void mic().onPhrase(PHRASE);
+    await flush();
+    void mic().onPhrase(PHRASE);
+    await flush();
+    expect((streamTurn.mock.calls as unknown[][])[0]?.[1]).toBe(VoiceLanguage.Russian);
+    expect((streamTurn.mock.calls as unknown[][])[1]?.[1]).toBe(VoiceLanguage.Russian);
+  });
+
+  it('leaves the language of a typed phrase to Hira on Auto', async () => {
+    const streamTurn = vi.fn(async () => OPEN);
+    const { session } = rig({ streamTurn });
+    await session.open();
+    void session.sayTyped('hola, busco trabajo');
+    await flush();
+    expect((streamTurn.mock.calls as unknown[][])[0]?.[1]).toBeNull();
+  });
+
   it('answers a typed phrase the same way', async () => {
     const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       onEvent(token(SENTENCE));
