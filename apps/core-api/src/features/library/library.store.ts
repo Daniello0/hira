@@ -48,5 +48,6 @@ export interface FileStore {
 }
 
 export interface PdfReader {
+  /** Plain text of the PDF. Throws `LibraryInputError` when the bytes are not a readable PDF. */
   read(bytes: Buffer): Promise<string>;
 }
