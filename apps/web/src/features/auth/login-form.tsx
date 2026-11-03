@@ -17,6 +17,7 @@ import { loginSchema } from './auth.schema';
 import { readApiMessage } from './read-api-message';
 import { loadMe } from './session';
 import { useSession } from './session.store';
+import { useFollowSignIn } from './follow-sign-in';
 
 interface LoginValues {
   email: string;
@@ -26,6 +27,7 @@ interface LoginValues {
 /** Sign-in form. The access token stays in this tab. */
 export function LoginForm() {
   const router = useRouter();
+  useFollowSignIn();
   const setAccount = useSession((state) => state.setAccount);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);

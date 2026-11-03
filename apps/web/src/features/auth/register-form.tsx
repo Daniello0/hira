@@ -17,6 +17,7 @@ import { registerSchema } from './auth.schema';
 import { readApiMessage } from './read-api-message';
 import { loadMe } from './session';
 import { useSession } from './session.store';
+import { useFollowSignIn } from './follow-sign-in';
 
 interface RegisterValues {
   email: string;
@@ -27,6 +28,7 @@ interface RegisterValues {
 /** Registration. An empty display name is omitted. */
 export function RegisterForm() {
   const router = useRouter();
+  useFollowSignIn();
   const setAccount = useSession((state) => state.setAccount);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
