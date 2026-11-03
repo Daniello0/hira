@@ -39,6 +39,7 @@ export function LoginForm() {
     >
       <div className="flex flex-col items-center gap-4 pb-2"><HiraLogo className="size-control" /><h1 className="text-center text-3xl font-normal">Sign in</h1></div>
       <TextField label="Email" type="email" autoComplete="email" {...form.register('email')} />
+      {form.formState.errors.email ? <AlertText>{form.formState.errors.email.message}</AlertText> : null}
       <TextField
         label="Password"
         type="password"
@@ -65,17 +66,19 @@ async function submitLogin(
   router: ReturnType<typeof useRouter>,
 ): Promise<void> {
   setPending(true);
+  let entered = false;
   try {
     const response = await coreFetch('/api/v1/auth/login', jsonBody(values), null);
     if (!response.ok) {
       setError(await readApiMessage(response, 'Sign-in failed'));
       return;
     }
-    await enter(await response.json(), setAccount, setError, router);
+    entered = await enter(await response.json(), setAccount, setError, router);
   } catch {
     setError(COULD_NOT_REACH);
   } finally {
-    setPending(false);
+    // Once signed in the page is changing: the button stays off so a second press sends nothing.
+    if (!entered) setPending(false);
   }
 }
 
@@ -84,15 +87,15 @@ async function enter(
   setAccount: ReturnType<typeof useSession.getState>['setAccount'],
   setError: (value: string | null) => void,
   router: ReturnType<typeof useRouter>,
-): Promise<void> {
+): Promise<boolean> {
   if (!isGrant(body)) {
     setError('Could not start the session');
-    return;
+    return false;
   }
   const user = await loadMe(body.accessToken);
   if (user === null) {
     setError('Could not load the account');
-    return;
+    return false;
   }
   setAccount(
     { accessToken: body.accessToken, expiresAt: Date.now() + body.expiresIn * 1000 },
@@ -100,6 +103,7 @@ async function enter(
   );
   notifyOtherTabs('session');
   router.push(await accountLanding(body.accessToken));
+  return true;
 }
 
 function isGrant(body: unknown): body is { accessToken: string; expiresIn: number } {

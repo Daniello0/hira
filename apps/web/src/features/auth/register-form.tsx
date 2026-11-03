@@ -40,7 +40,9 @@ export function RegisterForm() {
     >
       <div className="flex flex-col items-center gap-4 pb-2"><HiraLogo className="size-control" /><h1 className="text-center text-3xl font-normal">Create an account</h1></div>
       <TextField label="Email" type="email" autoComplete="email" {...form.register('email')} />
+      {form.formState.errors.email ? <AlertText>{form.formState.errors.email.message}</AlertText> : null}
       <TextField label="Display name" autoComplete="nickname" {...form.register('displayName')} />
+      {form.formState.errors.displayName ? <AlertText>{form.formState.errors.displayName.message}</AlertText> : null}
       <TextField
         label="Password"
         type="password"
@@ -67,12 +69,14 @@ async function submit(
   router: ReturnType<typeof useRouter>,
 ): Promise<void> {
   setPending(true);
+  let entered = false;
   try {
-    await registerAccount(values, setAccount, setError, router);
+    entered = await registerAccount(values, setAccount, setError, router);
   } catch {
     setError(COULD_NOT_REACH);
   } finally {
-    setPending(false);
+    // Once registered the page is changing: the button stays off so a second press sends nothing.
+    if (!entered) setPending(false);
   }
 }
 
@@ -81,21 +85,21 @@ async function registerAccount(
   setAccount: ReturnType<typeof useSession.getState>['setAccount'],
   setError: (value: string | null) => void,
   router: ReturnType<typeof useRouter>,
-): Promise<void> {
+): Promise<boolean> {
   const response = await coreFetch('/api/v1/auth/register', jsonBody(bodyOf(values)), null);
   if (!response.ok) {
     setError(await readApiMessage(response, 'Registration failed'));
-    return;
+    return false;
   }
   const body = (await response.json()) as { accessToken?: string; expiresIn?: number };
   if (body.accessToken === undefined || body.expiresIn === undefined) {
     setError('Could not start the session');
-    return;
+    return false;
   }
   const user = await loadMe(body.accessToken);
   if (user === null) {
     setError('Could not load the account');
-    return;
+    return false;
   }
   setAccount(
     { accessToken: body.accessToken, expiresAt: Date.now() + body.expiresIn * 1000 },
@@ -103,6 +107,7 @@ async function registerAccount(
   );
   notifyOtherTabs('session');
   router.push(await accountLanding(body.accessToken));
+  return true;
 }
 
 function bodyOf(values: RegisterValues): Record<string, string> {

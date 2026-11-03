@@ -2,7 +2,7 @@
 
 import { ArrowUp, AudioLines, Mic } from 'lucide-react';
 import Link from 'next/link';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { AlertText } from '../../common/components/feedback';
 import { IconButton, iconButtonClass } from '../../common/components/icon-button';
 import { Tooltip } from '../../common/components/tooltip';
@@ -36,6 +36,7 @@ export function MessageInput(props: MessageInputProps) {
   const [menuError, setMenuError] = useState<string | null>(null);
   const dictation = useDictation(draft, onDraft);
   const { field, expanded } = useGrowingField(draft);
+  useKeepFocus(field, disabled || archived);
   return (
     <form className="w-full" onSubmit={(event) => { event.preventDefault(); onSend(); }}>
       <StatusLine banner={props.banner} notice={props.notice ?? menuError ?? dictation.error} account={props.account} />
@@ -84,6 +85,21 @@ function PrimaryAction({ hasText, disabled }: { hasText: boolean; disabled: bool
       </Link>
     </Tooltip>
   );
+}
+
+/**
+ * On a computer the field has the focus when the chat opens and gets it back when Hira's answer ends: it is off
+ * while she answers, which drops the focus. A phone keeps its keyboard closed, and focus the user moved elsewhere stays there.
+ */
+function useKeepFocus(field: RefObject<HTMLTextAreaElement | null>, disabled: boolean) {
+  const wasDisabled = useRef<boolean | null>(null);
+  useEffect(() => {
+    const node = field.current;
+    const nothingFocused = document.activeElement === null || document.activeElement === document.body;
+    const takeFocus = wasDisabled.current !== false && !disabled && nothingFocused && window.matchMedia('(pointer: fine)').matches;
+    if (node !== null && takeFocus) node.focus();
+    wasDisabled.current = disabled;
+  }, [disabled, field]);
 }
 
 /** Grows with the text. Once tall, the field keeps the wide layout until the draft is emptied. */
