@@ -16,6 +16,7 @@ import { understandQuery } from '../understand/understand.service';
 import { createLlmRouter } from './llm.router';
 import { createSpeaker } from '../speak/speak.service';
 import { createTranscriber } from '../speak/transcribe.service';
+import { createImageReader } from '../speak/read-image.service';
 import { readLlmConfig } from './read-llm-config';
 
 /** Wires OpenRouter and Redis into the internal router. */
@@ -35,6 +36,7 @@ export function buildLlmRouter(logger: Logger, env: NodeJS.ProcessEnv): Router {
       parseResume({ provider, cache, sleep: delay, model: config.model, logger, now: Date.now }, request),
     speak: createSpeaker(config),
     transcribe: createTranscriber(config),
+    readImage: createImageReader(config),
   });
 }
 

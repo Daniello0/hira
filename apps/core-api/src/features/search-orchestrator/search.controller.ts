@@ -1,3 +1,4 @@
+import { withAttachments } from '@hira/contracts';
 import { Body, Controller, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { InvalidSearchError } from '../chat/chat.errors';
 import { readRetrievalBody } from './read-retrieval-body';
@@ -61,7 +62,8 @@ export class SearchController {
         {
           caller,
           chat,
-          content: body.content,
+          // Files go after the words: the rest of the turn reads them as part of the message.
+          content: withAttachments(body.content, body.attachments),
           requestId: readRequestId(request),
           useMemory: body.useMemory,
           includeForeignRemote: body.includeForeignRemote,

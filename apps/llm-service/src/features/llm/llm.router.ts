@@ -31,6 +31,7 @@ import { parseExtractMemoryRequest } from '../extract-memory/extract-memory.sche
 import { parseParseResumeRequest } from '../parse-resume/parse-resume.schema';
 import { parseSpeakRequest, type SpeakRequest } from '../speak/speak.service';
 import { parseTranscribeRequest, type TranscribeRequest, type Transcript } from '../speak/transcribe.service';
+import { parseReadImageRequest, type ReadImageRequest } from '../speak/read-image.service';
 import { parseSummarizeRequest } from '../summarize-chat/summarize-chat.schema';
 import { toRouteError } from './route-error';
 
@@ -45,6 +46,7 @@ export interface LlmRouterDeps {
   parseResume: (request: ParseResumeRequest) => Promise<ParseResumeResponse>;
   speak: (request: SpeakRequest) => Promise<Buffer>;
   transcribe: (request: TranscribeRequest) => Promise<Transcript>;
+  readImage: (request: ReadImageRequest) => Promise<{ text: string }>;
 }
 
 /** Internal understand and generate routes. Health stays on the parent app. */
@@ -82,6 +84,11 @@ export function createLlmRouter(deps: LlmRouterDeps): Router {
     '/transcribe',
     express.raw({ type: () => true, limit: TRANSCRIBE_AUDIO_LIMIT }),
     asyncHandler((req, res) => postJson(deps, req, res, () => deps.transcribe(parseTranscribeRequest(req.body, req.query.language)))),
+  );
+  router.post(
+    '/read-image',
+    express.raw({ type: () => true, limit: TRANSCRIBE_AUDIO_LIMIT }),
+    asyncHandler((req, res) => postJson(deps, req, res, () => deps.readImage(parseReadImageRequest(req.body, req.query.type)))),
   );
   return router;
 }

@@ -204,6 +204,7 @@ function configured(): LlmRouterDeps {
     parseResume: vi.fn(),
     speak: vi.fn(),
     transcribe: vi.fn(),
+    readImage: vi.fn(),
   };
 }
 

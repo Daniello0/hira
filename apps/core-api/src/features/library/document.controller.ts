@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Patch, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { DocumentFormat, DocumentKind, ParseStatus, type DocumentSummaryDto } from '@hira/contracts';
+import { DocumentFormat, DocumentKind, ParseStatus, type DocumentSummaryDto, type ReadAttachmentDto } from '@hira/contracts';
 import { plainToInstance } from 'class-transformer';
 import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength, validateSync } from 'class-validator';
 import type { Request } from 'express';
@@ -20,6 +20,9 @@ import { PlanGate } from '../billing/plan-gate';
 import { ChatService } from '../chat/chat.service';
 import { ProfileService } from '../profile/profile.service';
 import { DocumentNotFoundError, LibraryInputError, LibraryService } from './library.service';
+import { IMAGE_READER } from './image-reader';
+import { PDF_READER, type PdfReader } from './library.store';
+import { readAttachment, type ImageReader } from './read-attachment';
 import {
   DOCUMENT_TITLE_MAX_CHARS,
   DOCUMENT_TITLE_TOO_LONG_MESSAGE,
@@ -104,7 +107,23 @@ export class DocumentController {
     @Inject(ProfileService) private readonly profiles: ProfileService,
     @Inject(LLM_GATEWAY) private readonly llm: LlmGateway,
     @Inject(LOGGER) private readonly logger: Logger,
+    @Inject(PDF_READER) private readonly pdf: PdfReader,
+    @Inject(IMAGE_READER) private readonly image: ImageReader,
   ) {}
+
+  /** Reads a file put into a chat message to text, without keeping it: PDF, Word, a picture, CSV, HTML, Markdown, plain text. */
+  @Post('read')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: PDF_MAX_BYTES + 1 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Read a chat attachment' })
+  readFile(@UploadedFile() file: (UploadFile & { mimetype?: string }) | undefined, @Req() request: Request): Promise<ReadAttachmentDto> {
+    return this.call(request, async () => {
+      if (file === undefined) throw new LibraryInputError('file is required');
+      if (file.size > PDF_MAX_BYTES) throw new LibraryInputError(PDF_TOO_LARGE_MESSAGE);
+      return readAttachment(file, { pdf: this.pdf, image: this.image });
+    });
+  }
 
   /** Lists files without their text. */
   @Get()
