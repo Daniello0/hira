@@ -17,6 +17,7 @@ interface DialogProps {
 }
 
 const SIZE = { md: 'w-dialog', wide: 'w-dialog-wide' } as const;
+const TEXT_FIELD = 'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea';
 /** An Enter this soon after a dialog opened was meant for what had focus before, such as the message box under a popup that opened by itself. */
 const ENTER_ARMS_AFTER_MS = 400;
 
@@ -33,9 +34,11 @@ export function Dialog({ open, onClose, title, hideTitle = false, size = 'md', c
         <RadixDialog.Content
           aria-describedby={undefined}
           onOpenAutoFocus={(event) => {
-            // Focus the dialog, not its close button, so Enter reaches the default button. A field with autoFocus keeps focus.
+            // The first text field takes the focus, as in Rename or New file; without one the dialog itself does,
+            // not its close button, so Enter reaches the default button.
             event.preventDefault();
-            (event.currentTarget as HTMLElement).focus();
+            const content = event.currentTarget as HTMLElement;
+            (content.querySelector<HTMLElement>(TEXT_FIELD) ?? content).focus();
             openedAt.current = performance.now();
           }}
           onKeyDown={(event) => {

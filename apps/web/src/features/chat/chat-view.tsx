@@ -158,7 +158,7 @@ function RenameDialog({ chat, open, onClose, onError }: { chat: ChatSummary; ope
   return (
     <Dialog open={open} onClose={onClose} title="Rename chat">
       <form className="mt-3 space-y-4" onSubmit={submit}>
-        <TextField label="Name" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} />
+        <TextField label="Name" autoFocus value={title} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setTitle(event.target.value)} />
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button type="submit">Save</Button>
