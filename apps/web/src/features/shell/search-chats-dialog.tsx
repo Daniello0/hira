@@ -36,6 +36,14 @@ export function SearchChatsDialog() {
             className="w-full bg-transparent text-base text-ink outline-none placeholder:text-ink-tertiary"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              // Enter opens the first chat in the list, as in the ChatGPT search.
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+              const first = event.currentTarget.closest('[role="dialog"]')?.querySelector<HTMLAnchorElement>('ul a[href^="/chat/"]');
+              if (first === null || first === undefined) return;
+              event.preventDefault();
+              first.click();
+            }}
           />
         </div>
         <Results query={query} onPick={close} />
@@ -101,7 +109,8 @@ function useFoundChats(query: string) {
   useEffect(() => {
     if (needle.length === 0) return setFound({ kind: 'recent' });
     let active = true;
-    setFound({ kind: 'loading' });
+    // The last results stay until the new ones come, so each typed letter does not blank the list.
+    setFound((previous) => (previous.kind === 'hits' ? previous : { kind: 'loading' }));
     void searchChats(needle)
       .then((page) => active && setFound(page === null ? { kind: 'failed' } : { kind: 'hits', chats: page.items, cursor: page.nextCursor, moreFailed: false }))
       .catch(() => active && setFound({ kind: 'failed' }));

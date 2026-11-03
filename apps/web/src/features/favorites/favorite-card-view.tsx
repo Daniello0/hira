@@ -29,13 +29,25 @@ export function FavoriteCard({ favorite, collections, onDone, onError }: Favorit
   const removed = isRemovedVacancySummary(vacancy);
   const openDetail = useVacancyDetail((state) => state.open);
   const { leaving, leave } = useLeaving();
+  const [removing, setRemoving] = useState(false);
   return (
     <article data-leaving={leaving} className="motion-row motion-enter space-y-3 rounded-card border border-line-light bg-surface-card p-4">
       <div className="flex items-start justify-between gap-3">
         <h3 className="min-w-0 text-base font-medium">
           {removed ? vacancy.title : <button type="button" className="text-left transition-colors hover:text-link" onClick={() => openDetail(vacancy.id)}>{vacancy.title}</button>}
         </h3>
-        <IconButton label="Remove" shape="action" onClick={() => void removeFavorite(favorite, leave, onDone, onError)}><Trash2 className="size-icon-md" aria-hidden="true" /></IconButton>
+        <IconButton
+          label="Remove"
+          shape="action"
+          // A second click while the first is on its way would get a 404 and an error on a row that is leaving.
+          disabled={removing}
+          onClick={() => {
+            setRemoving(true);
+            void removeFavorite(favorite, leave, onDone, onError).then((ok) => setRemoving(ok));
+          }}
+        >
+          <Trash2 className="size-icon-md" aria-hidden="true" />
+        </IconButton>
       </div>
       <div className="text-sm text-ink-secondary">
         <p>{vacancy.companyName}{vacancy.locationLabel !== null ? ` · ${vacancy.locationLabel}` : ''}</p>
@@ -75,10 +87,11 @@ async function move(id: string, collectionId: string, onDone: () => Promise<void
   if (message === null) await onDone();
 }
 
-async function removeFavorite(favorite: FavoriteDto, leave: (remove: () => void) => void, onDone: () => Promise<void>, onError: OnError): Promise<void> {
+async function removeFavorite(favorite: FavoriteDto, leave: (remove: () => void) => void, onDone: () => Promise<void>, onError: OnError): Promise<boolean> {
   const ok = await deleteFavorite(favorite.id).catch(() => false);
   onError(ok ? null : 'Could not remove the favorite');
-  if (!ok) return;
+  if (!ok) return false;
   useSavedVacancies.getState().forgetVacancy(favorite.vacancyId);
   leave(() => void onDone());
+  return true;
 }

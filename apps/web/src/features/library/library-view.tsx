@@ -139,9 +139,17 @@ function UploadResume({ onDone, onError }: { onDone: () => Promise<void>; onErro
 const FORMAT_OPTIONS = [{ value: DocumentFormat.Md, label: 'Markdown' }, { value: DocumentFormat.Txt, label: 'Text' }];
 
 function CreateText({ onDone, onError, onClose }: { onDone: () => Promise<void>; onError: OnError; onClose: () => void }) {
-  const submit = useFormSubmit((form) => create(form, onDone, onError, onClose));
+  // The error shows in the dialog: the page line behind the backdrop was out of sight while the dialog stayed open.
+  const [error, setError] = useState<string | null>(null);
+  const submit = useFormSubmit((form) =>
+    create(form, onDone, (message) => {
+      setError(message);
+      if (message === null) onError(null);
+    }, onClose),
+  );
   return (
     <form className="mt-3 space-y-4" onSubmit={submit}>
+      {error !== null ? <AlertText>{error}</AlertText> : null}
       <TextField label="Title" name="title" required autoFocus />
       <div className="flex flex-wrap gap-4">
         <Select label="Kind" name="kind" defaultValue={DocumentKind.Note} options={TEXT_KINDS.map((kind) => ({ value: kind, label: documentKindLabel(kind) }))} />
