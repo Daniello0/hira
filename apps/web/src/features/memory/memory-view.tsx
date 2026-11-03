@@ -29,8 +29,10 @@ export function MemoryView() {
   const version = useDataVersion('memory');
   const reload = useCallback(async () => {
     const next = await fetchMemory().catch(() => null);
-    if (next === null) setError('Could not load memory');
-    else setFacts(next);
+    if (next === null) return setError('Could not load memory');
+    // A good read clears the old failure, which otherwise stayed above a working list.
+    setError(null);
+    setFacts(next);
   }, []);
   useEffect(() => {
     if (token !== null) void reload();

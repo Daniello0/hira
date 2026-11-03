@@ -66,12 +66,15 @@ function LiveCall() {
   const [voiceDown, setVoiceDown] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [language, setLanguage] = useState<LanguageChoice>('auto');
+  const [starting, setStarting] = useState(false);
   const live = useLiveCall(state, setState, language, setMicDenied, setVoiceDown);
   const onStart = () => {
     setStartError(null);
     setMicDenied(false);
     setVoiceDown(false);
-    void live.start(router, setStartError);
+    // Opening a call refreshes the token and asks the server first: the button says so instead of looking dead.
+    setStarting(true);
+    void live.start(router, setStartError).finally(() => setStarting(false));
   };
   return (
     <AppPage actions={<LanguageSelect value={language} onChange={setLanguage} />}>
@@ -97,6 +100,7 @@ function LiveCall() {
         </div>
         <CallActions
           phase={state.phase}
+          starting={starting}
           typeInstead={showTypeInstead(!micDenied && !voiceDown)}
           typed={typed}
           onTyped={setTyped}
@@ -229,6 +233,7 @@ async function openCall(): Promise<OpenCall> {
 
 function CallActions(props: {
   phase: CallPhase;
+  starting: boolean;
   typeInstead: boolean;
   typed: string;
   onTyped: (value: string) => void;
@@ -239,7 +244,7 @@ function CallActions(props: {
   if (props.phase === CallPhase.Idle) {
     return (
       <div className="mt-auto flex justify-center">
-        <Button onClick={props.onStart}><Phone className="size-icon-sm" aria-hidden="true" /> Start</Button>
+        <Button disabled={props.starting} onClick={props.onStart}><Phone className="size-icon-sm" aria-hidden="true" /> {props.starting ? 'Starting…' : 'Start'}</Button>
       </div>
     );
   }
