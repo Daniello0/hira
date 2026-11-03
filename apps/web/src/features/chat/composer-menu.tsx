@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { IconButton } from '../../common/components/icon-button';
 import { Menu, type MenuEntry } from '../../common/components/menu';
 import { useSession } from '../auth/session.store';
-import { uploadAndOffer } from '../library/upload-resume';
+import { ATTACHMENT_ACCEPT, useAttachments } from './attachments.store';
 
 /** The composer's inner padding: the menu lines up with its outer edge. */
 const BOX_PADDING_PX = 8;
@@ -20,14 +20,11 @@ interface ComposerMenuProps {
   onUseMemory: (value: boolean) => void;
   onIncludeForeignRemote: (value: boolean) => void;
   onError: (value: string | null) => void;
-  /** A resume is uploading; it can take a while, since the server reads it before answering. */
-  onUploading: (value: boolean) => void;
 }
 
-/** The `+` menu: resume upload, library, and the switches for this message. As wide as the composer. */
-export function ComposerMenu({ box, account, useMemory, includeForeignRemote, onUseMemory, onIncludeForeignRemote, onError, onUploading }: ComposerMenuProps) {
+/** The `+` menu: files for Hira to read, library, and the switches for this message. As wide as the composer. */
+export function ComposerMenu({ box, account, useMemory, includeForeignRemote, onUseMemory, onIncludeForeignRemote, onError }: ComposerMenuProps) {
   const file = useRef<HTMLInputElement>(null);
-  const uploading = useRef(false);
   const width = useElementWidth(box);
   const memory = useSession((state) => state.user !== null && PLAN_LIMITS[state.user.plan].crossChatMemory);
   const entries: MenuEntry[] = [
@@ -40,16 +37,13 @@ export function ComposerMenu({ box, account, useMemory, includeForeignRemote, on
         ref={file}
         type="file"
         hidden
-        accept="application/pdf,.pdf"
-        aria-label="Upload resume"
+        multiple
+        accept={ATTACHMENT_ACCEPT}
+        aria-label="Upload document"
         onChange={(event) => {
-          if (uploading.current) return;
-          uploading.current = true;
-          onUploading(true);
-          void upload(event.currentTarget, onError).finally(() => {
-            uploading.current = false;
-            onUploading(false);
-          });
+          const input = event.currentTarget;
+          onError(useAttachments.getState().add(Array.from(input.files ?? [])));
+          input.value = '';
         }}
       />
       <Menu
@@ -66,7 +60,7 @@ export function ComposerMenu({ box, account, useMemory, includeForeignRemote, on
 
 function accountEntries(onUpload: () => void, memory: boolean, useMemory: boolean, onUseMemory: (value: boolean) => void): MenuEntry[] {
   return [
-    { kind: 'item', label: 'Upload resume', description: 'PDF, offers skills for your profile', icon: <FileUp className="size-icon-md" aria-hidden="true" />, onSelect: onUpload },
+    { kind: 'item', label: 'Upload document', description: 'PDF, Word, pictures, CSV, HTML, or text for Hira to read', icon: <FileUp className="size-icon-md" aria-hidden="true" />, onSelect: onUpload },
     { kind: 'link', label: 'Open library', description: 'Your resumes, letters, and notes', icon: <Library className="size-icon-md" aria-hidden="true" />, href: '/library' },
     { kind: 'separator' },
     ...(memory
@@ -75,14 +69,6 @@ function accountEntries(onUpload: () => void, memory: boolean, useMemory: boolea
         ] satisfies MenuEntry[])
       : []),
   ];
-}
-
-async function upload(input: HTMLInputElement, onError: (value: string | null) => void): Promise<void> {
-  const chosen = input.files?.[0];
-  input.value = '';
-  if (chosen === undefined) return;
-  onError(null);
-  onError(await uploadAndOffer(chosen));
 }
 
 function useElementWidth(element: RefObject<HTMLElement | null>): number | null {

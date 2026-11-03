@@ -11,6 +11,7 @@ import { useChatList } from './chat-list.store';
 import { useForeignRemotePreference } from './foreign-remote-preference';
 import { MessageInput } from './message-input';
 import { homeDestination, markPendingSend, startChat } from './start-chat';
+import { FILES_STILL_READING, filesStillReading, useAttachments } from './attachments.store';
 
 const HOME_DRAFT_KEY = 'home';
 const GREETING = 'What are we looking for today?';
@@ -67,7 +68,12 @@ function useHomeSend(router: ReturnType<typeof useRouter>) {
     if (busy) return;
     setBusy(true);
     setError(null);
-    const result = await startChat(draft, { create: createAndList });
+    const files = useAttachments.getState().files;
+    if (filesStillReading(files)) {
+      setBusy(false);
+      return setError(FILES_STILL_READING);
+    }
+    const result = await startChat(draft, { create: createAndList }, files.some((item) => item.status === 'ready'));
     setBusy(false);
     setLimited(result.kind === 'limited');
     if (result.kind === 'failed') setError(result.message);

@@ -1,7 +1,7 @@
 'use client';
 
 import type { ChatMessageView, DocumentDraftDto, VacancyResult } from '@hira/contracts';
-import { MessageRole } from '@hira/contracts';
+import { MessageRole, splitAttachments } from '@hira/contracts';
 import { ArrowDown } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -15,6 +15,7 @@ import type { LiveTurn } from './reduce-chat-event';
 import { StreamPhase } from './stream-phase';
 import { isNearBottom } from './thread-scroll';
 import { VacancyCard } from '../vacancy/vacancy-card';
+import { SentFiles } from './sent-files';
 
 interface MessageListProps {
   turn: LiveTurn;
@@ -101,11 +102,14 @@ function MessageBubble({ message, draft, cards }: { message: ChatMessageView; dr
 }
 
 function UserMessage({ content }: { content: string }) {
+  // Files are stored after the words; the bubble shows their names, not their text.
+  const { text, attachments } = splitAttachments(content);
   return (
     <article className="motion-enter group flex flex-col items-end">
-      <p className="max-w-bubble-max rounded-bubble bg-bubble px-4 py-2.5 text-base break-words whitespace-pre-wrap text-on-bubble">{content}</p>
+      {attachments.length > 0 ? <SentFiles attachments={attachments} /> : null}
+      {text.length > 0 ? <p className="max-w-bubble-max rounded-bubble bg-bubble px-4 py-2.5 text-base break-words whitespace-pre-wrap text-on-bubble">{text}</p> : null}
       <div className="mt-1 flex transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100">
-        <CopyAction text={content} />
+        <CopyAction text={text.length > 0 ? text : content} />
       </div>
     </article>
   );

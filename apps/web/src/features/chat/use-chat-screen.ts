@@ -1,6 +1,6 @@
 'use client';
 
-import type { CreateMessageRequest } from '@hira/contracts';
+import type { CreateMessageRequest, MessageAttachment } from '@hira/contracts';
 import { useEffect, useRef, useState } from 'react';
 import { invalidate } from '../../common/data/data-version.store';
 import { SIGN_IN_AGAIN } from '../auth/auth.constants';
@@ -27,6 +27,7 @@ import {
 import { emptyTurn, reduceChatEvent, type LiveTurn } from './reduce-chat-event';
 import type { ParsedSse } from './sse-parser';
 import { StreamPhase } from './stream-phase';
+import { FILES_STILL_READING, filesStillReading, useAttachments } from './attachments.store';
 
 /** Whether the open chat could be read. */
 export type ChatLoadState = 'loading' | 'ready' | 'not-found' | 'failed';
@@ -83,10 +84,12 @@ export function useChatScreen(chatId: string) {
   }, [ready, chatId]);
 
   async function send(memory: boolean = useMemory): Promise<void> {
-    const decision = rejectDraft(draft, latest.current.phase);
+    const files = useAttachments.getState().files;
+    if (filesStillReading(files)) return publish({ ...latest.current, notice: FILES_STILL_READING }, latest, setTurn);
+    const decision = rejectDraft(draft, latest.current.phase, files.some((item) => item.status === 'ready'));
     if (decision === 'too-long') return publish({ ...latest.current, notice: MESSAGE_TOO_LONG }, latest, setTurn);
     if (decision !== 'ok' || !ready) return;
-    const body = messageBody(draft.trim(), status === SessionStatus.Account, memory, includeForeignRemote);
+    const body = messageBody(draft.trim(), status === SessionStatus.Account, memory, includeForeignRemote, useAttachments.getState().take());
     publish({ ...latest.current, phase: StreamPhase.Searching, banner: null, notice: null }, latest, setTurn);
     if (!(await sessionStillOpen(status))) return publish(releaseTurn(latest.current, SIGN_IN_AGAIN), latest, setTurn);
     const result = await postStream(messagePath(chatId), body, (event) =>
@@ -116,9 +119,10 @@ export function useChatScreen(chatId: string) {
   };
 }
 
-function messageBody(content: string, account: boolean, useMemory: boolean, includeForeignRemote: boolean): CreateMessageRequest {
+function messageBody(content: string, account: boolean, useMemory: boolean, includeForeignRemote: boolean, attachments: MessageAttachment[]): CreateMessageRequest {
   const body: CreateMessageRequest = { content, includeForeignRemote };
   if (account) body.useMemory = useMemory;
+  if (attachments.length > 0) body.attachments = attachments;
   return body;
 }
 

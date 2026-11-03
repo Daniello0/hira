@@ -45,10 +45,11 @@ export function prependMessages(
 }
 
 /** Empty and over-long drafts stay in the browser. */
-export function rejectDraft(draft: string, phase: StreamPhase): DraftDecision {
+export function rejectDraft(draft: string, phase: StreamPhase, hasFiles = false): DraftDecision {
   if (!canSubmit(phase)) return 'busy';
   const text = draft.trim();
-  if (text.length === 0) return 'empty';
+  // Files alone are a message: Hira reads them.
+  if (text.length === 0 && !hasFiles) return 'empty';
   if (text.length > MAX_MESSAGE_LENGTH) return 'too-long';
   return 'ok';
 }

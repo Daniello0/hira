@@ -23,8 +23,8 @@ interface StartChatDeps {
 }
 
 /** Creates the chat for a first message. An empty or over-long text never reaches the API. */
-export async function startChat(text: string, deps: StartChatDeps): Promise<StartChatResult> {
-  const decision = rejectDraft(text, StreamPhase.Idle);
+export async function startChat(text: string, deps: StartChatDeps, hasFiles = false): Promise<StartChatResult> {
+  const decision = rejectDraft(text, StreamPhase.Idle, hasFiles);
   if (decision === 'too-long') return { kind: 'failed', message: MESSAGE_TOO_LONG };
   if (decision !== 'ok') return { kind: 'ignored' };
   try {
