@@ -2,7 +2,6 @@
 
 import { AuthorKind, DocumentFormat, DocumentKind, type DocumentDetailDto, type DocumentSummaryDto } from '@hira/contracts';
 import { FileText, Plus, Upload } from 'lucide-react';
-import type { FormEvent } from 'react';
 import { useDataVersion } from '../../common/data/data-version.store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge } from '../../common/components/badge';
@@ -13,6 +12,7 @@ import { AlertText, MutedText, SkeletonList } from '../../common/components/feed
 import { PageColumn, PageHeading } from '../../common/components/page-frame';
 import { Select } from '../../common/components/select';
 import { TextArea, TextField } from '../../common/components/text-field';
+import { useFormSubmit } from '../../common/hooks/use-form-submit';
 import { useLastDefined } from '../../common/hooks/use-last-defined';
 import { documentKindLabel } from '../../common/utils/enum-labels';
 import { useSession } from '../auth/session.store';
@@ -139,9 +139,10 @@ function UploadResume({ onDone, onError }: { onDone: () => Promise<void>; onErro
 const FORMAT_OPTIONS = [{ value: DocumentFormat.Md, label: 'Markdown' }, { value: DocumentFormat.Txt, label: 'Text' }];
 
 function CreateText({ onDone, onError, onClose }: { onDone: () => Promise<void>; onError: OnError; onClose: () => void }) {
+  const submit = useFormSubmit((form) => create(form, onDone, onError, onClose));
   return (
-    <form className="mt-3 space-y-4" onSubmit={(event) => void create(event, onDone, onError, onClose)}>
-      <TextField label="Title" name="title" required />
+    <form className="mt-3 space-y-4" onSubmit={submit}>
+      <TextField label="Title" name="title" required autoFocus />
       <div className="flex flex-wrap gap-4">
         <Select label="Kind" name="kind" defaultValue={DocumentKind.Note} options={TEXT_KINDS.map((kind) => ({ value: kind, label: documentKindLabel(kind) }))} />
         <Select label="Format" name="format" defaultValue={DocumentFormat.Md} options={FORMAT_OPTIONS} />
@@ -161,9 +162,7 @@ async function upload(file: File, onDone: () => Promise<void>, onError: OnError)
   if (message === null) await onDone();
 }
 
-async function create(event: FormEvent<HTMLFormElement>, onDone: () => Promise<void>, onError: OnError, onClose: () => void): Promise<void> {
-  event.preventDefault();
-  const form = event.currentTarget;
+async function create(form: HTMLFormElement, onDone: () => Promise<void>, onError: OnError, onClose: () => void): Promise<void> {
   const data = new FormData(form);
   const message = await createTextDocument({
     kind: String(data.get('kind')) as DocumentKind,

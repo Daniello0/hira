@@ -12,6 +12,7 @@ import { IconButton } from '../../common/components/icon-button';
 import { Sheet } from '../../common/components/sheet';
 import { AlertText, MutedText } from '../../common/components/feedback';
 import { TextField } from '../../common/components/text-field';
+import { useFormSubmit } from '../../common/hooks/use-form-submit';
 import { DESKTOP_QUERY, useMediaQuery } from '../../common/hooks/use-media-query';
 import { useSession } from '../auth/session.store';
 import { SessionStatus } from '../auth/session-status';
@@ -150,18 +151,13 @@ function HeaderMenu({ chat }: { chat: ChatSummary }) {
 
 function RenameDialog({ chat, open, onClose, onError }: { chat: ChatSummary; open: boolean; onClose: () => void; onError: (value: string | null) => void }) {
   const [title, setTitle] = useState(chat.title ?? '');
+  const submit = useFormSubmit(() => renameChat(chat, title, onError).finally(onClose));
   useEffect(() => {
     if (open) setTitle(chat.title ?? '');
   }, [open, chat.title]);
   return (
     <Dialog open={open} onClose={onClose} title="Rename chat">
-      <form
-        className="mt-3 space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void renameChat(chat, title, onError).finally(onClose);
-        }}
-      >
+      <form className="mt-3 space-y-4" onSubmit={submit}>
         <TextField label="Name" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} />
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>

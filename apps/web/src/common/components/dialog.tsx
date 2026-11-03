@@ -2,7 +2,8 @@
 
 import { X } from 'lucide-react';
 import { Dialog as RadixDialog } from 'radix-ui';
-import type { ReactNode } from 'react';
+import { useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { pressesDefaultButton } from '../utils/dialog-enter';
 import { IconButton } from './icon-button';
 
 interface DialogProps {
@@ -16,14 +17,38 @@ interface DialogProps {
 }
 
 const SIZE = { md: 'w-dialog', wide: 'w-dialog-wide' } as const;
+/** An Enter this soon after a dialog opened was meant for what had focus before, such as the message box under a popup that opened by itself. */
+const ENTER_ARMS_AFTER_MS = 400;
 
-/** Centered dialog. Escape and the backdrop close it; focus stays inside and returns on close. */
+/**
+ * Centered dialog. Escape and the backdrop close it; focus stays inside and returns on close.
+ * Enter presses the default button: the first submit button of the form inside.
+ */
 export function Dialog({ open, onClose, title, hideTitle = false, size = 'md', children }: DialogProps) {
+  const openedAt = useRef(0);
   return (
     <RadixDialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="motion-scrim fixed inset-0 z-40 bg-scrim-dialog" />
-        <RadixDialog.Content aria-describedby={undefined} className={`motion-dialog scroll-thin fixed top-1/2 left-1/2 z-50 max-h-dvh max-w-full -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-dialog bg-surface-card text-ink shadow-dialog outline-none ${SIZE[size]}`}>
+        <RadixDialog.Content
+          aria-describedby={undefined}
+          onOpenAutoFocus={(event) => {
+            // Focus the dialog, not its close button, so Enter reaches the default button. A field with autoFocus keeps focus.
+            event.preventDefault();
+            (event.currentTarget as HTMLElement).focus();
+            openedAt.current = performance.now();
+          }}
+          onKeyDown={(event) => {
+            if (performance.now() - openedAt.current >= ENTER_ARMS_AFTER_MS) submitOnEnter(event);
+          }}
+          onSubmitCapture={(event) => {
+            // A closed dialog stays on screen while it fades out; a late Enter or click must not submit again.
+            if (open) return;
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          className={`motion-dialog scroll-thin fixed top-1/2 left-1/2 z-50 max-h-dvh max-w-full -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-dialog bg-surface-card text-ink shadow-dialog outline-none ${SIZE[size]}`}
+        >
           {hideTitle ? (
             <RadixDialog.Title className="sr-only">{title}</RadixDialog.Title>
           ) : (
@@ -37,4 +62,15 @@ export function Dialog({ open, onClose, title, hideTitle = false, size = 'md', c
       </RadixDialog.Portal>
     </RadixDialog.Root>
   );
+}
+
+/** Clicks the default button for an Enter that `pressesDefaultButton` gives to the dialog. A disabled one stays idle. */
+function submitOnEnter(event: KeyboardEvent<HTMLDivElement>): void {
+  const target = event.target as HTMLElement;
+  // React also bubbles keys from portals, such as a select list or a nested dialog; those keep their Enter.
+  if (!event.currentTarget.contains(target) || !pressesDefaultButton(event.nativeEvent, target)) return;
+  const button = event.currentTarget.querySelector<HTMLButtonElement>('form button[type="submit"]');
+  if (button === null || button.disabled) return;
+  event.preventDefault();
+  button.click();
 }

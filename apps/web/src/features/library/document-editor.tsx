@@ -6,6 +6,7 @@ import { Button } from '../../common/components/button';
 import { ConfirmDialog } from '../../common/components/confirm-dialog';
 import { AlertText, MutedText } from '../../common/components/feedback';
 import { TextArea, TextField } from '../../common/components/text-field';
+import { useFormSubmit } from '../../common/hooks/use-form-submit';
 import { deleteDocument, patchDocument } from './library-api';
 
 interface DocumentEditorProps {
@@ -23,23 +24,27 @@ export function DocumentEditor({ detail, onChange, onClose }: DocumentEditorProp
   const [content, setContent] = useState(detail.extractedText);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const save = useFormSubmit(() => patch(detail.id, locked ? { title } : { title, content }, setError, onChange));
   useEffect(() => {
     setTitle(detail.title);
     setContent(detail.extractedText);
   }, [detail]);
+  // The delete confirmation stays outside the form: React would bubble its submit through the portal into Save.
   return (
-    <section className="mt-3 space-y-4" aria-label={`Edit ${detail.title}`}>
-      <TextField label="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
-      <TextArea label="Text" rows={10} value={content} readOnly={locked} onChange={(event) => setContent(event.target.value)} />
-      {locked ? <MutedText>PDF text is read-only. The file stays in the library.</MutedText> : null}
-      {error !== null ? <AlertText>{error}</AlertText> : null}
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="danger" className="mr-auto" onClick={() => setConfirming(true)}>Delete</Button>
-        <Button variant="secondary" onClick={() => void patch(detail.id, { isPinned: !detail.isPinned }, setError, onChange)}>{detail.isPinned ? 'Unpin' : 'Pin'}</Button>
-        <Button onClick={() => void patch(detail.id, locked ? { title } : { title, content }, setError, onChange)}>Save</Button>
-      </div>
+    <>
+      <form className="mt-3 space-y-4" aria-label={`Edit ${detail.title}`} onSubmit={save}>
+        <TextField label="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
+        <TextArea label="Text" rows={10} value={content} readOnly={locked} onChange={(event) => setContent(event.target.value)} />
+        {locked ? <MutedText>PDF text is read-only. The file stays in the library.</MutedText> : null}
+        {error !== null ? <AlertText>{error}</AlertText> : null}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="danger" className="mr-auto" onClick={() => setConfirming(true)}>Delete</Button>
+          <Button variant="secondary" onClick={() => void patch(detail.id, { isPinned: !detail.isPinned }, setError, onChange)}>{detail.isPinned ? 'Unpin' : 'Pin'}</Button>
+          <Button type="submit">Save</Button>
+        </div>
+      </form>
       <ConfirmDialog open={confirming} title="Delete file?" body={`This will delete “${detail.title}”.`} confirmLabel="Delete" onConfirm={() => void remove(detail.id, setError, onChange, onClose)} onClose={() => setConfirming(false)} />
-    </section>
+    </>
   );
 }
 

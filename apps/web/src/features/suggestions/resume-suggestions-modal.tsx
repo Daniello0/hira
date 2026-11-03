@@ -35,7 +35,7 @@ function ResumeChecklist({ items, onClose }: { items: readonly ProfileSuggestion
   const toggle = (id: string) => setChecked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   const submit = () => void applyBatch(items, checked, setBusy, setError, onClose);
   return (
-    <>
+    <form onSubmit={(event) => { event.preventDefault(); submit(); }}>
       <MutedText className="mt-2">Choose what to add to your profile. Unchecked items are dismissed.</MutedText>
       <ul className="scroll-thin mt-3 max-h-list-max space-y-2 overflow-y-auto">
         {items.map((item) => <ChecklistRow key={item.id} item={item} checked={checked.includes(item.id)} onToggle={() => toggle(item.id)} />)}
@@ -43,9 +43,9 @@ function ResumeChecklist({ items, onClose }: { items: readonly ProfileSuggestion
       {error !== null ? <AlertText className="mt-2">{error}</AlertText> : null}
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="secondary" disabled={busy} onClick={onClose}>Later</Button>
-        <Button disabled={busy} onClick={submit}>{busy ? 'Saving…' : `Add selected (${checked.length})`}</Button>
+        <Button type="submit" disabled={busy}>{busy ? 'Saving…' : `Add selected (${checked.length})`}</Button>
       </div>
-    </>
+    </form>
   );
 }
 
