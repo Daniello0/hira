@@ -26,6 +26,13 @@ describe('takeSentences', () => {
 });
 
 describe('speakableText', () => {
+  it('lets the first piece of a reply end at a clause, so the voice starts sooner', () => {
+    const reply = 'Чтобы стать фронтенд-разработчиком, начните с основ: HTML и CSS, потом JavaScript. ';
+    expect(takeSentences(reply, true)).toEqual({ sentences: ['Чтобы стать фронтенд-разработчиком, начните с основ:', 'HTML и CSS, потом JavaScript.'], rest: ' ' });
+    expect(takeSentences('Привет, как дела у тебя', true)).toEqual({ sentences: [], rest: 'Привет, как дела у тебя' });
+    expect(takeSentences(reply).sentences).toEqual(['Чтобы стать фронтенд-разработчиком, начните с основ: HTML и CSS, потом JavaScript.']);
+  });
+
   it('drops Markdown marks and links', () => {
     expect(speakableText('**Python** разработчик, [ссылка](https://x.by) и _ещё_')).toBe('Python разработчик, ссылка и ещё');
     expect(speakableText('- первая\n- вторая')).toBe('первая вторая');

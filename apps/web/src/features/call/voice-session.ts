@@ -264,7 +264,7 @@ class SpeechLine {
 
   add(text: string): void {
     if (text.length > 0) this.wrote = true;
-    const { sentences, rest } = takeSentences(this.buffer + text);
+    const { sentences, rest } = takeSentences(this.buffer + text, this.pieces.length === 0);
     this.buffer = rest;
     for (const sentence of sentences) this.queue(sentence);
   }
