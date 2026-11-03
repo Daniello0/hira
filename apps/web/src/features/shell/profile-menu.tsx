@@ -7,12 +7,15 @@ import { PLAN_NAMES, UserPlan, type CurrentUserDto } from '@hira/contracts';
 import { buttonClass } from '../../common/components/button';
 import { Menu, type MenuEntry } from '../../common/components/menu';
 import { useSession } from '../auth/session.store';
+import { SessionStatus } from '../auth/session-status';
 import { signOut } from '../auth/sign-out';
 
 /** Avatar with the account menu. `full` adds the name and the Upgrade pill. */
 export function ProfileMenu({ full }: { full: boolean }) {
   const user = useSession((state) => state.user);
+  const pending = useSession((state) => state.status === SessionStatus.Unknown);
   const router = useRouter();
+  if (pending) return <PendingProfile full={full} />;
   const entries = user === null ? guestEntries() : accountEntries(user, () => void signOut(router));
   const name = displayName(user);
   return (
@@ -30,6 +33,15 @@ export function ProfileMenu({ full }: { full: boolean }) {
       />
       {full && user?.plan !== UserPlan.Max ? <Link href="/settings/billing" className={buttonClass('secondary', 'sm')}>Upgrade</Link> : null}
     </>
+  );
+}
+
+/** Until the first refresh answers the account is not known, so no Guest flashes before the real name. */
+function PendingProfile({ full }: { full: boolean }) {
+  return (
+    <span className={full ? 'flex min-w-0 flex-1 items-center gap-2 p-1.5' : 'p-1.5'} role="status" aria-label="Loading">
+      <span className="motion-skeleton flex size-avatar shrink-0 rounded-full" />
+    </span>
   );
 }
 
