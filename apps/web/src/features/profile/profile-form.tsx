@@ -24,7 +24,8 @@ const SENIORITY_OPTIONS = [{ value: '', label: 'Not set' }, ...Object.values(Sen
 export function ProfileForm({ values, notice, onSave }: ProfileFormProps) {
   const form = useForm<ProfileFormValues>({ resolver: yupResolver(profileSchema), defaultValues: emptyProfileForm() });
   useEffect(() => {
-    if (values !== null) form.reset(values);
+    // The profile is read again on a token refresh, a new suggestion or a save: what the user is typing stays.
+    if (values !== null) form.reset(values, { keepDirtyValues: true });
   }, [values, form]);
   const formats = form.watch('preferredWorkFormat');
   const employment = form.watch('preferredEmployment');
