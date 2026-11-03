@@ -3,7 +3,7 @@
 import { ArrowUp, AudioLines, Mic } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { AlertText } from '../../common/components/feedback';
+import { AlertText, MutedText } from '../../common/components/feedback';
 import { IconButton, iconButtonClass } from '../../common/components/icon-button';
 import { Tooltip } from '../../common/components/tooltip';
 import { submitOnEnter } from '../../common/utils/submit-on-enter';
@@ -26,6 +26,9 @@ interface MessageInputProps {
   onSend: () => void;
 }
 
+/** Shown above the field while a resume from the `+` menu uploads and is read. */
+const READING_RESUME = 'Reading your resume…';
+
 /** Height of one line of text in the pill. A taller field moves the controls under the text. */
 const SINGLE_LINE_PX = 40;
 
@@ -34,15 +37,16 @@ export function MessageInput(props: MessageInputProps) {
   const { draft, disabled, archived, onDraft, onSend } = props;
   const box = useRef<HTMLDivElement>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const dictation = useDictation(draft, onDraft);
   const { field, expanded } = useGrowingField(draft);
   useKeepFocus(field, disabled || archived);
   return (
     <form className="w-full" onSubmit={(event) => { event.preventDefault(); onSend(); }}>
-      <StatusLine banner={props.banner} notice={props.notice ?? menuError ?? dictation.error} account={props.account} />
+      <StatusLine banner={props.banner} notice={props.notice ?? menuError ?? dictation.error} progress={uploading ? READING_RESUME : null} account={props.account} />
       {archived ? <p className="mb-2 text-center text-sm text-ink-tertiary">This chat is archived. Restore it from the menu to keep writing.</p> : null}
       <div ref={box} data-expanded={expanded} className="flex flex-wrap items-end gap-1 rounded-composer-tall bg-surface-raised p-2 shadow-composer transition-colors md:rounded-composer md:data-[expanded=true]:rounded-composer-tall">
-        <ComposerMenu box={box} account={props.account} useMemory={props.useMemory} includeForeignRemote={props.includeForeignRemote} onUseMemory={props.onUseMemory} onIncludeForeignRemote={props.onIncludeForeignRemote} onError={setMenuError} />
+        <ComposerMenu box={box} account={props.account} useMemory={props.useMemory} includeForeignRemote={props.includeForeignRemote} onUseMemory={props.onUseMemory} onIncludeForeignRemote={props.onIncludeForeignRemote} onError={setMenuError} onUploading={setUploading} />
         <label className="sr-only" htmlFor="message">Message</label>
         <textarea
           ref={field}
@@ -117,12 +121,13 @@ function useGrowingField(draft: string) {
   return { field, expanded };
 }
 
-function StatusLine({ banner, notice, account }: { banner: string | null; notice: string | null; account: boolean }) {
-  if (banner === null && notice === null) return null;
+function StatusLine({ banner, notice, progress, account }: { banner: string | null; notice: string | null; progress: string | null; account: boolean }) {
+  if (banner === null && notice === null && progress === null) return null;
   return (
     <div className="mb-2 space-y-1 text-center text-sm">
       {banner !== null && !account ? <SignUpLinks /> : null}
       {banner !== null && account ? <p>Search quota exceeded</p> : null}
+      {progress !== null ? <MutedText className="motion-shimmer">{progress}</MutedText> : null}
       {notice !== null ? <AlertText>{notice}</AlertText> : null}
     </div>
   );

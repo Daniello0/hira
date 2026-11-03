@@ -20,11 +20,14 @@ interface ComposerMenuProps {
   onUseMemory: (value: boolean) => void;
   onIncludeForeignRemote: (value: boolean) => void;
   onError: (value: string | null) => void;
+  /** A resume is uploading; it can take a while, since the server reads it before answering. */
+  onUploading: (value: boolean) => void;
 }
 
 /** The `+` menu: resume upload, library, and the switches for this message. As wide as the composer. */
-export function ComposerMenu({ box, account, useMemory, includeForeignRemote, onUseMemory, onIncludeForeignRemote, onError }: ComposerMenuProps) {
+export function ComposerMenu({ box, account, useMemory, includeForeignRemote, onUseMemory, onIncludeForeignRemote, onError, onUploading }: ComposerMenuProps) {
   const file = useRef<HTMLInputElement>(null);
+  const uploading = useRef(false);
   const width = useElementWidth(box);
   const memory = useSession((state) => state.user !== null && PLAN_LIMITS[state.user.plan].crossChatMemory);
   const entries: MenuEntry[] = [
@@ -33,7 +36,22 @@ export function ComposerMenu({ box, account, useMemory, includeForeignRemote, on
   ];
   return (
     <>
-      <input ref={file} type="file" hidden accept="application/pdf,.pdf" aria-label="Upload resume" onChange={(event) => void upload(event.currentTarget, onError)} />
+      <input
+        ref={file}
+        type="file"
+        hidden
+        accept="application/pdf,.pdf"
+        aria-label="Upload resume"
+        onChange={(event) => {
+          if (uploading.current) return;
+          uploading.current = true;
+          onUploading(true);
+          void upload(event.currentTarget, onError).finally(() => {
+            uploading.current = false;
+            onUploading(false);
+          });
+        }}
+      />
       <Menu
         tooltip="Add files and more"
         matchWidth={width}
@@ -63,6 +81,7 @@ async function upload(input: HTMLInputElement, onError: (value: string | null) =
   const chosen = input.files?.[0];
   input.value = '';
   if (chosen === undefined) return;
+  onError(null);
   onError(await uploadAndOffer(chosen));
 }
 

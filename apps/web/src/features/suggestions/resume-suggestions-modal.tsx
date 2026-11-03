@@ -17,23 +17,29 @@ export function ResumeSuggestionsModal() {
   const open = useSuggestions((state) => state.resumeBatch);
   const items = useSuggestions((state) => state.items);
   const setBatch = useSuggestions((state) => state.setResumeBatch);
+  const defer = useSuggestions((state) => state.defer);
   const fromResume = items.filter((item) => item.source === ProfileSkillSource.ExtractedFromResume);
   const visible = open && fromResume.length > 0;
   const shown = useLastDefined(visible ? fromResume : null);
-  const close = () => setBatch(false);
+  const finish = () => setBatch(false);
+  // Later and Escape put the whole checklist off, so its items do not come back one by one right away.
+  const later = () => {
+    for (const item of fromResume) defer(item.id);
+    setBatch(false);
+  };
   return (
-    <Dialog open={visible} title="Found in your resume" onClose={close}>
-      {shown !== null ? <ResumeChecklist items={shown} onClose={close} /> : null}
+    <Dialog open={visible} title="Found in your resume" onClose={later}>
+      {shown !== null ? <ResumeChecklist items={shown} onLater={later} onDone={finish} /> : null}
     </Dialog>
   );
 }
 
-function ResumeChecklist({ items, onClose }: { items: readonly ProfileSuggestionDto[]; onClose: () => void }) {
+function ResumeChecklist({ items, onLater, onDone }: { items: readonly ProfileSuggestionDto[]; onLater: () => void; onDone: () => void }) {
   const [checked, setChecked] = useState<string[]>(() => items.filter(suggestionCanAccept).map((item) => item.id));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toggle = (id: string) => setChecked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
-  const submit = () => void applyBatch(items, checked, setBusy, setError, onClose);
+  const submit = () => void applyBatch(items, checked, setBusy, setError, onDone);
   return (
     <form onSubmit={(event) => { event.preventDefault(); submit(); }}>
       <MutedText className="mt-2">Choose what to add to your profile. Unchecked items are dismissed.</MutedText>
@@ -42,7 +48,7 @@ function ResumeChecklist({ items, onClose }: { items: readonly ProfileSuggestion
       </ul>
       {error !== null ? <AlertText className="mt-2">{error}</AlertText> : null}
       <div className="mt-5 flex justify-end gap-2">
-        <Button variant="secondary" disabled={busy} onClick={onClose}>Later</Button>
+        <Button variant="secondary" disabled={busy} onClick={onLater}>Later</Button>
         <Button type="submit" disabled={busy}>{busy ? 'Saving…' : `Add selected (${checked.length})`}</Button>
       </div>
     </form>

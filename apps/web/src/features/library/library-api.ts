@@ -1,4 +1,4 @@
-import type { CreateTextDocumentRequest, DocumentDetailDto, DocumentSummaryDto, UpdateDocumentRequest } from '@hira/contracts';
+import { ParseStatus, type CreateTextDocumentRequest, type DocumentDetailDto, type DocumentSummaryDto, type UpdateDocumentRequest } from '@hira/contracts';
 import { authedFetch, readJson } from '../../common/api/authed-fetch';
 import { invalidate } from '../../common/data/data-version.store';
 import { jsonRequest } from '../../common/api/core-api';
@@ -22,14 +22,18 @@ export async function createTextDocument(body: CreateTextDocumentRequest): Promi
   return readApiMessage(response, 'Could not create the file');
 }
 
+/** What came of a resume upload. A saved file may still have failed to parse. */
+export type ResumeUpload = { kind: 'failed'; message: string } | { kind: 'saved'; parsed: boolean };
+
 /** Uploads a resume PDF. Parsing may add profile suggestions. */
-export async function uploadResume(file: File): Promise<string | null> {
+export async function uploadResume(file: File): Promise<ResumeUpload> {
   const body = new FormData();
   body.append('file', file);
   const response = await authedFetch('/api/v1/documents', { method: 'POST', body });
-  if (response.ok) invalidate('library');
-  if (response.ok) return null;
-  return readApiMessage(response, 'Could not upload the resume');
+  if (!response.ok) return { kind: 'failed', message: await readApiMessage(response, 'Could not upload the resume') };
+  invalidate('library');
+  const saved = (await response.json().catch(() => null)) as { parseStatus?: ParseStatus | null } | null;
+  return { kind: 'saved', parsed: saved?.parseStatus !== ParseStatus.Failed };
 }
 
 /** Edits title, text, or the pin. PDF text is rejected by the API. */
