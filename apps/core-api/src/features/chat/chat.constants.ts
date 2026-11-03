@@ -1,3 +1,5 @@
+import { splitAttachments } from '@hira/contracts';
+
 /** Dialogue window from Wiki/07 §3.1. Summary rebuild stays on stage 12. */
 export const WORKING_WINDOW_SIZE = 10;
 
@@ -10,7 +12,10 @@ export const DEMO_CHAT_LIMIT = 1;
 
 /** First message becomes the title until the user renames the chat. An emoji is not split. */
 export function titleFromFirstMessage(content: string): string {
-  return Array.from(content).slice(0, MAX_CHAT_TITLE_LENGTH).join('');
+  // Attached files are stored after the words: the title is the words, or the file names when there are none.
+  const { text, attachments } = splitAttachments(content);
+  const title = text.length > 0 ? text : attachments.map((file) => file.name).join(', ');
+  return Array.from(title).slice(0, MAX_CHAT_TITLE_LENGTH).join('');
 }
 
 export const CHAT_NOT_FOUND = 'CHAT_NOT_FOUND';

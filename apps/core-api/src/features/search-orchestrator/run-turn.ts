@@ -23,7 +23,7 @@ import { heuristicIntent } from './heuristic-intent';
 import { draftEvent, isDraftTurn, loadDraftTarget, targetDocument } from './turn-draft';
 import { SEARCHING_INTENTS, chargeTurn, precheckQuota } from './turn-quota';
 import type { Answer, OrchestratorDeps, SseSink, TurnOptions, TurnOutcome, Understood } from './turn.types';
-import { withAttachmentHeads } from '@hira/contracts';
+import { splitAttachments, withAttachmentHeads } from '@hira/contracts';
 
 /** How much of each attached file the intent step reads. */
 const UNDERSTAND_FILE_HEAD_CHARS = 600;
@@ -126,7 +126,8 @@ async function resolveIntent(deps: OrchestratorDeps, input: TurnInput, context: 
     return { intent: withForeignRemote(response.intent, input), usage: response.meta.tokenUsage, degraded: false };
   } catch (error) {
     deps.logger.warn({ err: error, requestId: input.requestId }, 'understand degraded to a heuristic intent');
-    return { intent: withForeignRemote(heuristicIntent(input.content), input), usage: null, degraded: true };
+    // A guessed intent reads only the user's words: file text would turn into a search query.
+    return { intent: withForeignRemote(heuristicIntent(splitAttachments(input.content).text || input.content), input), usage: null, degraded: true };
   }
 }
 
