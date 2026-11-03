@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RERANK_TOKEN_ARENA } from '../search/search.constants';
 import { estimateTokens, packRerankBatches, rerankTexts } from './rerank-client';
+import { RERANK_TIMEOUT_MS } from '../search/search.constants';
 
 describe('packRerankBatches', () => {
   it('keeps each call inside the token arena', () => {
@@ -37,7 +38,7 @@ describe('rerankTexts', () => {
       {
         url: 'http://rerank:80/rerank',
         body: { query: 'python', texts: ['first', 'second'], truncate: true },
-        timeoutMs: 120_000,
+        timeoutMs: RERANK_TIMEOUT_MS,
       },
     ]);
     expect(scores).toEqual([0.9, 0.2]);
