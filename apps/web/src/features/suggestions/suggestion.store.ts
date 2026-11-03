@@ -33,7 +33,11 @@ export const useSuggestions = create<SuggestionState>((set, get) => ({
       // Offers are optional; the next turn tries again.
     }
   },
-  accept: async (id) => drop(set, get, id, await safely(() => acceptSuggestion(id))),
+  accept: async (id) => {
+    const ok = drop(set, get, id, await safely(() => acceptSuggestion(id)));
+    if (ok) profileChanged();
+    return ok;
+  },
   dismiss: async (id) => drop(set, get, id, await safely(() => dismissSuggestion(id))),
   defer: (id) => set({ deferred: [...get().deferred, id] }),
   setResumeBatch: (resumeBatch) => set({ resumeBatch }),
@@ -43,6 +47,14 @@ export const useSuggestions = create<SuggestionState>((set, get) => ({
 /** First offer the single modal should show, or undefined. */
 export function nextVisibleSuggestion(state: Pick<SuggestionState, 'items' | 'deferred'>): ProfileSuggestionDto | undefined {
   return state.items.find((item) => !state.deferred.includes(item.id));
+}
+
+let profileRefresh: ReturnType<typeof setTimeout> | undefined;
+
+/** An accepted offer changes the profile that the chat's Context shows. A checklist accepts many at once: one reload. */
+function profileChanged(): void {
+  clearTimeout(profileRefresh);
+  profileRefresh = setTimeout(() => invalidate('profile'), 300);
 }
 
 /** Re-reads offers and memory a little after a finished turn, when server-side extraction has run. */
