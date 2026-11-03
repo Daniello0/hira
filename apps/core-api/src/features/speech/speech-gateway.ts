@@ -10,7 +10,8 @@ export class SpeechUnavailableError extends Error {
 }
 
 export interface SpeechGateway {
-  transcribe(audio: Buffer, language: VoiceLanguage | null): Promise<TranscriptDto>;
+  /** A `draft` read ahead of the phrase's end is heard only by the cloud: the local model is too slow to be worth it. */
+  transcribe(audio: Buffer, language: VoiceLanguage | null, draft?: boolean): Promise<TranscriptDto>;
   synthesize(text: string, language: VoiceLanguage): Promise<SpokenAudio>;
 }
 
@@ -58,9 +59,10 @@ export function createSpeechGateway(baseUrl: string, request: Fetch = fetch, clo
     return closedWav(Buffer.from(await response.arrayBuffer()));
   };
   return {
-    transcribe: async (audio, language) => {
+    transcribe: async (audio, language, draft = false) => {
       const heard = await cloudEar(ear, audio, language);
       if (heard !== null) return heard;
+      if (draft) throw new SpeechUnavailableError();
       const response = await withModel(TRANSCRIBE_MODEL, () =>
         request(`${baseUrl}/v1/audio/transcriptions`, {
           method: 'POST',

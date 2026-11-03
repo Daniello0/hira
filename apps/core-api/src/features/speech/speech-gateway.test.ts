@@ -42,6 +42,13 @@ describe('speech gateway', () => {
     expect(onFailure).toHaveBeenCalledWith(failure);
   });
 
+  it('does not wake the container for a draft when the cloud ear fails', async () => {
+    const local = vi.fn();
+    const gateway = createSpeechGateway(BASE, local as unknown as typeof fetch, null, { hear: async () => { throw new Error('down'); }, onFailure: vi.fn() });
+    await expect(gateway.transcribe(Buffer.from('wav'), null, true)).rejects.toBeInstanceOf(SpeechUnavailableError);
+    expect(local).not.toHaveBeenCalled();
+  });
+
   it('asks llm-service for the cloud ear with the chosen language, and fails on a bad answer', async () => {
     const request = vi.fn(async () => Response.json({ text: ' Hallo ', language: 'de' }));
     const hear = createCloudListener({ baseUrl: 'http://llm:4002/', token: 'secret' }, request as typeof fetch);

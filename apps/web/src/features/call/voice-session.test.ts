@@ -204,6 +204,59 @@ describe('voice session', () => {
     expect((deps.streamTurn as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe('Найди работу в Минске');
   });
 
+  it('shows the words of a phrase while it is said, and its final text on the same line', async () => {
+    const transcribe = vi.fn().mockResolvedValueOnce({ text: 'Найди работу', language: 'ru' }).mockResolvedValueOnce({ text: 'Найди работу в Минске', language: 'ru' });
+    const { session, mic, state } = rig({ transcribe });
+    await session.open();
+    mic().onDraft(PHRASE, false);
+    await flush();
+    expect(transcribe).toHaveBeenCalledWith(PHRASE, null, true);
+    expect(state().hearing?.content).toBe('Найди работу');
+    const line = state().hearing?.id;
+    void mic().onPhrase(PHRASE);
+    await flush();
+    expect(state().hearing).toBeNull();
+    expect(state().captions.at(0)).toEqual({ id: line, role: 'USER', content: 'Найди работу в Минске' });
+  });
+
+  it('uses the read made at the pause that ended the phrase instead of reading it again', async () => {
+    const { session, mic, deps } = rig();
+    await session.open();
+    mic().onDraft(PHRASE, true);
+    void mic().onPhrase(PHRASE, true);
+    await flush();
+    expect(deps.transcribe).toHaveBeenCalledTimes(1);
+    expect(deps.streamTurn).toHaveBeenCalledWith('Найди работу в Минске сейчас', 'ru', null, expect.anything(), expect.any(Function));
+  });
+
+  it('reads the phrase again when the pause read failed or the speech went on after it', async () => {
+    const transcribe = vi.fn().mockRejectedValueOnce(new Error('503')).mockResolvedValue({ text: 'Найди работу в Минске сейчас', language: 'ru' });
+    const { session, mic } = rig({ transcribe });
+    await session.open();
+    mic().onDraft(PHRASE, true);
+    void mic().onPhrase(PHRASE, true);
+    await flush();
+    expect(transcribe).toHaveBeenCalledTimes(2);
+    expect(transcribe).toHaveBeenLastCalledWith(PHRASE, null);
+    mic().onDraft(PHRASE, true);
+    void mic().onPhrase(PHRASE, false);
+    await flush();
+    expect(transcribe).toHaveBeenCalledTimes(4);
+  });
+
+  it('drops a draft that comes back after its phrase ended', async () => {
+    const late = deferred<{ text: string; language: string }>();
+    const transcribe = vi.fn().mockReturnValueOnce(late.promise).mockResolvedValue({ text: 'Найди работу в Минске сейчас', language: 'ru' });
+    const { session, mic, state } = rig({ transcribe });
+    await session.open();
+    mic().onDraft(PHRASE, false);
+    void mic().onPhrase(PHRASE);
+    await flush();
+    late.resolve({ text: 'Найди', language: 'ru' });
+    await flush();
+    expect(state().hearing).toBeNull();
+  });
+
   it('goes back to listening on an empty phrase', async () => {
     const { session, mic, state, deps } = rig({ transcribe: vi.fn(async () => ({ text: '', language: null })) });
     await session.open();

@@ -2,6 +2,7 @@ import { AudioLines } from 'lucide-react';
 import { Button } from '../../common/components/button';
 import { Select } from '../../common/components/select';
 import { TextArea } from '../../common/components/text-field';
+import { submitOnEnter } from '../../common/utils/submit-on-enter';
 import { TYPE_INSTEAD_LABEL } from './call.constants';
 import { CallPhase } from './call-phase';
 import { speakerLabel, type Caption } from './reduce-call';
@@ -20,16 +21,21 @@ export function PhaseIndicator({ phase, label }: { phase: CallPhase; label: stri
   );
 }
 
-/** Last phrases of the call with who said them. */
-export function CaptionList({ captions }: { captions: readonly Caption[] }) {
+/** Last phrases of the call with who said them, and the phrase being said in a quieter color. */
+export function CaptionList({ captions, hearing }: { captions: readonly Caption[]; hearing: Caption | null }) {
+  // One list, so the final text of a phrase takes over the line of its draft words instead of drawing a new one.
+  const lines = hearing === null ? captions : [...captions, hearing];
   return (
     <ol className="space-y-2 text-base" aria-live="polite">
-      {captions.map((caption) => (
-        <li key={caption.id} className="motion-enter">
-          <span className="font-medium text-ink-tertiary">{speakerLabel(caption.role)}: </span>
-          {caption.content}
-        </li>
-      ))}
+      {lines.map((caption) => {
+        const draft = caption === hearing;
+        return (
+          <li key={caption.id} className={draft ? 'motion-enter text-ink-tertiary' : 'motion-enter'} aria-hidden={draft || undefined}>
+            <span className="font-medium text-ink-tertiary">{speakerLabel(caption.role)}: </span>
+            {caption.content}
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -40,7 +46,7 @@ export function LanguageSelect({ value, onChange }: { value: LanguageChoice; onC
   return <Select ariaLabel="Voice language" value={value} options={options} onChange={(next) => onChange(next as LanguageChoice)} />;
 }
 
-/** Typed phrase when the browser cannot listen. */
+/** Typed phrase when the browser cannot listen. Enter sends it, as in the chat. */
 export function TypeInstead({ typed, onTyped, onType }: { typed: string; onTyped: (value: string) => void; onType: () => void }) {
   return (
     <form
@@ -50,7 +56,7 @@ export function TypeInstead({ typed, onTyped, onType }: { typed: string; onTyped
         onType();
       }}
     >
-      <TextArea label={TYPE_INSTEAD_LABEL} value={typed} onChange={(event) => onTyped(event.target.value)} />
+      <TextArea label={TYPE_INSTEAD_LABEL} value={typed} onChange={(event) => onTyped(event.target.value)} onKeyDown={(event) => submitOnEnter(event, onType)} />
       <Button type="submit" variant="secondary">Send</Button>
     </form>
   );

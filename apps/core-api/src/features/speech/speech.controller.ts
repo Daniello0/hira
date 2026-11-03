@@ -41,7 +41,7 @@ export class SpeechController {
     @Inject(SPEECH_GATEWAY) private readonly speech: SpeechGateway,
   ) {}
 
-  /** A spoken phrase as text, with the language heard. `language` pins it when the user chose one. */
+  /** A spoken phrase as text, with the language heard. `language` pins it when the user chose one; `draft` reads ahead of its end. */
   @Post('transcribe')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('audio', { limits: { fileSize: AUDIO_MAX_BYTES } }))
@@ -50,11 +50,12 @@ export class SpeechController {
   transcribe(
     @UploadedFile() audio: { buffer: Buffer } | undefined,
     @Body('language') language: string | undefined,
+    @Body('draft') draft: string | undefined,
     @Req() request: Request,
   ): Promise<TranscriptDto> {
     return this.call(request, () => {
       if (audio === undefined) throw apiError(HttpStatus.BAD_REQUEST, VALIDATION_ERROR_CODE, 'audio is required', request);
-      return this.speech.transcribe(audio.buffer, asVoiceLanguage(language));
+      return this.speech.transcribe(audio.buffer, asVoiceLanguage(language), draft === 'true');
     });
   }
 

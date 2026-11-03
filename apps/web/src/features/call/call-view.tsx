@@ -82,7 +82,7 @@ function LiveCall() {
         {micDenied && state.phase !== CallPhase.Idle ? <AlertText className="text-center">{window.isSecureContext ? MIC_DENIED_MESSAGE : MIC_NEEDS_HTTPS_MESSAGE}</AlertText> : null}
         {voiceDown && state.phase !== CallPhase.Idle ? <AlertText className="text-center">{VOICE_DOWN_MESSAGE}</AlertText> : null}
         {state.notice !== null ? <AlertText className="text-center">{state.notice}</AlertText> : null}
-        <CaptionList captions={state.captions} />
+        <CaptionList captions={state.captions} hearing={state.hearing} />
         {state.draft !== null ? <DocumentDraftCard key={`${state.draft.title}-${state.draft.content.length}`} draft={state.draft} /> : null}
         <div className="space-y-3">
           {state.cards.map((card) => (

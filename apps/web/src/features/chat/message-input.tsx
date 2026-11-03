@@ -2,11 +2,11 @@
 
 import { ArrowUp, AudioLines, Mic } from 'lucide-react';
 import Link from 'next/link';
-import type { KeyboardEvent } from 'react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { AlertText } from '../../common/components/feedback';
 import { IconButton, iconButtonClass } from '../../common/components/icon-button';
 import { Tooltip } from '../../common/components/tooltip';
+import { submitOnEnter } from '../../common/utils/submit-on-enter';
 import { ComposerMenu } from './composer-menu';
 import { SignUpLinks } from './sign-up-links';
 import { useDictation } from './use-dictation';
@@ -99,12 +99,6 @@ function useGrowingField(draft: string) {
     else if (draft.includes('\n') || node.scrollHeight > SINGLE_LINE_PX) setExpanded(true);
   }, [draft]);
   return { field, expanded };
-}
-
-function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>, onSend: () => void): void {
-  if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
-  event.preventDefault();
-  onSend();
 }
 
 function StatusLine({ banner, notice, account }: { banner: string | null; notice: string | null; account: boolean }) {

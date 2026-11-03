@@ -344,6 +344,9 @@ describe('stage 12 account surfaces', () => {
     const heard = await hear();
     expect(heard.status).toBe(200);
     expect(heard.body).toEqual({ text: 'привет', language: 'ru' });
+    expect(speech.transcribe).toHaveBeenLastCalledWith(Buffer.from('wav'), null, false);
+    await request(server).post('/api/v1/speech/transcribe').set('Authorization', bearer).field('language', 'de').field('draft', 'true').attach('audio', Buffer.from('wav'), 'p.wav');
+    expect(speech.transcribe).toHaveBeenLastCalledWith(Buffer.from('wav'), 'de', true);
     const spoken = await say();
     expect(spoken.status).toBe(200);
     expect(spoken.headers['content-type']).toContain('audio/wav');
