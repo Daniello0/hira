@@ -1,5 +1,5 @@
 import { createApiErrorResponse, type ApiErrorResponse } from '@hira/contracts';
-import { Router, type NextFunction, type Request, type Response } from 'express';
+import express, { Router, type NextFunction, type Request, type Response } from 'express';
 import { readRequestId } from '../../common/middleware/request-id.middleware';
 import type {
   ExtractMemoryRequest,
@@ -22,6 +22,7 @@ import {
   LLM_PROVIDER_HEADER,
   LLM_PROVIDER_ID,
   SSE_ERROR_EVENT,
+  TRANSCRIBE_AUDIO_LIMIT,
 } from './llm.constants';
 import { LlmRouteError, StreamInterruptedError } from './llm.errors';
 import { parseExtractSkillsRequest } from '../extract-skills/extract-skills.schema';
@@ -29,6 +30,7 @@ import { parseGenerateRequest, parseUnderstandRequest } from './llm-request.sche
 import { parseExtractMemoryRequest } from '../extract-memory/extract-memory.schema';
 import { parseParseResumeRequest } from '../parse-resume/parse-resume.schema';
 import { parseSpeakRequest, type SpeakRequest } from '../speak/speak.service';
+import { parseTranscribeRequest, type TranscribeRequest, type Transcript } from '../speak/transcribe.service';
 import { parseSummarizeRequest } from '../summarize-chat/summarize-chat.schema';
 import { toRouteError } from './route-error';
 
@@ -42,6 +44,7 @@ export interface LlmRouterDeps {
   extractMemory: (request: ExtractMemoryRequest) => Promise<ExtractMemoryResponse>;
   parseResume: (request: ParseResumeRequest) => Promise<ParseResumeResponse>;
   speak: (request: SpeakRequest) => Promise<Buffer>;
+  transcribe: (request: TranscribeRequest) => Promise<Transcript>;
 }
 
 /** Internal understand and generate routes. Health stays on the parent app. */
@@ -74,6 +77,11 @@ export function createLlmRouter(deps: LlmRouterDeps): Router {
   router.post(
     '/speak',
     asyncHandler((req, res) => postSpeak(deps, req, res)),
+  );
+  router.post(
+    '/transcribe',
+    express.raw({ type: () => true, limit: TRANSCRIBE_AUDIO_LIMIT }),
+    asyncHandler((req, res) => postJson(deps, req, res, () => deps.transcribe(parseTranscribeRequest(req.body, req.query.language)))),
   );
   return router;
 }

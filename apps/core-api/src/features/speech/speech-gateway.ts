@@ -1,4 +1,4 @@
-import { CLOUD_AUDIO_TYPE, CLOUD_VOICE_TIMEOUT_MS, CLOUD_VOICES, LOCAL_AUDIO_TYPE, VOICES, MODEL_DOWNLOAD_TIMEOUT_MS, SPEECH_UNAVAILABLE_MESSAGE, SYNTHESIZE_TIMEOUT_MS, TRANSCRIBE_MODEL, TRANSCRIBE_TIMEOUT_MS } from './speech.constants';
+import { CLOUD_AUDIO_TYPE, CLOUD_HEAR_TIMEOUT_MS, CLOUD_VOICE_TIMEOUT_MS, CLOUD_VOICES, LOCAL_AUDIO_TYPE, VOICES, MODEL_DOWNLOAD_TIMEOUT_MS, SPEECH_UNAVAILABLE_MESSAGE, SYNTHESIZE_TIMEOUT_MS, TRANSCRIBE_MODEL, TRANSCRIBE_TIMEOUT_MS } from './speech.constants';
 import type { TranscriptDto, VoiceLanguage } from '@hira/contracts';
 
 /** The speech container did not answer. */
@@ -25,13 +25,19 @@ export interface CloudVoice {
   onFailure(error: unknown): void;
 }
 
+/** The cloud recognizer and how to report that it failed. Without it the container hears. */
+export interface CloudEar {
+  hear(audio: Buffer, language: VoiceLanguage | null): Promise<TranscriptDto>;
+  onFailure(error: unknown): void;
+}
+
 type Fetch = typeof fetch;
 
 /**
- * Hears through the speech container. Speaks with the cloud voice, and with the container's voice when
- * that fails, so a call goes on without credit or network. A model not on the volume yet is fetched once.
+ * Hears and speaks through the cloud, and through the speech container when that fails, so a call goes on
+ * without credit or network. A model not on the volume yet is fetched once.
  */
-export function createSpeechGateway(baseUrl: string, request: Fetch = fetch, cloud: CloudVoice | null = null): SpeechGateway {
+export function createSpeechGateway(baseUrl: string, request: Fetch = fetch, cloud: CloudVoice | null = null, ear: CloudEar | null = null): SpeechGateway {
   const withModel = async (model: string, call: () => Promise<Response>): Promise<Response> => {
     const first = await reachable(call);
     if (first.status !== 404) return first;
@@ -53,6 +59,8 @@ export function createSpeechGateway(baseUrl: string, request: Fetch = fetch, clo
   };
   return {
     transcribe: async (audio, language) => {
+      const heard = await cloudEar(ear, audio, language);
+      if (heard !== null) return heard;
       const response = await withModel(TRANSCRIBE_MODEL, () =>
         request(`${baseUrl}/v1/audio/transcriptions`, {
           method: 'POST',
@@ -79,6 +87,17 @@ async function cloudVoice(cloud: CloudVoice | null, text: string, language: Voic
     return await cloud.speak(text, CLOUD_VOICES[language]);
   } catch (error) {
     cloud.onFailure(error);
+    return null;
+  }
+}
+
+/** `null` when the local model has to hear instead. */
+async function cloudEar(ear: CloudEar | null, audio: Buffer, language: VoiceLanguage | null): Promise<TranscriptDto | null> {
+  if (ear === null) return null;
+  try {
+    return await ear.hear(audio, language);
+  } catch (error) {
+    ear.onFailure(error);
     return null;
   }
 }
@@ -111,6 +130,22 @@ export function createCloudSpeaker(options: { baseUrl: string; token: string }, 
     });
     if (!response.ok) throw new Error(`llm-service answered speak with ${response.status}`);
     return Buffer.from(await response.arrayBuffer());
+  };
+}
+
+/** The cloud recognizer through llm-service, which alone holds the provider key. */
+export function createCloudListener(options: { baseUrl: string; token: string }, request: Fetch = fetch): CloudEar['hear'] {
+  return async (audio, language) => {
+    const query = language === null ? '' : `?language=${language}`;
+    const response = await request(`${options.baseUrl.replace(/\/$/, '')}/internal/v1/transcribe${query}`, {
+      method: 'POST',
+      headers: { 'content-type': 'audio/wav', 'X-Internal-Token': options.token },
+      body: new Uint8Array(audio),
+      signal: AbortSignal.timeout(CLOUD_HEAR_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`llm-service answered transcribe with ${response.status}`);
+    const body = (await response.json()) as { text?: unknown; language?: unknown };
+    return { text: typeof body.text === 'string' ? body.text.trim() : '', language: typeof body.language === 'string' ? body.language : null };
   };
 }
 

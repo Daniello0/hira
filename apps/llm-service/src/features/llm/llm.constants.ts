@@ -9,6 +9,13 @@ export const OPENROUTER_SPEECH_PATH = '/audio/speech';
 export const SPEECH_MODEL = 'microsoft/mai-voice-2.1-flash';
 /** A call cannot wait longer: past this core-api speaks with the local voice. */
 export const SPEAK_TIMEOUT_MS = 8_000;
+export const OPENROUTER_TRANSCRIPTION_PATH = '/audio/transcriptions';
+/** Hira's ear on a call: about a second per phrase and accurate in all five languages (ADR-051). */
+export const TRANSCRIBE_MODEL = 'openai/whisper-large-v3-turbo';
+/** Past this core-api hears the phrase with the local model. */
+export const TRANSCRIBE_TIMEOUT_MS = 5_000;
+/** A spoken phrase as WAV; core-api lets through no more. */
+export const TRANSCRIBE_AUDIO_LIMIT = '10mb';
 export const SEARCH_INTENT_SCHEMA_NAME = 'search_intent';
 export const SEARCH_INTENT_SCHEMA_VERSION = '3';
 export const UNDERSTAND_TEMPERATURE = 0;
