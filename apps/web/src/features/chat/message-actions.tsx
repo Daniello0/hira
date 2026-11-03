@@ -16,7 +16,8 @@ export function CopyAction({ text }: { text: string }) {
     if (timer.current !== null) clearTimeout(timer.current);
   }, []);
   const copy = () => {
-    void navigator.clipboard?.writeText(text).then(() => {
+    void writeClipboard(text).then((ok) => {
+      if (!ok) return;
       setCopied(true);
       timer.current = setTimeout(() => setCopied(false), COPIED_MS);
     });
@@ -26,6 +27,23 @@ export function CopyAction({ text }: { text: string }) {
       {copied ? <Check aria-hidden="true" className="size-icon-md motion-fade" /> : <Copy className="size-icon-md" aria-hidden="true" />}
     </IconButton>
   );
+}
+
+/**
+ * The clipboard API exists only on https and localhost. Opened by the LAN address over http, Copy did nothing;
+ * there the older copy command still works.
+ */
+async function writeClipboard(text: string): Promise<boolean> {
+  if (navigator.clipboard !== undefined) return navigator.clipboard.writeText(text).then(() => true, () => false);
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.setAttribute('readonly', '');
+  field.className = 'sr-only';
+  document.body.append(field);
+  field.select();
+  const ok = document.execCommand('copy');
+  field.remove();
+  return ok;
 }
 
 /** Reads the answer aloud with the browser voice; pressing again stops it. */

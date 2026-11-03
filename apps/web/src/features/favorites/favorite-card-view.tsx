@@ -66,7 +66,19 @@ export function FavoriteCard({ favorite, collections, onDone, onError }: Favorit
 function NoteField({ favorite, onDone, onError }: Omit<FavoriteCardProps, 'collections'>) {
   const [note, setNote] = useState(favorite.note ?? '');
   useEffect(() => setNote(favorite.note ?? ''), [favorite.note]);
-  return <TextField id={`note-${favorite.id}`} label="Note" value={note} onChange={(event) => setNote(event.target.value)} onBlur={() => void saveNote(favorite, note, onDone, onError)} />;
+  return (
+    <TextField
+      id={`note-${favorite.id}`}
+      label="Note"
+      value={note}
+      onChange={(event) => setNote(event.target.value)}
+      onBlur={() => void saveNote(favorite, note, onDone, onError)}
+      // Enter saves too: leaving the field is what saves, as before.
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && !event.nativeEvent.isComposing) event.currentTarget.blur();
+      }}
+    />
+  );
 }
 
 function CollectionSelect({ favorite, collections, onDone, onError }: FavoriteCardProps) {
