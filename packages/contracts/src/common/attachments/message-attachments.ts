@@ -30,6 +30,13 @@ export function withAttachments(content: string, attachments: readonly MessageAt
   return [content.trim(), ...blocks].filter((part) => part.length > 0).join('\n\n');
 }
 
+/** The message with each file cut to its start: enough to tell what the user wants, short enough to do it fast. */
+export function withAttachmentHeads(content: string, headChars: number): string {
+  const { text, attachments } = splitAttachments(content);
+  if (attachments.length === 0) return content;
+  return withAttachments(text, attachments.map((file) => ({ name: file.name, text: file.text.length > headChars ? `${file.text.slice(0, headChars)}…` : file.text })));
+}
+
 /** The user's words and the files of a stored message. A message without files comes back as it is. */
 export function splitAttachments(content: string): { text: string; attachments: MessageAttachment[] } {
   const attachments: MessageAttachment[] = [];

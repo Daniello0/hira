@@ -42,6 +42,7 @@ export {
   ATTACHMENT_TEXT_MAX_CHARS,
   MAX_MESSAGE_ATTACHMENTS,
   splitAttachments,
+  withAttachmentHeads,
   withAttachments,
   type MessageAttachment,
   type ReadAttachmentDto,

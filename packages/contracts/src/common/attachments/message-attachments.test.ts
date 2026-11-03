@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitAttachments, withAttachments } from './message-attachments';
+import { splitAttachments, withAttachmentHeads, withAttachments } from './message-attachments';
 
 describe('message attachments', () => {
   it('stores files after the words and reads them back', () => {
@@ -12,6 +12,12 @@ describe('message attachments', () => {
     expect(splitAttachments('Привет')).toEqual({ text: 'Привет', attachments: [] });
     expect(splitAttachments('x <<<file: a>>> no end')).toEqual({ text: 'x <<<file: a>>> no end', attachments: [] });
     expect(withAttachments('Привет')).toBe('Привет');
+  });
+
+  it('cuts each file to its start for a quick read of the intent', () => {
+    const stored = withAttachments('Что тут?', [{ name: 'a.txt', text: 'abcdef' }]);
+    expect(withAttachmentHeads(stored, 3)).toBe('Что тут?\n\n<<<file: a.txt>>>\nabc…\n<<<end of file>>>');
+    expect(withAttachmentHeads('Привет', 3)).toBe('Привет');
   });
 
   it('keeps a file sent without words', () => {

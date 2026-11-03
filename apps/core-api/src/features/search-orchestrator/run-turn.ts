@@ -23,6 +23,10 @@ import { heuristicIntent } from './heuristic-intent';
 import { draftEvent, isDraftTurn, loadDraftTarget, targetDocument } from './turn-draft';
 import { SEARCHING_INTENTS, chargeTurn, precheckQuota } from './turn-quota';
 import type { Answer, OrchestratorDeps, SseSink, TurnOptions, TurnOutcome, Understood } from './turn.types';
+import { withAttachmentHeads } from '@hira/contracts';
+
+/** How much of each attached file the intent step reads. */
+const UNDERSTAND_FILE_HEAD_CHARS = 600;
 
 /** One user replica, chat or call, after it has been stored. */
 export interface TurnInput extends TurnOptions {
@@ -109,7 +113,8 @@ async function resolveIntent(deps: OrchestratorDeps, input: TurnInput, context: 
     const known = knownVacancies(context.facts);
     const response = await deps.llm.understand(
       {
-        query: input.content,
+        // Whole files made understand miss its 20 s budget; the start of each tells the intent as well.
+        query: withAttachmentHeads(input.content, UNDERSTAND_FILE_HEAD_CHARS),
         history: input.history,
         memory: context.memory,
         summary: context.summary,
