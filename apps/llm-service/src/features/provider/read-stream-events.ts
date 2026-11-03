@@ -1,3 +1,4 @@
+import { TextDecoder } from 'node:util';
 import { isRecord } from '../../common/utils/is-record';
 import { ProviderTransportError } from '../llm/llm.errors';
 import type { StreamEvent } from './stream-event';
@@ -15,13 +16,16 @@ export async function* readStreamEvents(source: unknown): AsyncGenerator<StreamE
 }
 
 async function* readBlocks(source: AsyncIterable<unknown>): AsyncGenerator<string> {
+  // One decoder for the whole body: a Cyrillic letter split between two network chunks stays one letter, not two U+FFFD.
+  const decoder = new TextDecoder();
   let buffer = '';
   for await (const chunk of source) {
-    buffer += chunkText(chunk);
+    buffer += chunkText(chunk, decoder);
     const parts = buffer.split('\n\n');
     buffer = parts.pop() ?? '';
     for (const part of parts) yield part;
   }
+  buffer += decoder.decode();
   if (buffer.trim().length > 0) yield buffer;
 }
 
@@ -117,9 +121,8 @@ function asIterable(value: unknown): AsyncIterable<unknown> {
   throw new ProviderTransportError(null, 'provider stream is missing');
 }
 
-function chunkText(chunk: unknown): string {
+function chunkText(chunk: unknown, decoder: TextDecoder): string {
   if (typeof chunk === 'string') return chunk;
-  if (Buffer.isBuffer(chunk)) return chunk.toString('utf8');
-  if (chunk instanceof Uint8Array) return Buffer.from(chunk).toString('utf8');
+  if (chunk instanceof Uint8Array) return decoder.decode(chunk, { stream: true });
   return '';
 }
