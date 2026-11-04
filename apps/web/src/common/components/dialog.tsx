@@ -20,6 +20,11 @@ const SIZE = { md: 'w-dialog', wide: 'w-dialog-wide' } as const;
 const TEXT_FIELD = 'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea';
 /** An Enter this soon after a dialog opened was meant for what had focus before, such as the message box under a popup that opened by itself. */
 const ENTER_ARMS_AFTER_MS = 400;
+/**
+ * Keys typed into a dialog with no text field were meant for the message box it covered: a suggestion opens by itself
+ * while the user writes. An Enter this soon after them ends that message, so it must not press Add.
+ */
+const ENTER_AFTER_TYPING_MS = 1_000;
 
 /**
  * Centered dialog. Escape and the backdrop close it; focus stays inside and returns on close.
@@ -27,6 +32,7 @@ const ENTER_ARMS_AFTER_MS = 400;
  */
 export function Dialog({ open, onClose, title, hideTitle = false, size = 'md', children }: DialogProps) {
   const openedAt = useRef(0);
+  const typedAt = useRef(Number.NEGATIVE_INFINITY);
   return (
     <RadixDialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <RadixDialog.Portal>
@@ -40,9 +46,12 @@ export function Dialog({ open, onClose, title, hideTitle = false, size = 'md', c
             const content = event.currentTarget as HTMLElement;
             (content.querySelector<HTMLElement>(TEXT_FIELD) ?? content).focus();
             openedAt.current = performance.now();
+            typedAt.current = Number.NEGATIVE_INFINITY;
           }}
           onKeyDown={(event) => {
-            if (performance.now() - openedAt.current >= ENTER_ARMS_AFTER_MS) submitOnEnter(event);
+            const now = performance.now();
+            if (event.key.length === 1 && event.target === event.currentTarget) typedAt.current = now;
+            if (now - openedAt.current >= ENTER_ARMS_AFTER_MS && now - typedAt.current >= ENTER_AFTER_TYPING_MS) submitOnEnter(event);
           }}
           onSubmitCapture={(event) => {
             // A closed dialog stays on screen while it fades out; a late Enter or click must not submit again.
