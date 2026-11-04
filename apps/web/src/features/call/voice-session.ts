@@ -83,11 +83,11 @@ export class VoiceSession {
     this.mic = null;
   }
 
-  /** A typed phrase, for a browser without a microphone or a service that is down. */
-  async sayTyped(text: string): Promise<void> {
+  /** A typed phrase, for a browser without a microphone or a service that is down. False when it did not reach Hira. */
+  async sayTyped(text: string): Promise<boolean> {
     const generation = this.nextWork();
     const choice = this.deps.choice();
-    await this.runTurn(text, languageAfterTyped(choice, this.language, text), choice === 'auto' ? null : choice, generation);
+    return this.runTurn(text, languageAfterTyped(choice, this.language, text), choice === 'auto' ? null : choice, generation);
   }
 
   private onSpeechStart(): void {
@@ -163,7 +163,8 @@ export class VoiceSession {
   }
 
   /** `replyIn` is what Hira is asked to answer in: a spoken phrase keeps the reply and the voice together. */
-  private async runTurn(text: string, language: VoiceLanguage | null, replyIn: VoiceLanguage | null, generation: number, captionId = `phrase-${generation}`): Promise<void> {
+  /** False when the turn did not open, so a typed phrase can go back to its field. */
+  private async runTurn(text: string, language: VoiceLanguage | null, replyIn: VoiceLanguage | null, generation: number, captionId = `phrase-${generation}`): Promise<boolean> {
     this.language = language;
     this.deps.commit((current) => onFinalTranscript(current, captionId, text));
     const signal = this.abort?.signal as AbortSignal;
@@ -176,18 +177,19 @@ export class VoiceSession {
       this.deps.commit((current) => reduceCallEvent(current, event));
       if (event.event === 'token') speech.add(tokenText(event));
     });
-    if (!this.current(generation)) return;
+    if (!this.current(generation)) return true;
     if (!result.opened) {
       this.interruptedAt = interruptedAt;
       this.line = null;
       speech.finish().catch(() => undefined);
       this.deps.commit((current) => ({ ...beginListening(current), notice: result.error?.message ?? TURN_FAILED }));
-      return;
+      return false;
     }
     await speech.finish();
-    if (!this.current(generation)) return;
+    if (!this.current(generation)) return true;
     this.line = null;
     this.deps.commit(beginListening);
+    return true;
   }
 
   private speechLine(generation: number, signal: AbortSignal): SpeechLine {

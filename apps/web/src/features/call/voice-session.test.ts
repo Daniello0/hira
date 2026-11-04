@@ -362,6 +362,14 @@ describe('voice session', () => {
     expect((streamTurn.mock.calls as unknown[][])[0]?.[1]).toBeNull();
   });
 
+  it('says whether a typed phrase reached Hira, so a failed one can go back to its field', async () => {
+    const streamTurn = vi.fn(async () => (streamTurn.mock.calls.length > 1 ? OPEN : { opened: false, status: 503, error: null, interrupted: false }));
+    const { session } = rig({ streamTurn });
+    await session.open();
+    await expect(session.sayTyped('first try')).resolves.toBe(false);
+    await expect(session.sayTyped('second try')).resolves.toBe(true);
+  });
+
   it('answers a typed phrase the same way', async () => {
     const streamTurn = vi.fn(async (_t: string, _l: unknown, _i: unknown, _s: AbortSignal, onEvent: (event: ParsedSse) => void) => {
       onEvent(token(SENTENCE));

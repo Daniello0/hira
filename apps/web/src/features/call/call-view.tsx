@@ -107,8 +107,12 @@ function LiveCall() {
           onStart={onStart}
           onEnd={live.end}
           onType={() => {
-            void live.sayTyped(typed);
+            const text = typed;
             setTyped('');
+            // A phrase that did not reach Hira goes back to the field, unless the user has started a new one.
+            void live.sayTyped(text).then((sent) => {
+              if (!sent) setTyped((current) => (current === '' ? text : current));
+            });
           }}
         />
       </section>
@@ -206,7 +210,8 @@ function useLiveCall(
     },
     sayTyped: (text: string) => {
       const trimmed = text.trim();
-      if (trimmed.length === 0 || voice.current === null) return Promise.resolve();
+      if (trimmed.length === 0) return Promise.resolve(true);
+      if (voice.current === null) return Promise.resolve(false);
       return voice.current.sayTyped(trimmed);
     },
   };
