@@ -46,7 +46,7 @@ async function readOpenStream(response: Response, onEvent: (event: ParsedSse) =>
 }
 
 /**
- * A stream silent this long is dead even if the socket is not: the server sends something every few seconds
+ * A stream silent this long is dead even if the socket is not: the server writes a keep-alive line every 15 s
  * while it searches and writes. Giving up lets the chat reload what the server kept instead of spinning forever.
  */
 export const STREAM_IDLE_MS = 90_000;

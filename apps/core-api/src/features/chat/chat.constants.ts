@@ -27,6 +27,12 @@ export const SEARCH_UPSTREAM_MESSAGE = 'Search is temporarily unavailable';
 export const INVALID_CURSOR_MESSAGE = 'Page cursor is invalid';
 export const INVALID_SEARCH_MESSAGE = 'Search request is invalid';
 
+/**
+ * A comment line this often while a turn runs. The client gives up on 90 s of silence, and the search step alone
+ * may take longer while it says nothing (its upstream limit is 150 s).
+ */
+export const SSE_KEEP_ALIVE_MS = 15_000;
+
 export const SSE_EVENT = {
   userMessage: 'user-message',
   intent: 'intent',
