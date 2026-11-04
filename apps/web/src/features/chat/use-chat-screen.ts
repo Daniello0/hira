@@ -1,6 +1,7 @@
 'use client';
 
 import type { CreateMessageRequest, MessageAttachment } from '@hira/contracts';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { invalidate } from '../../common/data/data-version.store';
 import { SIGN_IN_AGAIN } from '../auth/auth.constants';
@@ -37,6 +38,7 @@ type SetTurn = (turn: LiveTurn) => void;
 
 /** One open chat: history, draft, composer switches, and the live stream. */
 export function useChatScreen(chatId: string) {
+  const router = useRouter();
   const status = useSession((state) => state.status);
   const [turn, setTurn] = useState<LiveTurn>(emptyTurn());
   const storedDraft = useChatDraft((state) => state.draftFor(chatId));
@@ -53,6 +55,7 @@ export function useChatScreen(chatId: string) {
   const listed = useChatList((state) => findChat(state, chatId)?.isArchived);
   const latest = useRef(turn);
   const loadingOlder = useRef(false);
+  const signedIn = useRef(false);
   latest.current = turn;
   const ready = load === 'ready';
   const updateDraft = (value: string) => {
@@ -66,6 +69,13 @@ export function useChatScreen(chatId: string) {
 
   useEffect(() => {
     if (status === SessionStatus.Unknown) return;
+    if (status === SessionStatus.Account) signedIn.current = true;
+    // Signed out here or in another tab: the chat belongs to the account, so read as a guest it was "Chat not found".
+    // The tab goes where Log out goes.
+    else if (signedIn.current) {
+      router.replace('/login');
+      return;
+    }
     let cancelled = false;
     setLoad('loading');
     void loadHistory(chatId, () => cancelled, latest, setTurn, setCursor, setLoad, setLoadedArchived);
@@ -89,13 +99,17 @@ export function useChatScreen(chatId: string) {
     const decision = rejectDraft(draft, latest.current.phase, files.some((item) => item.status === 'ready'));
     if (decision === 'too-long') return publish({ ...latest.current, notice: MESSAGE_TOO_LONG }, latest, setTurn);
     if (decision !== 'ok' || !ready) return;
-    const body = messageBody(draft.trim(), status === SessionStatus.Account, memory, includeForeignRemote, useAttachments.getState().take());
+    const taken = useAttachments.getState().take();
+    const body = messageBody(draft.trim(), status === SessionStatus.Account, memory, includeForeignRemote, taken.attachments);
     publish({ ...latest.current, phase: StreamPhase.Searching, banner: null, notice: null }, latest, setTurn);
-    if (!(await sessionStillOpen(status))) return publish(releaseTurn(latest.current, SIGN_IN_AGAIN), latest, setTurn);
+    if (!(await sessionStillOpen(status))) {
+      taken.restore();
+      return publish(releaseTurn(latest.current, SIGN_IN_AGAIN), latest, setTurn);
+    }
     const result = await postStream(messagePath(chatId), body, (event) =>
       applyEvent(event, latest, setTurn, updateDraft, () => setFinishedTurns((count) => count + 1)),
     );
-    await finishSend(result, body.content, chatId, latest, setTurn);
+    await finishSend(result, body.content, chatId, latest, setTurn, taken.restore);
   }
 
   return {
@@ -170,10 +184,12 @@ async function loadHistory(
   setLoad('ready');
 }
 
-async function finishSend(result: StreamResult, text: string, chatId: string, latest: Latest, setTurn: SetTurn): Promise<void> {
+async function finishSend(result: StreamResult, text: string, chatId: string, latest: Latest, setTurn: SetTurn, restoreFiles: () => void): Promise<void> {
   const dropped = result.interrupted || (result.opened && latest.current.phase !== StreamPhase.Idle);
   if (dropped || needsReload(result, text, latest.current)) return replaceFromServer(chatId, latest, setTurn);
   if (result.opened) return;
+  // The message did not go: its files go back beside the words, which stay in the field.
+  restoreFiles();
   if (result.status === 429) void refreshAccount();
   publish({ ...latest.current, phase: StreamPhase.Idle, notice: result.error?.message ?? 'Message was not sent' }, latest, setTurn);
 }
@@ -200,12 +216,11 @@ async function loadOlderMessages(
   if (cursor === null || loading.current) return;
   loading.current = true;
   try {
-    const page = await fetchOlder(chatId, cursor);
-    if (page === null) return;
+    // A refused page says so, as a dropped connection does; it was ignored without a word.
+    const page = await fetchOlder(chatId, cursor).catch(() => null);
+    if (page === null) return publish({ ...latest.current, notice: 'Could not load older messages' }, latest, setTurn);
     publish({ ...latest.current, messages: prependMessages(latest.current.messages, page.items) }, latest, setTurn);
     setCursor(page.nextCursor);
-  } catch {
-    publish({ ...latest.current, notice: 'Could not load older messages' }, latest, setTurn);
   } finally {
     loading.current = false;
   }

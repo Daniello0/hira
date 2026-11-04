@@ -40,7 +40,7 @@ export function MessageInput(props: MessageInputProps) {
   const files = useAttachments((state) => state.files);
   const dictation = useDictation(draft, onDraft);
   const { field, expanded } = useGrowingField(draft);
-  const dragging = useFileDrop(props.account && !archived, setMenuError);
+  const dragging = useFileDrop(props.account, !archived, setMenuError);
   useKeepFocus(field, disabled || archived);
   const ready = files.some((item) => item.status === 'ready');
   return (
@@ -119,7 +119,7 @@ function FileChips({ files }: { files: readonly ComposerFile[] }) {
  * Files dropped anywhere on the page go to the composer, so a drop never opens the file in place of the app.
  * A guest gets a word instead: reading files needs an account.
  */
-function useFileDrop(enabled: boolean, onError: (message: string | null) => void): boolean {
+function useFileDrop(account: boolean, open: boolean, onError: (message: string | null) => void): boolean {
   const [dragging, setDragging] = useState(false);
   useEffect(() => {
     const carriesFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') === true;
@@ -135,7 +135,9 @@ function useFileDrop(enabled: boolean, onError: (message: string | null) => void
       if (!carriesFiles(event)) return;
       event.preventDefault();
       setDragging(false);
-      onError(enabled ? useAttachments.getState().add(Array.from(event.dataTransfer?.files ?? [])) : SIGN_IN_FOR_FILES);
+      // An archived chat already says how to keep writing; asking an account to sign in was wrong there.
+      if (!account) onError(SIGN_IN_FOR_FILES);
+      else if (open) onError(useAttachments.getState().add(Array.from(event.dataTransfer?.files ?? [])));
     };
     window.addEventListener('dragover', over);
     window.addEventListener('dragleave', leave);
@@ -145,7 +147,7 @@ function useFileDrop(enabled: boolean, onError: (message: string | null) => void
       window.removeEventListener('dragleave', leave);
       window.removeEventListener('drop', drop);
     };
-  }, [enabled, onError]);
+  }, [account, open, onError]);
   return dragging;
 }
 

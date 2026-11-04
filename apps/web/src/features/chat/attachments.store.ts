@@ -25,8 +25,8 @@ interface AttachmentState {
   sent: Record<string, { file: File; looksLikeResume: boolean }>;
   add: (files: readonly File[]) => string | null;
   remove: (id: string) => void;
-  /** The read files for the next message; the composer is emptied. */
-  take: () => MessageAttachment[];
+  /** The read files for the next message; the composer is emptied. `restore` puts them back when the message did not go. */
+  take: () => { attachments: MessageAttachment[]; restore: () => void };
 }
 
 let nextId = 0;
@@ -48,7 +48,11 @@ export const useAttachments = create<AttachmentState>((set, get) => ({
     const sent = { ...get().sent };
     for (const item of ready) sent[(item.read as ReadAttachmentDto).name] = { file: item.file, looksLikeResume: (item.read as ReadAttachmentDto).looksLikeResume };
     set({ files: [], sent });
-    return ready.map((item) => ({ name: (item.read as ReadAttachmentDto).name, text: (item.read as ReadAttachmentDto).text }));
+    return {
+      attachments: ready.map((item) => ({ name: (item.read as ReadAttachmentDto).name, text: (item.read as ReadAttachmentDto).text })),
+      // Ahead of any file picked since, within the cap.
+      restore: () => set({ files: [...ready, ...get().files].slice(0, MAX_MESSAGE_ATTACHMENTS) }),
+    };
   },
 }));
 
