@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChatSummary } from '@hira/contracts';
+import { PLAN_LIMITS, type ChatSummary } from '@hira/contracts';
 import { Ellipsis, PanelRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -34,7 +34,8 @@ type Screen = ReturnType<typeof useChatScreen>;
 export function ChatView({ chatId }: { chatId: string }) {
   const screen = useChatScreen(chatId);
   const status = useSession((state) => state.status);
-  const crossChat = useSession((state) => state.user?.crossChatMemoryEnabled ?? false);
+  // As on the Memory page and the server: on a plan without cross-chat memory the facts are not used.
+  const crossChat = useSession((state) => state.user !== null && PLAN_LIMITS[state.user.plan].crossChatMemory && state.user.crossChatMemoryEnabled);
   const context = useAccountPanel(status, screen.finishedTurns);
   const contextOpen = useShell((state) => state.contextOpen);
   const setContext = useShell((state) => state.setContext);
