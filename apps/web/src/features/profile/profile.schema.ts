@@ -23,7 +23,7 @@ const seniorityValues = ['', ...Object.values(SeniorityLevel)];
 
 /** Profile form. City ids stay on the server until a location picker exists. */
 export const profileSchema: yup.ObjectSchema<ProfileFormValues> = yup.object({
-  headline: yup.string().max(256).defined(),
+  headline: yup.string().max(256, 'A headline can be at most 256 characters').defined(),
   about: yup.string().defined(),
   seniority: yup.string().oneOf(seniorityValues).defined(),
   desiredRoles: yup.string().defined(),

@@ -24,6 +24,7 @@ export function ProfileSkills({ skills, onChange }: ProfileSkillsProps) {
   const [picked, setPicked] = useState<SkillSearchHitDto | null>(null);
   const [level, setLevel] = useState<SkillLevel>(SkillLevel.Confident);
   const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   return (
     <section className="space-y-3">
       <SectionHeading>Skills</SectionHeading>
@@ -32,7 +33,16 @@ export function ProfileSkills({ skills, onChange }: ProfileSkillsProps) {
       <LevelField level={level} onChange={setLevel} />
       {picked !== null ? <p className="motion-fade text-sm">Selected: {picked.canonicalName}</p> : null}
       {error !== null ? <AlertText>{error}</AlertText> : null}
-      <Button disabled={picked === null} onClick={() => void add(picked, level, setError, setPicked, onChange)}>Add skill</Button>
+      <Button
+        disabled={picked === null || adding}
+        onClick={() => {
+          // A second click while the skill is on its way would ask to add it twice.
+          setAdding(true);
+          void add(picked, level, setError, setPicked, onChange).finally(() => setAdding(false));
+        }}
+      >
+        Add skill
+      </Button>
     </section>
   );
 }
