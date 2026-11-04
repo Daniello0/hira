@@ -22,6 +22,9 @@ const IMAGE_TYPES: Readonly<Record<string, string>> = { png: 'image/png', jpg: '
 /** Headings a resume has in Russian or English. Two of them, or one with a contact line, make a resume. */
 const RESUME_SECTIONS = [/опыт работы/i, /образование/i, /навыки/i, /work experience/i, /\bexperience\b/i, /\beducation\b/i, /\bskills\b/i, /резюме/i, /\bcurriculum vitae\b|\bCV\b|\bresume\b/i];
 const CONTACT = /@[\w-]+\.[a-z]{2,}|\+?\d[\d\s()-]{8,}\d/i;
+/** The text of a Word file this large is far past what Hira reads. A zip bomb stops here instead of filling memory. */
+const DOCX_XML_MAX_BYTES = 32 * 1024 * 1024;
+const HIDDEN_BLOCK = /<(script|style|noscript)\b/gi;
 
 /** The text of a file for the chat, cut to what Hira reads, and whether it looks like a resume. */
 export async function readAttachment(file: AttachmentFile, deps: { pdf: PdfReader; image: ImageReader }): Promise<ReadAttachmentDto> {
@@ -52,17 +55,37 @@ export function looksLikeResume(text: string): boolean {
   return sections >= 2 || (sections === 1 && CONTACT.test(head));
 }
 
-/** Visible text of a page: no scripts, styles, or tags, block ends as new lines. */
+/**
+ * Visible text of a page: no scripts, styles, or tags, block ends as new lines.
+ * Every pattern here runs in linear time: a page of 10 MB of `<` or `\r` held the API for minutes.
+ */
 export function htmlText(html: string): string {
   return decodeEntities(
-    html
-      .replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, ' ')
-      .replace(/<(br|\/p|\/div|\/li|\/tr|\/h[1-6])\b[^>]*>/gi, '\n')
-      .replace(/<[^>]+>/g, ' '),
+    withoutHiddenBlocks(html)
+      .replace(/<(br|\/p|\/div|\/li|\/tr|\/h[1-6])\b[^<>]*>/gi, '\n')
+      .replace(/<[^<>]*>/g, ' '),
   )
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\s*\n\s*/g, '\n')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ ?\n[\n ]*/g, '\n')
     .trim();
+}
+
+/** Drops scripts, styles, and noscript blocks. One left open hides the rest of the page, as in a browser. */
+function withoutHiddenBlocks(html: string): string {
+  const lower = html.toLowerCase();
+  let text = '';
+  let from = 0;
+  HIDDEN_BLOCK.lastIndex = 0;
+  for (let open = HIDDEN_BLOCK.exec(html); open !== null; open = HIDDEN_BLOCK.exec(html)) {
+    text += `${html.slice(from, open.index)} `;
+    const close = lower.indexOf(`</${open[1]?.toLowerCase()}`, HIDDEN_BLOCK.lastIndex);
+    const end = close < 0 ? -1 : lower.indexOf('>', close);
+    if (end < 0) return text;
+    from = end + 1;
+    HIDDEN_BLOCK.lastIndex = from;
+  }
+  return text + html.slice(from);
 }
 
 /** The paragraphs of a .docx: its `word/document.xml`, found in the zip without a library. */
@@ -73,7 +96,7 @@ export function readDocxText(docx: Buffer): string {
     xml
       .replace(/<w:tab\/>/g, '\t')
       .replace(/<\/w:p>/g, '\n')
-      .replace(/<[^>]+>/g, ''),
+      .replace(/<[^<>]*>/g, ''),
   ).trim();
 }
 
@@ -95,7 +118,7 @@ function zipEntry(zip: Buffer, wanted: string): string | null {
       const start = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
       const data = zip.subarray(start, start + size);
       try {
-        return (method === 0 ? data : inflateRawSync(data)).toString('utf8');
+        return (method === 0 ? data : inflateRawSync(data, { maxOutputLength: DOCX_XML_MAX_BYTES })).toString('utf8');
       } catch {
         return null;
       }
@@ -112,6 +135,12 @@ function decodeEntities(text: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#(\d+);/g, (_, code: string) => codePoint(Number(code)))
+    .replace(/&#x([\da-f]+);/gi, (_, code: string) => codePoint(Number.parseInt(code, 16)))
     .replace(/&amp;/g, '&');
+}
+
+/** A character by its number. One past Unicode threw and failed the whole file. */
+function codePoint(code: number): string {
+  return code <= 0x10ffff ? String.fromCodePoint(code) : '\uFFFD';
 }
