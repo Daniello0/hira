@@ -7,6 +7,11 @@ export const DEFAULT_SPEECH_URL = 'http://127.0.0.1:8000';
 export const TRANSCRIBE_MODEL = 'Systran/faster-whisper-base';
 /** A little over llm-service's own limit for the cloud ear, so its answer arrives first. */
 export const CLOUD_HEAR_TIMEOUT_MS = 6_000;
+/**
+ * After a failed cloud read the local model hears alone this long, as the reranker rests (ADR-053): a hung cloud
+ * cost each phrase its timeout twice, once for the read at the pause and once for the whole phrase.
+ */
+export const CLOUD_EAR_REST_MS = 60_000;
 
 /** Hira's voice: one person across all five languages (MAI-Voice-2.1-Flash through OpenRouter, ADR-050). */
 export const CLOUD_VOICES: Readonly<Record<VoiceLanguage, string>> = {

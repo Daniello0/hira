@@ -1,4 +1,4 @@
-import { CLOUD_AUDIO_TYPE, CLOUD_HEAR_TIMEOUT_MS, CLOUD_VOICE_TIMEOUT_MS, CLOUD_VOICES, LOCAL_AUDIO_TYPE, VOICES, MODEL_DOWNLOAD_TIMEOUT_MS, SPEECH_UNAVAILABLE_MESSAGE, SYNTHESIZE_TIMEOUT_MS, TRANSCRIBE_MODEL, TRANSCRIBE_TIMEOUT_MS } from './speech.constants';
+import { CLOUD_AUDIO_TYPE, CLOUD_EAR_REST_MS, CLOUD_HEAR_TIMEOUT_MS, CLOUD_VOICE_TIMEOUT_MS, CLOUD_VOICES, LOCAL_AUDIO_TYPE, VOICES, MODEL_DOWNLOAD_TIMEOUT_MS, SPEECH_UNAVAILABLE_MESSAGE, SYNTHESIZE_TIMEOUT_MS, TRANSCRIBE_MODEL, TRANSCRIBE_TIMEOUT_MS } from './speech.constants';
 import type { TranscriptDto, VoiceLanguage } from '@hira/contracts';
 
 /** The speech container did not answer. */
@@ -38,7 +38,14 @@ type Fetch = typeof fetch;
  * Hears and speaks through the cloud, and through the speech container when that fails, so a call goes on
  * without credit or network. A model not on the volume yet is fetched once.
  */
-export function createSpeechGateway(baseUrl: string, request: Fetch = fetch, cloud: CloudVoice | null = null, ear: CloudEar | null = null): SpeechGateway {
+export function createSpeechGateway(
+  baseUrl: string,
+  request: Fetch = fetch,
+  cloud: CloudVoice | null = null,
+  ear: CloudEar | null = null,
+  now: () => number = Date.now,
+): SpeechGateway {
+  let earRestsUntil = 0;
   const withModel = async (model: string, call: () => Promise<Response>): Promise<Response> => {
     const first = await reachable(call);
     if (first.status !== 404) return first;
@@ -60,7 +67,8 @@ export function createSpeechGateway(baseUrl: string, request: Fetch = fetch, clo
   };
   return {
     transcribe: async (audio, language, draft = false) => {
-      const heard = await cloudEar(ear, audio, language);
+      const resting = now() < earRestsUntil;
+      const heard = resting ? null : await cloudEar(ear, audio, language, () => { earRestsUntil = now() + CLOUD_EAR_REST_MS; });
       if (heard !== null) return heard;
       if (draft) throw new SpeechUnavailableError();
       const response = await withModel(TRANSCRIBE_MODEL, () =>
@@ -94,12 +102,13 @@ async function cloudVoice(cloud: CloudVoice | null, text: string, language: Voic
 }
 
 /** `null` when the local model has to hear instead. */
-async function cloudEar(ear: CloudEar | null, audio: Buffer, language: VoiceLanguage | null): Promise<TranscriptDto | null> {
+async function cloudEar(ear: CloudEar | null, audio: Buffer, language: VoiceLanguage | null, rest: () => void): Promise<TranscriptDto | null> {
   if (ear === null) return null;
   try {
     return await ear.hear(audio, language);
   } catch (error) {
     ear.onFailure(error);
+    rest();
     return null;
   }
 }

@@ -42,6 +42,21 @@ describe('speech gateway', () => {
     expect(onFailure).toHaveBeenCalledWith(failure);
   });
 
+  it('lets the cloud ear rest a minute after it fails, so a phrase is not kept waiting for it twice', async () => {
+    let clock = 0;
+    const hear = vi.fn(async () => {
+      throw new Error('timeout');
+    });
+    const local = vi.fn(async () => Response.json({ text: 'local', language: 'en' }));
+    const gateway = createSpeechGateway(BASE, local as unknown as typeof fetch, null, { hear, onFailure: vi.fn() }, () => clock);
+    await expect(gateway.transcribe(Buffer.from('wav'), null, true)).rejects.toBeInstanceOf(SpeechUnavailableError);
+    expect(await gateway.transcribe(Buffer.from('wav'), null)).toEqual({ text: 'local', language: 'en' });
+    expect(hear).toHaveBeenCalledTimes(1);
+    clock = 60_000;
+    await gateway.transcribe(Buffer.from('wav'), null);
+    expect(hear).toHaveBeenCalledTimes(2);
+  });
+
   it('does not wake the container for a draft when the cloud ear fails', async () => {
     const local = vi.fn();
     const gateway = createSpeechGateway(BASE, local as unknown as typeof fetch, null, { hear: async () => { throw new Error('down'); }, onFailure: vi.fn() });
