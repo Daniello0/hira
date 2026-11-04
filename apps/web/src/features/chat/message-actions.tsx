@@ -30,19 +30,27 @@ export function CopyAction({ text }: { text: string }) {
 }
 
 /**
- * The clipboard API exists only on https and localhost. Opened by the LAN address over http, Copy did nothing;
- * there the older copy command still works.
+ * The clipboard API exists only on https and localhost, and a browser may refuse it even there, as an embedded one
+ * does. Opened by the LAN address over http, or refused, Copy did nothing; the older copy command still works.
  */
 async function writeClipboard(text: string): Promise<boolean> {
-  if (navigator.clipboard !== undefined) return navigator.clipboard.writeText(text).then(() => true, () => false);
+  const written = navigator.clipboard === undefined ? false : await navigator.clipboard.writeText(text).then(() => true, () => false);
+  return written || copyWithCommand(text);
+}
+
+/** Copies through a hidden field, then gives the focus back to the Copy button. */
+function copyWithCommand(text: string): boolean {
+  const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const field = document.createElement('textarea');
   field.value = text;
   field.setAttribute('readonly', '');
   field.className = 'sr-only';
   document.body.append(field);
+  field.focus({ preventScroll: true });
   field.select();
   const ok = document.execCommand('copy');
   field.remove();
+  before?.focus({ preventScroll: true });
   return ok;
 }
 

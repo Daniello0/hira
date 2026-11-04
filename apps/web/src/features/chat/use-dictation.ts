@@ -27,14 +27,23 @@ export function useDictation(draft: string, onDraft: (value: string) => void) {
       return;
     }
     setError(null);
-    session.current = listen(recognitionLang(SpeechLanguage.Auto, []), {
+    let denied = false;
+    const started = listen(recognitionLang(SpeechLanguage.Auto, []), {
       onFinal: (text) => latest.current.onDraft(appendDictation(latest.current.draft, text)),
       onEnd: () => {
         session.current = null;
         setListening(false);
       },
-      onDenied: () => setError(MIC_DENIED),
+      // A refused microphone ends the session without an end event, so the button stayed on "Stop dictation".
+      // A start that throws refuses before `listen` returns.
+      onDenied: () => {
+        denied = true;
+        session.current = null;
+        setListening(false);
+        setError(MIC_DENIED);
+      },
     });
+    session.current = denied ? null : started;
     setListening(session.current !== null);
   };
   return { available, listening, error, toggle };
