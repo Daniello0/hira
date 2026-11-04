@@ -2,6 +2,7 @@
 
 import { PLAN_LIMITS, type UserPlan } from '@hira/contracts';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { IconButton } from '../../common/components/icon-button';
 import { useSession } from '../auth/session.store';
@@ -35,12 +36,17 @@ export function FavoriteToggle({ vacancyId }: { vacancyId: string }) {
   };
   return (
     <>
-      {phase === 'error' ? <span role="alert" className="motion-fade text-xs text-danger">{label(phase, action)}</span> : null}
+      {phase === 'error' ? <span role="alert" className="motion-fade text-xs text-danger">{action === 'limit' ? <LimitNotice /> : label(phase, action)}</span> : null}
       <IconButton label={phase === 'error' ? 'Try again' : label(phase, action)} shape="action" tone={favoriteId !== undefined ? 'plain' : 'muted'} aria-pressed={favoriteId !== undefined} disabled={phase === 'saving'} onClick={onClick}>
         {favoriteId !== undefined ? <BookmarkCheck className="size-icon-md" aria-hidden="true" /> : <Bookmark className="size-icon-md" aria-hidden="true" />}
       </IconButton>
     </>
   );
+}
+
+/** "See Billing" leads there, as the words promise. */
+function LimitNotice() {
+  return <>Limit reached. See <Link className="underline" href="/settings/billing">Billing</Link></>;
 }
 
 /** The plan has no room for one more. The server checks this too. */
