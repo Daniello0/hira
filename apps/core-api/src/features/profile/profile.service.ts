@@ -126,6 +126,9 @@ export class ProfileService {
     sourceCallTurnId: string | null,
   ): Promise<void> {
     const skillId = item.kind === ProfileSuggestionKind.Skill && item.surface !== null ? chooseSkill(await this.store.matchSkill(item.surface)) : null;
+    // A skill already on the profile is not offered again, as when the same resume is uploaded twice:
+    // the unique index covers only pending offers, so an accepted skill came back as a new question.
+    if (skillId !== null && (await this.store.findSkill(userId, skillId)) !== null) return;
     const locationId = item.kind === ProfileSuggestionKind.Location && item.city !== null ? await this.store.matchCity(item.city) : null;
     const payload = suggestionPayload(item, skillId, locationId);
     if (payload === null) return;
