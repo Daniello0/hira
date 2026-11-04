@@ -94,6 +94,25 @@ describe('stage 12 account surfaces', () => {
     expect(huge.status).toBe(400);
   });
 
+  it('reads a chat file with a Cyrillic name, and lets a message carry three full Russian files', async () => {
+    const state = stores();
+    app = await createApp(state);
+    const token = await register(app);
+    const read = await request(app.getHttpServer())
+      .post('/api/v1/documents/read')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from('Опыт работы: Python'), 'Резюме.txt');
+    expect(read.status).toBe(200);
+    expect(read.body.name).toBe('Резюме.txt');
+    const files = [1, 2, 3].map((index) => ({ name: `файл-${index}.txt`, text: 'я'.repeat(20_000) }));
+    const sent = await request(app.getHttpServer())
+      .post(`/api/v1/chats/${randomUUID()}/messages`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ content: 'Сравни эти файлы', attachments: files });
+    // About 120 KB of UTF-8: the body is read, and the missing chat answers. Over the old 100 KB limit it was a 500.
+    expect(sent.status).toBe(404);
+  });
+
   it('accepts a skill suggestion without replacing a self-reported skill', async () => {
     const state = stores();
     app = await createApp(state);

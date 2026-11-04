@@ -76,6 +76,12 @@ class DocumentPatchBody {
   isPinned?: boolean;
 }
 
+/**
+ * One byte over the cap, so a larger file is refused in words. Browsers send a file name as raw UTF-8,
+ * which multer read as latin1 by default: "Резюме.pdf" arrived as "Ð ÐµÐ·ÑÐ¼Ðµ.pdf".
+ */
+const UPLOAD_OPTIONS = { limits: { fileSize: PDF_MAX_BYTES + 1 }, defParamCharset: 'utf8' };
+
 /** Swagger shape of the resume upload. */
 const UPLOAD_SCHEMA = {
   type: 'object',
@@ -114,7 +120,7 @@ export class DocumentController {
   /** Reads a file put into a chat message to text, without keeping it: PDF, Word, a picture, CSV, HTML, Markdown, plain text. */
   @Post('read')
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: PDF_MAX_BYTES + 1 } }))
+  @UseInterceptors(FileInterceptor('file', UPLOAD_OPTIONS))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Read a chat attachment' })
   readFile(@UploadedFile() file: (UploadFile & { mimetype?: string }) | undefined, @Req() request: Request): Promise<ReadAttachmentDto> {
@@ -145,7 +151,7 @@ export class DocumentController {
 
   /** Creates Markdown or text, or uploads a resume PDF. */
   @Post()
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: PDF_MAX_BYTES + 1 } }))
+  @UseInterceptors(FileInterceptor('file', UPLOAD_OPTIONS))
   @ApiConsumes('application/json', 'multipart/form-data')
   @ApiBody({
     schema: { oneOf: [{ $ref: '#/components/schemas/TextDocumentBody' }, UPLOAD_SCHEMA] },
