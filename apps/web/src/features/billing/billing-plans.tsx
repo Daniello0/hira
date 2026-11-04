@@ -8,6 +8,7 @@ import { Button } from '../../common/components/button';
 import { Card } from '../../common/components/card';
 import { PageHeading } from '../../common/components/page-frame';
 import { useSession } from '../auth/session.store';
+import { SessionStatus } from '../auth/session-status';
 import { changePlan } from './billing-api';
 import { BILLING_PLANS, planAction, planPrice, yearlySavings, type BillingPeriod } from './billing.constants';
 
@@ -19,6 +20,8 @@ const PERIODS: readonly { value: BillingPeriod; label: string }[] = [
 /** Plans. This is a demo: a change applies at once and no payment is taken. A guest signs up first. */
 export function BillingPlans() {
   const current = useSession((state) => state.user?.plan ?? null);
+  // While the session is read, a signed-in user would look like a guest and be sent to registration.
+  const pendingSession = useSession((state) => state.status === SessionStatus.Unknown);
   const router = useRouter();
   const [period, setPeriod] = useState<BillingPeriod>('monthly');
   const [notice, setNotice] = useState<string | null>(null);
@@ -53,7 +56,7 @@ export function BillingPlans() {
             <Button
               className="mt-auto"
               variant={current === plan.id ? 'secondary' : 'primary'}
-              disabled={current === plan.id || pending !== null}
+              disabled={current === plan.id || pending !== null || pendingSession}
               onClick={() => void choose(plan.id)}
             >
               {current === null ? 'Upgrade' : planAction(current, plan.id)}
