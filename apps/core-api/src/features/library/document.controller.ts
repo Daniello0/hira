@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Patch, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { DocumentFormat, DocumentKind, ParseStatus, type DocumentSummaryDto } from '@hira/contracts';
+import { DocumentFormat, DocumentKind, ParseStatus, type DocumentSummaryDto, type ReadAttachmentDto } from '@hira/contracts';
 import { plainToInstance } from 'class-transformer';
 import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength, validateSync } from 'class-validator';
 import type { Request } from 'express';
@@ -20,6 +20,9 @@ import { PlanGate } from '../billing/plan-gate';
 import { ChatService } from '../chat/chat.service';
 import { ProfileService } from '../profile/profile.service';
 import { DocumentNotFoundError, LibraryInputError, LibraryService } from './library.service';
+import { IMAGE_READER } from './image-reader';
+import { PDF_READER, type PdfReader } from './library.store';
+import { readAttachment, type ImageReader } from './read-attachment';
 import {
   DOCUMENT_TITLE_MAX_CHARS,
   DOCUMENT_TITLE_TOO_LONG_MESSAGE,
@@ -73,6 +76,12 @@ class DocumentPatchBody {
   isPinned?: boolean;
 }
 
+/**
+ * One byte over the cap, so a larger file is refused in words. Browsers send a file name as raw UTF-8,
+ * which multer read as latin1 by default: "Резюме.pdf" arrived as "Ð ÐµÐ·ÑÐ¼Ðµ.pdf".
+ */
+const UPLOAD_OPTIONS = { limits: { fileSize: PDF_MAX_BYTES + 1 }, defParamCharset: 'utf8' };
+
 /** Swagger shape of the resume upload. */
 const UPLOAD_SCHEMA = {
   type: 'object',
@@ -104,7 +113,23 @@ export class DocumentController {
     @Inject(ProfileService) private readonly profiles: ProfileService,
     @Inject(LLM_GATEWAY) private readonly llm: LlmGateway,
     @Inject(LOGGER) private readonly logger: Logger,
+    @Inject(PDF_READER) private readonly pdf: PdfReader,
+    @Inject(IMAGE_READER) private readonly image: ImageReader,
   ) {}
+
+  /** Reads a file put into a chat message to text, without keeping it: PDF, Word, a picture, CSV, HTML, Markdown, plain text. */
+  @Post('read')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file', UPLOAD_OPTIONS))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Read a chat attachment' })
+  readFile(@UploadedFile() file: (UploadFile & { mimetype?: string }) | undefined, @Req() request: Request): Promise<ReadAttachmentDto> {
+    return this.call(request, async () => {
+      if (file === undefined) throw new LibraryInputError('file is required');
+      if (file.size > PDF_MAX_BYTES) throw new LibraryInputError(PDF_TOO_LARGE_MESSAGE);
+      return readAttachment(file, { pdf: this.pdf, image: this.image });
+    });
+  }
 
   /** Lists files without their text. */
   @Get()
@@ -126,7 +151,7 @@ export class DocumentController {
 
   /** Creates Markdown or text, or uploads a resume PDF. */
   @Post()
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: PDF_MAX_BYTES + 1 } }))
+  @UseInterceptors(FileInterceptor('file', UPLOAD_OPTIONS))
   @ApiConsumes('application/json', 'multipart/form-data')
   @ApiBody({
     schema: { oneOf: [{ $ref: '#/components/schemas/TextDocumentBody' }, UPLOAD_SCHEMA] },

@@ -1,6 +1,6 @@
 import { VoiceLanguage } from '@hira/contracts';
 import { describe, expect, it, vi } from 'vitest';
-import { SpeechUnavailableError, closedWav, createCloudSpeaker, createSpeechGateway } from './speech-gateway';
+import { SpeechUnavailableError, closedWav, createCloudListener, createCloudSpeaker, createSpeechGateway } from './speech-gateway';
 import { CLOUD_VOICES, TRANSCRIBE_MODEL, VOICES } from './speech.constants';
 
 const BASE = 'http://speech:8000';
@@ -22,6 +22,57 @@ describe('speech gateway', () => {
     await createSpeechGateway(BASE, request as typeof fetch).transcribe(Buffer.from('wav'), VoiceLanguage.German);
     const init = (request.mock.calls[0] as unknown as [string, RequestInit])[1];
     expect((init.body as FormData).get('language')).toBe('de');
+  });
+
+  it('hears with the cloud ear first and does not wake the container', async () => {
+    const hear = vi.fn(async () => ({ text: 'Привет', language: 'ru' }));
+    const local = vi.fn();
+    const gateway = createSpeechGateway(BASE, local as unknown as typeof fetch, null, { hear, onFailure: vi.fn() });
+    expect(await gateway.transcribe(Buffer.from('wav'), VoiceLanguage.Russian)).toEqual({ text: 'Привет', language: 'ru' });
+    expect(hear).toHaveBeenCalledWith(Buffer.from('wav'), VoiceLanguage.Russian);
+    expect(local).not.toHaveBeenCalled();
+  });
+
+  it('hears with the container when the cloud ear fails, and says so', async () => {
+    const failure = new Error('timeout');
+    const onFailure = vi.fn();
+    const local = vi.fn(async () => Response.json({ text: 'local', language: 'en' }));
+    const gateway = createSpeechGateway(BASE, local as unknown as typeof fetch, null, { hear: async () => { throw failure; }, onFailure });
+    expect(await gateway.transcribe(Buffer.from('wav'), null)).toEqual({ text: 'local', language: 'en' });
+    expect(onFailure).toHaveBeenCalledWith(failure);
+  });
+
+  it('lets the cloud ear rest a minute after it fails, so a phrase is not kept waiting for it twice', async () => {
+    let clock = 0;
+    const hear = vi.fn(async () => {
+      throw new Error('timeout');
+    });
+    const local = vi.fn(async () => Response.json({ text: 'local', language: 'en' }));
+    const gateway = createSpeechGateway(BASE, local as unknown as typeof fetch, null, { hear, onFailure: vi.fn() }, () => clock);
+    await expect(gateway.transcribe(Buffer.from('wav'), null, true)).rejects.toBeInstanceOf(SpeechUnavailableError);
+    expect(await gateway.transcribe(Buffer.from('wav'), null)).toEqual({ text: 'local', language: 'en' });
+    expect(hear).toHaveBeenCalledTimes(1);
+    clock = 60_000;
+    await gateway.transcribe(Buffer.from('wav'), null);
+    expect(hear).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not wake the container for a draft when the cloud ear fails', async () => {
+    const local = vi.fn();
+    const gateway = createSpeechGateway(BASE, local as unknown as typeof fetch, null, { hear: async () => { throw new Error('down'); }, onFailure: vi.fn() });
+    await expect(gateway.transcribe(Buffer.from('wav'), null, true)).rejects.toBeInstanceOf(SpeechUnavailableError);
+    expect(local).not.toHaveBeenCalled();
+  });
+
+  it('asks llm-service for the cloud ear with the chosen language, and fails on a bad answer', async () => {
+    const request = vi.fn(async () => Response.json({ text: ' Hallo ', language: 'de' }));
+    const hear = createCloudListener({ baseUrl: 'http://llm:4002/', token: 'secret' }, request as typeof fetch);
+    expect(await hear(Buffer.from('wav'), VoiceLanguage.German)).toEqual({ text: 'Hallo', language: 'de' });
+    const [url, init] = request.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://llm:4002/internal/v1/transcribe?language=de');
+    expect(new Headers(init.headers).get('x-internal-token')).toBe('secret');
+    const refused = vi.fn(async () => new Response('no', { status: 502 }));
+    await expect(createCloudListener({ baseUrl: 'http://llm', token: 't' }, refused as typeof fetch)(Buffer.from('wav'), null)).rejects.toThrow('502');
   });
 
   it('uses the voice of the language, for all five', async () => {

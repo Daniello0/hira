@@ -40,6 +40,22 @@ describe('llm routes', () => {
     expect(untouched).not.toHaveBeenCalled();
   });
 
+  it('hears a WAV body with the chosen language, and refuses an empty one', async () => {
+    const transcribe = vi.fn(async () => ({ text: 'Привет', language: 'ru' }));
+    const ok = await request(createTestApp({ ...configured(), transcribe }))
+      .post('/internal/v1/transcribe?language=ru')
+      .set('X-Internal-Token', 'secret')
+      .set('Content-Type', 'audio/wav')
+      .send(Buffer.from('wav'));
+    expect(ok.status).toBe(200);
+    expect(ok.body).toEqual({ text: 'Привет', language: 'ru' });
+    expect(transcribe).toHaveBeenCalledWith({ audio: Buffer.from('wav'), language: 'ru' });
+    const untouched = vi.fn();
+    const empty = await request(createTestApp({ ...configured(), transcribe: untouched })).post('/internal/v1/transcribe').set('X-Internal-Token', 'secret').set('Content-Type', 'audio/wav').send(Buffer.alloc(0));
+    expect(empty.status).toBe(400);
+    expect(untouched).not.toHaveBeenCalled();
+  });
+
   it('returns 503 when the key or the model is missing and does not call the provider', async () => {
     const understand = vi.fn();
     const missingKey = await request(createTestApp({ ...configured(), apiKey: '', understand }))
@@ -187,6 +203,8 @@ function configured(): LlmRouterDeps {
     extractMemory: vi.fn(),
     parseResume: vi.fn(),
     speak: vi.fn(),
+    transcribe: vi.fn(),
+    readImage: vi.fn(),
   };
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChatSummary } from '@hira/contracts';
+import { PLAN_LIMITS, type ChatSummary } from '@hira/contracts';
 import { Ellipsis, PanelRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,7 @@ import { IconButton } from '../../common/components/icon-button';
 import { Sheet } from '../../common/components/sheet';
 import { AlertText, MutedText } from '../../common/components/feedback';
 import { TextField } from '../../common/components/text-field';
+import { useFormSubmit } from '../../common/hooks/use-form-submit';
 import { DESKTOP_QUERY, useMediaQuery } from '../../common/hooks/use-media-query';
 import { useSession } from '../auth/session.store';
 import { SessionStatus } from '../auth/session-status';
@@ -33,7 +34,8 @@ type Screen = ReturnType<typeof useChatScreen>;
 export function ChatView({ chatId }: { chatId: string }) {
   const screen = useChatScreen(chatId);
   const status = useSession((state) => state.status);
-  const crossChat = useSession((state) => state.user?.crossChatMemoryEnabled ?? false);
+  // As on the Memory page and the server: on a plan without cross-chat memory the facts are not used.
+  const crossChat = useSession((state) => state.user !== null && PLAN_LIMITS[state.user.plan].crossChatMemory && state.user.crossChatMemoryEnabled);
   const context = useAccountPanel(status, screen.finishedTurns);
   const contextOpen = useShell((state) => state.contextOpen);
   const setContext = useShell((state) => state.setContext);
@@ -150,19 +152,14 @@ function HeaderMenu({ chat }: { chat: ChatSummary }) {
 
 function RenameDialog({ chat, open, onClose, onError }: { chat: ChatSummary; open: boolean; onClose: () => void; onError: (value: string | null) => void }) {
   const [title, setTitle] = useState(chat.title ?? '');
+  const submit = useFormSubmit(() => renameChat(chat, title, onError).finally(onClose));
   useEffect(() => {
     if (open) setTitle(chat.title ?? '');
   }, [open, chat.title]);
   return (
     <Dialog open={open} onClose={onClose} title="Rename chat">
-      <form
-        className="mt-3 space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void renameChat(chat, title, onError).finally(onClose);
-        }}
-      >
-        <TextField label="Name" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} />
+      <form className="mt-3 space-y-4" onSubmit={submit}>
+        <TextField label="Name" autoFocus value={title} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setTitle(event.target.value)} />
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button type="submit">Save</Button>

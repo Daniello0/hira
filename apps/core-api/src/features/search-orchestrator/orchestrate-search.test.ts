@@ -1,4 +1,4 @@
-import { IntentType, type GenerateRequest, type RetrievalRequest, type UnderstandRequest, type UnderstandResponse } from '@hira/contracts';
+import { IntentType, withAttachments, type GenerateRequest, type RetrievalRequest, type UnderstandRequest, type UnderstandResponse } from '@hira/contracts';
 import { describe, expect, it } from 'vitest';
 import { SSE_EVENT } from '../chat/chat.constants';
 import { QuotaDeniedError, SearchUpstreamError } from '../chat/chat.errors';
@@ -56,6 +56,17 @@ describe('search turn', () => {
     const generated = rig.llm.generateCalls[1] as GenerateRequest;
     expect(generated.history.map((turn) => turn.content)).toEqual(['remote python', 'Hi', 'only minsk']);
     expect(rig.chat.title).toBe('remote python');
+  });
+
+  it('shows understand only the start of a file, in this message and in the ones before it', async () => {
+    const rig = await createRig();
+    const file = { name: 'cv.txt', text: `Опыт работы ${'я'.repeat(5_000)}` };
+    await postChatMessage(rig.deps, message(rig.chat, withAttachments('Find jobs for this resume', [file])), new MemorySink());
+    await postChatMessage(rig.deps, message(rig.chat, 'only remote'), new MemorySink());
+    expect(rig.llm.understandCalls[0]?.query.length).toBeLessThan(1_000);
+    expect(rig.llm.understandCalls[1]?.history[0]?.content.length).toBeLessThan(1_000);
+    // The answer still reads the whole file.
+    expect((rig.llm.generateCalls[1] as GenerateRequest).history[0]?.content).toContain(file.text);
   });
 
   it('searches with a heuristic intent when understanding fails', async () => {

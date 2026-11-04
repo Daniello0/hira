@@ -68,6 +68,7 @@ export const SUGGESTION_NOT_FOUND_MESSAGE = 'Suggestion was not found';
 export const SUGGESTION_CLOSED_MESSAGE = 'Suggestion is no longer pending';
 
 export const PDF_TEXT_EMPTY_MESSAGE = 'The PDF did not contain text';
+export const PDF_UNREADABLE_MESSAGE = 'The PDF could not be read. It may be damaged or password-protected';
 export const PDF_TOO_LARGE_MESSAGE = 'The PDF is too large';
 export const PDF_CONTENT_LOCKED_MESSAGE = 'PDF text cannot be edited';
 export const RESUME_TEXT_MESSAGE = 'A resume must be uploaded as a PDF file';

@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { IconButton, IconLink } from '../../common/components/icon-button';
 import { buttonClass } from '../../common/components/button';
 import { useSession } from '../auth/session.store';
+import { SessionStatus } from '../auth/session-status';
 import { useShell } from './shell.store';
 
 /** Top bar of a page. On a phone it also opens the sidebar and starts a new chat. */
@@ -26,9 +27,11 @@ export function AppHeader({ children }: { children?: ReactNode }) {
 /** The accent pill leading to the plans. */
 export function UpgradeLink() {
   const top = useSession((state) => state.user?.plan === UserPlan.Max);
+  // Until the session is known the plan is too: the pill keeps its place unseen instead of flashing for Max.
+  const pending = useSession((state) => state.status === SessionStatus.Unknown);
   if (top) return null;
   return (
-    <Link href="/settings/billing" className={buttonClass('accent-soft')}>
+    <Link href="/settings/billing" aria-hidden={pending} tabIndex={pending ? -1 : undefined} className={`${buttonClass('accent-soft')} ${pending ? 'invisible' : ''}`}>
       <Sparkles className="size-icon-sm" aria-hidden="true" /> Upgrade
     </Link>
   );

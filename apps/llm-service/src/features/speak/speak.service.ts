@@ -1,13 +1,6 @@
 import { z } from 'zod';
-import {
-  LLM_UPSTREAM_STATUS,
-  LLM_UPSTREAM_UNAVAILABLE_CODE,
-  LLM_UPSTREAM_UNAVAILABLE_MESSAGE,
-  OPENROUTER_SPEECH_PATH,
-  SPEAK_TIMEOUT_MS,
-  SPEECH_MODEL,
-} from '../llm/llm.constants';
-import { LlmRouteError } from '../llm/llm.errors';
+import { OPENROUTER_SPEECH_PATH, SPEAK_TIMEOUT_MS, SPEECH_MODEL } from '../llm/llm.constants';
+import { reachable, upstreamError } from './voice-upstream';
 
 const speakSchema = z.object({ text: z.string().min(1), voice: z.string().min(1) });
 
@@ -32,16 +25,4 @@ export function createSpeaker(config: { apiKey: string; baseUrl: string }, reque
     if (!response.ok) throw upstreamError();
     return Buffer.from(await response.arrayBuffer());
   };
-}
-
-async function reachable(call: () => Promise<Response>): Promise<Response> {
-  try {
-    return await call();
-  } catch {
-    throw upstreamError();
-  }
-}
-
-function upstreamError(): LlmRouteError {
-  return new LlmRouteError(LLM_UPSTREAM_STATUS, LLM_UPSTREAM_UNAVAILABLE_CODE, LLM_UPSTREAM_UNAVAILABLE_MESSAGE);
 }

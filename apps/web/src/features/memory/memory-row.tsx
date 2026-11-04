@@ -14,8 +14,16 @@ import { MemorySourceLink } from './memory-source-link';
 export function MemoryRow({ fact, onChange }: { fact: MemoryFactDto; onChange: () => Promise<void> }) {
   const [draft, setDraft] = useState(fact.content);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const { leaving, leave } = useLeaving();
   useEffect(() => setDraft(fact.content), [fact.content]);
+  // One request at a time: a second Forget would fail on a row that is already leaving.
+  const run = (action: () => Promise<boolean | void>) => {
+    setBusy(true);
+    void action().then((gone) => {
+      if (gone !== true) setBusy(false);
+    });
+  };
   return (
     <li data-leaving={leaving} className="motion-row motion-enter space-y-3 rounded-card border border-line p-4">
       <MutedText>{memoryKindLabel(fact.kind)} · {confidenceLabel(fact.confidence)} · {new Date(fact.createdAt).toLocaleDateString('en')}</MutedText>
@@ -23,9 +31,9 @@ export function MemoryRow({ fact, onChange }: { fact: MemoryFactDto; onChange: (
       <p className="text-xs text-ink-tertiary"><MemorySourceLink fact={fact} /></p>
       {error !== null ? <AlertText>{error}</AlertText> : null}
       <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" size="sm" onClick={() => void save(fact.id, draft, setError, onChange)}>Save</Button>
-        <Button variant="secondary" size="sm" onClick={() => void pin(fact, setError, onChange)}>{fact.isPinned ? 'Unpin' : 'Pin'}</Button>
-        <Button variant="danger" size="sm" onClick={() => void forget(fact.id, setError, leave, onChange)}>Forget</Button>
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => run(() => save(fact.id, draft, setError, onChange))}>Save</Button>
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => run(() => pin(fact, setError, onChange))}>{fact.isPinned ? 'Unpin' : 'Pin'}</Button>
+        <Button variant="danger" size="sm" disabled={busy} onClick={() => run(() => forget(fact.id, setError, leave, onChange))}>Forget</Button>
       </div>
     </li>
   );
@@ -47,8 +55,10 @@ async function pin(fact: MemoryFactDto, setError: (value: string | null) => void
   if (updated !== null) await onChange();
 }
 
-async function forget(id: string, setError: (value: string | null) => void, leave: (remove: () => void) => void, onChange: () => Promise<void>): Promise<void> {
+/** True when the fact is gone and its row is leaving. */
+async function forget(id: string, setError: (value: string | null) => void, leave: (remove: () => void) => void, onChange: () => Promise<void>): Promise<boolean> {
   const ok = await forgetMemory(id).catch(() => false);
   setError(ok ? null : 'Could not forget the fact');
   if (ok) leave(() => void onChange());
+  return ok;
 }

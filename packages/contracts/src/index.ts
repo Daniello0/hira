@@ -38,6 +38,16 @@ export {
 } from './common/dto/error/api-error-response.dto';
 export { type CreateMessageRequest } from './common/dto/chat/create-message-request.dto';
 export {
+  ATTACHMENT_NAME_MAX_CHARS,
+  ATTACHMENT_TEXT_MAX_CHARS,
+  MAX_MESSAGE_ATTACHMENTS,
+  splitAttachments,
+  withAttachmentHeads,
+  withAttachments,
+  type MessageAttachment,
+  type ReadAttachmentDto,
+} from './common/attachments/message-attachments';
+export {
   type ChatDetail,
   type ChatMessageView,
   type ChatPage,

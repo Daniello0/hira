@@ -28,7 +28,7 @@ export function DocumentDraftCard({ draft }: { draft: DocumentDraftDto }) {
   return (
     <section className="motion-enter mt-3 space-y-3 rounded-card border border-line bg-surface-card p-4" aria-label="Draft from Hira">
       <p className="text-sm font-medium">Draft from Hira</p>
-      {phase.kind === 'saved' ? <SavedNote replaced={phase.replaced} /> : <DraftFields edits={edits} onChange={setEdits} />}
+      {phase.kind === 'saved' ? <SavedNote replaced={phase.replaced} /> : <DraftFields edits={edits} onChange={setEdits} onEnter={() => { if (account && phase.kind === 'editing') run(false); }} />}
       <Preview draft={draft} format={edits.format} />
       {error !== null ? <AlertText>{error}</AlertText> : null}
       {phase.kind === 'saved' ? null : (
@@ -38,10 +38,21 @@ export function DocumentDraftCard({ draft }: { draft: DocumentDraftDto }) {
   );
 }
 
-function DraftFields({ edits, onChange }: { edits: DraftEdits; onChange: (next: DraftEdits) => void }) {
+/** Enter in the title saves the draft as a new file, the card's first action. */
+function DraftFields({ edits, onChange, onEnter }: { edits: DraftEdits; onChange: (next: DraftEdits) => void; onEnter: () => void }) {
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <TextField className="min-w-0 flex-1 basis-full md:basis-0" label="Title" value={edits.title} onChange={(event) => onChange({ ...edits, title: event.target.value })} />
+      <TextField
+        className="min-w-0 flex-1 basis-full md:basis-0"
+        label="Title"
+        value={edits.title}
+        onChange={(event) => onChange({ ...edits, title: event.target.value })}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+          event.preventDefault();
+          onEnter();
+        }}
+      />
       <Select label="Format" value={edits.format} options={[{ value: DocumentFormat.Md, label: 'Markdown' }, { value: DocumentFormat.Txt, label: 'Text' }]} onChange={(value) => onChange({ ...edits, format: value as DocumentFormat })} />
       <Select label="Kind" value={edits.kind} options={TEXT_KINDS.map((kind) => ({ value: kind, label: documentKindLabel(kind) }))} onChange={(value) => onChange({ ...edits, kind: value as DocumentKind })} />
     </div>

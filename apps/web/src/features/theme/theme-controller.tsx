@@ -2,14 +2,22 @@
 
 import { useEffect } from 'react';
 import { THEME_SURFACE } from '../../styles/theme-colors';
-import { SYSTEM_DARK_QUERY, resolveTheme } from './theme-mode';
+import { SYSTEM_DARK_QUERY, THEME_STORAGE_KEY, resolveTheme } from './theme-mode';
 import { useTheme } from './theme.store';
 
 /** Applies the chosen theme to the page and browser chrome, and follows the device in System mode. */
 export function ThemeController() {
   const mode = useTheme((state) => state.mode);
   const load = useTheme((state) => state.load);
-  useEffect(() => load(), [load]);
+  useEffect(() => {
+    load();
+    // A choice made in another tab arrives as a storage event; this tab follows it without a reload.
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === THEME_STORAGE_KEY) load();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [load]);
   useEffect(() => {
     const device = window.matchMedia(SYSTEM_DARK_QUERY);
     const apply = () => applyTheme(resolveTheme(mode, device.matches));

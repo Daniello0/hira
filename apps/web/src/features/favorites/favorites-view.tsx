@@ -21,6 +21,8 @@ type OnError = (value: string | null) => void;
 interface FavoritesData {
   favorites: FavoriteDto[];
   collections: CollectionDto[];
+  /** The note search these favorites answer, which can differ from unsent text in the field. */
+  note: string;
 }
 
 /** Saved vacancies, grouped, with a note search. */
@@ -36,14 +38,15 @@ export function FavoritesView() {
     const [saved, groups] = await Promise.all([fetchFavorites(note).catch(() => null), fetchCollections().catch(() => null)]);
     if (saved === null || groups === null) return setError(FAVORITES_LOAD_ERROR_MESSAGE);
     setError(null);
-    setData({ favorites: saved, collections: groups });
+    setData({ favorites: saved, collections: groups, note: note ?? '' });
     if (note === undefined || note.trim().length === 0) useSavedVacancies.getState().setAll(saved);
   }, []);
   useEffect(() => {
     if (token !== null) void reload(applied.current);
   }, [token, reload, version]);
   if (token === null) return null;
-  const onDone = () => reload(query);
+  // A move, a note, or a removal keeps the search that is on screen, not text typed since without pressing Search.
+  const onDone = () => reload(applied.current);
   return (
     <PageColumn>
       <PageHeading title="Favorites" />
@@ -55,14 +58,14 @@ export function FavoritesView() {
         <NewCollection onDone={onDone} onError={setError} />
       </div>
       {error !== null ? <AlertText>{error}</AlertText> : null}
-      <FavoriteGroups data={data} failed={error !== null} query={query} onDone={onDone} onError={setError} />
+      <FavoriteGroups data={data} failed={error !== null} onDone={onDone} onError={setError} />
     </PageColumn>
   );
 }
 
-function FavoriteGroups({ data, failed, query, onDone, onError }: { data: FavoritesData | null; failed: boolean; query: string; onDone: () => Promise<void>; onError: OnError }) {
+function FavoriteGroups({ data, failed, onDone, onError }: { data: FavoritesData | null; failed: boolean; onDone: () => Promise<void>; onError: OnError }) {
   if (data === null) return failed ? null : <SkeletonList />;
-  const emptyMessage = favoritesEmptyMessage(query, data.favorites.length);
+  const emptyMessage = favoritesEmptyMessage(data.note, data.favorites.length);
   return (
     <>
       {emptyMessage !== null ? <MutedText>{emptyMessage}</MutedText> : null}

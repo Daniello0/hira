@@ -3,8 +3,15 @@ import { VoiceLanguage } from '@hira/contracts';
 export const SPEECH_GATEWAY = Symbol('SPEECH_GATEWAY');
 export const DEFAULT_SPEECH_URL = 'http://127.0.0.1:8000';
 
-/** Fast enough on a CPU for a phrase in about three seconds; it tells the five languages apart. */
+/** The local ear, for when the cloud one fails: a phrase in three seconds or more on this CPU (ADR-047, ADR-051). */
 export const TRANSCRIBE_MODEL = 'Systran/faster-whisper-base';
+/** A little over llm-service's own limit for the cloud ear, so its answer arrives first. */
+export const CLOUD_HEAR_TIMEOUT_MS = 6_000;
+/**
+ * After a failed cloud read the local model hears alone this long, as the reranker rests (ADR-053): a hung cloud
+ * cost each phrase its timeout twice, once for the read at the pause and once for the whole phrase.
+ */
+export const CLOUD_EAR_REST_MS = 60_000;
 
 /** Hira's voice: one person across all five languages (MAI-Voice-2.1-Flash through OpenRouter, ADR-050). */
 export const CLOUD_VOICES: Readonly<Record<VoiceLanguage, string>> = {

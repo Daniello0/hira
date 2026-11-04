@@ -66,12 +66,15 @@ function LiveCall() {
   const [voiceDown, setVoiceDown] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [language, setLanguage] = useState<LanguageChoice>('auto');
+  const [starting, setStarting] = useState(false);
   const live = useLiveCall(state, setState, language, setMicDenied, setVoiceDown);
   const onStart = () => {
     setStartError(null);
     setMicDenied(false);
     setVoiceDown(false);
-    void live.start(router, setStartError);
+    // Opening a call refreshes the token and asks the server first: the button says so instead of looking dead.
+    setStarting(true);
+    void live.start(router, setStartError).finally(() => setStarting(false));
   };
   return (
     <AppPage actions={<LanguageSelect value={language} onChange={setLanguage} />}>
@@ -82,7 +85,7 @@ function LiveCall() {
         {micDenied && state.phase !== CallPhase.Idle ? <AlertText className="text-center">{window.isSecureContext ? MIC_DENIED_MESSAGE : MIC_NEEDS_HTTPS_MESSAGE}</AlertText> : null}
         {voiceDown && state.phase !== CallPhase.Idle ? <AlertText className="text-center">{VOICE_DOWN_MESSAGE}</AlertText> : null}
         {state.notice !== null ? <AlertText className="text-center">{state.notice}</AlertText> : null}
-        <CaptionList captions={state.captions} />
+        <CaptionList captions={state.captions} hearing={state.hearing} />
         {state.draft !== null ? <DocumentDraftCard key={`${state.draft.title}-${state.draft.content.length}`} draft={state.draft} /> : null}
         <div className="space-y-3">
           {state.cards.map((card) => (
@@ -97,14 +100,19 @@ function LiveCall() {
         </div>
         <CallActions
           phase={state.phase}
+          starting={starting}
           typeInstead={showTypeInstead(!micDenied && !voiceDown)}
           typed={typed}
           onTyped={setTyped}
           onStart={onStart}
           onEnd={live.end}
           onType={() => {
-            void live.sayTyped(typed);
+            const text = typed;
             setTyped('');
+            // A phrase that did not reach Hira goes back to the field, unless the user has started a new one.
+            void live.sayTyped(text).then((sent) => {
+              if (!sent) setTyped((current) => (current === '' ? text : current));
+            });
           }}
         />
       </section>
@@ -202,7 +210,8 @@ function useLiveCall(
     },
     sayTyped: (text: string) => {
       const trimmed = text.trim();
-      if (trimmed.length === 0 || voice.current === null) return Promise.resolve();
+      if (trimmed.length === 0) return Promise.resolve(true);
+      if (voice.current === null) return Promise.resolve(false);
       return voice.current.sayTyped(trimmed);
     },
   };
@@ -229,6 +238,7 @@ async function openCall(): Promise<OpenCall> {
 
 function CallActions(props: {
   phase: CallPhase;
+  starting: boolean;
   typeInstead: boolean;
   typed: string;
   onTyped: (value: string) => void;
@@ -239,7 +249,7 @@ function CallActions(props: {
   if (props.phase === CallPhase.Idle) {
     return (
       <div className="mt-auto flex justify-center">
-        <Button onClick={props.onStart}><Phone className="size-icon-sm" aria-hidden="true" /> Start</Button>
+        <Button disabled={props.starting} onClick={props.onStart}><Phone className="size-icon-sm" aria-hidden="true" /> {props.starting ? 'Starting…' : 'Start'}</Button>
       </div>
     );
   }

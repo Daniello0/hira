@@ -12,23 +12,23 @@ interface ConfirmDialogProps {
   onClose: () => void;
 }
 
-/** Asks before a destructive action. */
+/** Asks before a destructive action. Enter confirms, Escape cancels. */
 export function ConfirmDialog({ open, title, body, confirmLabel, onConfirm, onClose }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onClose={onClose} title={title}>
-      <p className="mt-2 text-sm text-ink-secondary">{body}</p>
-      <div className="mt-5 flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button
-          variant="danger"
-          onClick={() => {
-            onClose();
-            onConfirm();
-          }}
-        >
-          {confirmLabel}
-        </Button>
-      </div>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onClose();
+          onConfirm();
+        }}
+      >
+        <p className="mt-2 text-sm text-ink-secondary">{body}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="danger">{confirmLabel}</Button>
+        </div>
+      </form>
     </Dialog>
   );
 }

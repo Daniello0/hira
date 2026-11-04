@@ -8,6 +8,8 @@ export const VALIDATION_ERROR_MESSAGE = 'Request validation failed';
 export const RATE_LIMIT_ERROR_CODE = 'RATE_LIMIT_EXCEEDED';
 export const AUTH_UNAUTHORIZED = 'AUTH_UNAUTHORIZED';
 export const SERVICE_NAME = 'core-api';
+/** A message carries up to three read files of 20 000 characters: in Cyrillic that passes the parser's default 100 KB. */
+export const JSON_BODY_LIMIT = '1mb';
 
 export const ENV = {
   port: 'PORT',

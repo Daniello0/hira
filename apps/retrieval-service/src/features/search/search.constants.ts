@@ -47,8 +47,17 @@ export const GRAPH_MAX_HOP = 2;
 /** Weight of a skill named by the query. */
 export const SEED_WEIGHT = 1;
 
-/** CPU rerank of the top 20 is a few seconds; a short timeout would treat that as failure. */
-export const RERANK_TIMEOUT_MS = 120_000;
+/**
+ * The search waits this long for the reranker, then shows the fused order. On this CPU TEI took over
+ * 150 s for the top 20 (2026-11-04), and a 120 s wait held every chat search for two minutes.
+ */
+export const RERANK_TIMEOUT_MS = 8_000;
+
+/** After a slow or failed rerank the reranker is left alone this long: its queue would only grow. */
+export const RERANK_REST_MS = 60_000;
+
+/** Each vacancy goes to the cross-encoder cut to about 512 tokens, the length it was trained on. */
+export const RERANK_PASSAGE_CHARS = 2_000;
 
 /** TEI `--max-batch-tokens` of the Compose reranker. */
 export const RERANK_TOKEN_ARENA = 8192;

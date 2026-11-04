@@ -16,7 +16,8 @@ export function CopyAction({ text }: { text: string }) {
     if (timer.current !== null) clearTimeout(timer.current);
   }, []);
   const copy = () => {
-    void navigator.clipboard?.writeText(text).then(() => {
+    void writeClipboard(text).then((ok) => {
+      if (!ok) return;
       setCopied(true);
       timer.current = setTimeout(() => setCopied(false), COPIED_MS);
     });
@@ -26,6 +27,31 @@ export function CopyAction({ text }: { text: string }) {
       {copied ? <Check aria-hidden="true" className="size-icon-md motion-fade" /> : <Copy className="size-icon-md" aria-hidden="true" />}
     </IconButton>
   );
+}
+
+/**
+ * The clipboard API exists only on https and localhost, and a browser may refuse it even there, as an embedded one
+ * does. Opened by the LAN address over http, or refused, Copy did nothing; the older copy command still works.
+ */
+async function writeClipboard(text: string): Promise<boolean> {
+  const written = navigator.clipboard === undefined ? false : await navigator.clipboard.writeText(text).then(() => true, () => false);
+  return written || copyWithCommand(text);
+}
+
+/** Copies through a hidden field, then gives the focus back to the Copy button. */
+function copyWithCommand(text: string): boolean {
+  const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.setAttribute('readonly', '');
+  field.className = 'sr-only';
+  document.body.append(field);
+  field.focus({ preventScroll: true });
+  field.select();
+  const ok = document.execCommand('copy');
+  field.remove();
+  before?.focus({ preventScroll: true });
+  return ok;
 }
 
 /** Reads the answer aloud with the browser voice; pressing again stops it. */

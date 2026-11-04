@@ -16,6 +16,7 @@ import {
   CHAT_NOT_FOUND,
   SEARCH_UPSTREAM_UNAVAILABLE,
   SSE_EVENT,
+  SSE_KEEP_ALIVE_MS,
 } from './chat.constants';
 import {
   ArchivedChatError,
@@ -44,12 +45,25 @@ export function writeSse(response: Response, event: string, data: unknown): void
 /** SSE sink over the response. Writes after the client left are dropped. */
 export function responseSink(response: Response): { open(): void; write(event: string, data: unknown): void } {
   return {
-    open: () => openSse(response),
+    open: () => {
+      openSse(response);
+      keepAlive(response);
+    },
     write: (event, data) => {
       if (response.destroyed || response.writableEnded) return;
       writeSse(response, event, data);
     },
   };
+}
+
+/** A comment line, which readers skip, until the response ends: a long search must not look like a dead stream. */
+function keepAlive(response: Response): void {
+  const timer = setInterval(() => {
+    if (response.destroyed || response.writableEnded) clearInterval(timer);
+    else response.write(': keep-alive\n\n');
+  }, SSE_KEEP_ALIVE_MS);
+  timer.unref();
+  response.on('close', () => clearInterval(timer));
 }
 
 /** Aborts when the client closes the connection before the stream finished. */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { PLAN_LIMITS, type CurrentUserDto, type MemoryFactDto } from '@hira/contracts';
 import { Button } from '../../common/components/button';
 import { RowCard, SettingsRow } from '../../common/components/card';
@@ -26,11 +26,14 @@ export function MemoryView() {
   const [facts, setFacts] = useState<MemoryFactDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const switching = useRef(false);
   const version = useDataVersion('memory');
   const reload = useCallback(async () => {
     const next = await fetchMemory().catch(() => null);
-    if (next === null) setError('Could not load memory');
-    else setFacts(next);
+    if (next === null) return setError('Could not load memory');
+    // A good read clears the old failure, which otherwise stayed above a working list.
+    setError(null);
+    setFacts(next);
   }, []);
   useEffect(() => {
     if (token !== null) void reload();
@@ -43,7 +46,19 @@ export function MemoryView() {
       <PageHeading title="Memory" />
       <RowCard>
         <SettingsRow label="Cross-chat memory" description={memoryCopy(allowed, enabled)}>
-          <Switch label="Cross-chat memory" checked={enabled} disabled={!allowed} onChange={() => void toggle(!enabled, user, setError)} />
+          <Switch
+            label="Cross-chat memory"
+            checked={enabled}
+            disabled={!allowed}
+            onChange={() => {
+              // A second click while the first is on its way would send a second PATCH.
+              if (switching.current) return;
+              switching.current = true;
+              void toggle(!enabled, user, setError).finally(() => {
+                switching.current = false;
+              });
+            }}
+          />
         </SettingsRow>
       </RowCard>
       {error !== null ? <AlertText>{error}</AlertText> : null}

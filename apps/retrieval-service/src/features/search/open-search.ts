@@ -9,6 +9,7 @@ import { searchBm25 } from '../lexical/bm25-search';
 import { loadPersonalContext } from '../personalize/load-profile';
 import { rerankTexts, type RerankPost } from '../rerank/rerank-client';
 import { loadVacancies } from './load-vacancy';
+import { RERANK_PASSAGE_CHARS, RERANK_REST_MS } from './search.constants';
 import type { BranchSearch } from './run-branches';
 import type { SearchPorts } from './run-search';
 import { withClient } from './with-client';
@@ -69,13 +70,22 @@ async function embedLiveTexts(baseUrl: string, texts: readonly string[]): Promis
   return embedTexts(livePost(), baseUrl, texts);
 }
 
+/** Until this moment a failed reranker rests and searches keep the fused order at once. */
+let rerankRestsUntil = 0;
+
 async function rerankLive(
   baseUrl: string,
   query: string,
   documents: readonly string[],
 ): Promise<number[]> {
   if (baseUrl.length === 0) throw new Error('TEI_RERANK_URL is not set');
-  return rerankTexts(liveRerankPost(), baseUrl, query, documents);
+  if (Date.now() < rerankRestsUntil) throw new Error('the reranker rests after a failure');
+  try {
+    return await rerankTexts(liveRerankPost(), baseUrl, query, documents.map((text) => text.slice(0, RERANK_PASSAGE_CHARS)));
+  } catch (error) {
+    rerankRestsUntil = Date.now() + RERANK_REST_MS;
+    throw error;
+  }
 }
 
 function livePost(): EmbedPost {

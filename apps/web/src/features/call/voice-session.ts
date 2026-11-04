@@ -3,19 +3,23 @@ import type { StreamResult } from '../chat/chat-stream';
 import type { ParsedSse } from '../chat/sse-parser';
 import { fallbackVoice, languageAfterHeard, languageAfterTyped, languageToRetry, type LanguageChoice } from './call-language';
 import { CallPhase } from './call-phase';
-import { beginListening, beginSpeaking, beginThinking, cutReply, onFinalTranscript, reduceCallEvent, type CallViewState } from './reduce-call';
+import { beginListening, beginSpeaking, beginThinking, cutReply, onFinalTranscript, onHearing, reduceCallEvent, type CallViewState } from './reduce-call';
 import { speakableText, takeSentences } from './sentence-queue';
 
 /** What the microphone tells the call. `onPhrase` gets a finished phrase as WAV. */
 export interface MicHandlers {
   onSpeechStart: () => void;
-  onPhrase: (audio: Blob) => Promise<void>;
+  /** The phrase so far while it is said; `paused` when a pause may end it. */
+  onDraft: (audio: Blob, paused: boolean) => void;
+  /** `covered` when the read at the phrase's last pause already heard all of it. */
+  onPhrase: (audio: Blob, covered?: boolean) => Promise<void>;
 }
 
 export interface VoiceDeps {
   startMic: (handlers: MicHandlers) => Promise<{ stop: () => void }>;
   player: { play: (bytes: ArrayBuffer) => Promise<void>; stop: () => void; playedFraction: () => number };
-  transcribe: (audio: Blob, language: VoiceLanguage | null) => Promise<TranscriptDto>;
+  /** `draft` reads ahead of the phrase's end: the server then never falls back to the slow local model. */
+  transcribe: (audio: Blob, language: VoiceLanguage | null, draft?: boolean) => Promise<TranscriptDto>;
   synthesize: (text: string, language: VoiceLanguage, signal: AbortSignal) => Promise<ArrayBuffer>;
   streamTurn: (text: string, language: VoiceLanguage | null, interruptedAt: string | null, signal: AbortSignal, onEvent: (event: ParsedSse) => void) => Promise<StreamResult>;
   commit: (update: (current: CallViewState) => CallViewState) => CallViewState;
@@ -46,6 +50,12 @@ export class VoiceSession {
   private line: SpeechLine | null = null;
   /** What the user heard of the reply they cut off. Goes out with the next turn. */
   private interruptedAt: string | null = null;
+  /** Phrases finished so far. A draft read for an earlier phrase is late and is dropped. */
+  private phrases = 0;
+  /** The phrase whose draft read is on its way. The next draft of it waits. */
+  private drafting: number | null = null;
+  /** The read made at the last pause of the phrase being said. */
+  private pauseRead: Promise<TranscriptDto> | null = null;
 
   constructor(private readonly deps: VoiceDeps) {}
 
@@ -53,7 +63,11 @@ export class VoiceSession {
   async open(): Promise<void> {
     this.deps.commit(beginListening);
     try {
-      const mic = await this.deps.startMic({ onSpeechStart: () => this.onSpeechStart(), onPhrase: (audio) => this.onPhrase(audio) });
+      const mic = await this.deps.startMic({
+        onSpeechStart: () => this.onSpeechStart(),
+        onDraft: (audio, paused) => this.onDraft(audio, paused),
+        onPhrase: (audio, covered) => this.onPhrase(audio, covered),
+      });
       if (this.closed) mic.stop();
       else this.mic = mic;
     } catch {
@@ -69,11 +83,11 @@ export class VoiceSession {
     this.mic = null;
   }
 
-  /** A typed phrase, for a browser without a microphone or a service that is down. */
-  async sayTyped(text: string): Promise<void> {
+  /** A typed phrase, for a browser without a microphone or a service that is down. False when it did not reach Hira. */
+  async sayTyped(text: string): Promise<boolean> {
     const generation = this.nextWork();
     const choice = this.deps.choice();
-    await this.runTurn(text, languageAfterTyped(choice, this.language, text), choice === 'auto' ? null : choice, generation);
+    return this.runTurn(text, languageAfterTyped(choice, this.language, text), choice === 'auto' ? null : choice, generation);
   }
 
   private onSpeechStart(): void {
@@ -84,14 +98,36 @@ export class VoiceSession {
     this.deps.commit(beginListening);
   }
 
-  private async onPhrase(audio: Blob): Promise<void> {
+  /** The words of a phrase still being said go on screen. A read at a pause is kept for the phrase's end. */
+  private onDraft(audio: Blob, paused: boolean): void {
+    const phrase = this.phrases;
+    if (this.closed || (!paused && this.drafting === phrase)) return;
+    const choice = this.deps.choice();
+    const read = this.deps.transcribe(audio, choice === 'auto' ? null : choice, true);
+    if (paused) this.pauseRead = read;
+    this.drafting = phrase;
+    read
+      .then((heard) => {
+        if (!this.closed && phrase === this.phrases && heard.text.length > 0) this.deps.commit((current) => onHearing(current, heardId(phrase), heard.text));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (this.drafting === phrase) this.drafting = null;
+      });
+  }
+
+  private async onPhrase(audio: Blob, covered = false): Promise<void> {
     if (this.closed) return;
+    const ahead = covered ? this.pauseRead : null;
+    const captionId = heardId(this.phrases);
+    this.phrases += 1;
+    this.pauseRead = null;
     const generation = this.nextWork();
     this.deps.commit(beginThinking);
     const choice = this.deps.choice();
     let heard: TranscriptDto;
     try {
-      heard = await this.hear(audio, choice);
+      heard = await this.hear(audio, choice, ahead);
     } catch {
       if (this.current(generation)) {
         this.deps.onVoiceTrouble();
@@ -110,22 +146,27 @@ export class VoiceSession {
       return;
     }
     const language = languageAfterHeard(choice, this.language, { language: heard.language, text });
-    await this.runTurn(text, language, language, generation);
+    await this.runTurn(text, language, language, generation, captionId);
   }
 
-  /** On Auto a language Hira cannot speak means a misheard phrase: it is read once more in the likely one. */
-  private async hear(audio: Blob, choice: LanguageChoice): Promise<TranscriptDto> {
-    if (choice !== 'auto') return this.deps.transcribe(audio, choice);
-    const first = await this.deps.transcribe(audio, null);
+  /**
+   * On Auto a language Hira cannot speak means a misheard phrase: it is read once more in the likely one.
+   * `ahead` is the read made at the pause that ended the phrase; the phrase is read again only when it failed.
+   */
+  private async hear(audio: Blob, choice: LanguageChoice, ahead: Promise<TranscriptDto> | null): Promise<TranscriptDto> {
+    const early = ahead === null ? null : await ahead.catch(() => null);
+    if (choice !== 'auto') return early ?? this.deps.transcribe(audio, choice);
+    const first = early ?? (await this.deps.transcribe(audio, null));
     const retry = languageToRetry(first.language, this.language, this.deps.browserLanguage());
     if (retry === null) return first;
     return this.deps.transcribe(audio, retry).catch(() => first);
   }
 
   /** `replyIn` is what Hira is asked to answer in: a spoken phrase keeps the reply and the voice together. */
-  private async runTurn(text: string, language: VoiceLanguage | null, replyIn: VoiceLanguage | null, generation: number): Promise<void> {
+  /** False when the turn did not open, so a typed phrase can go back to its field. */
+  private async runTurn(text: string, language: VoiceLanguage | null, replyIn: VoiceLanguage | null, generation: number, captionId = `phrase-${generation}`): Promise<boolean> {
     this.language = language;
-    this.deps.commit((current) => onFinalTranscript(current, `phrase-${generation}`, text));
+    this.deps.commit((current) => onFinalTranscript(current, captionId, text));
     const signal = this.abort?.signal as AbortSignal;
     const speech = this.speechLine(generation, signal);
     this.line = speech;
@@ -136,18 +177,19 @@ export class VoiceSession {
       this.deps.commit((current) => reduceCallEvent(current, event));
       if (event.event === 'token') speech.add(tokenText(event));
     });
-    if (!this.current(generation)) return;
+    if (!this.current(generation)) return true;
     if (!result.opened) {
       this.interruptedAt = interruptedAt;
       this.line = null;
       speech.finish().catch(() => undefined);
       this.deps.commit((current) => ({ ...beginListening(current), notice: result.error?.message ?? TURN_FAILED }));
-      return;
+      return false;
     }
     await speech.finish();
-    if (!this.current(generation)) return;
+    if (!this.current(generation)) return true;
     this.line = null;
     this.deps.commit(beginListening);
+    return true;
   }
 
   private speechLine(generation: number, signal: AbortSignal): SpeechLine {
@@ -224,7 +266,7 @@ class SpeechLine {
 
   add(text: string): void {
     if (text.length > 0) this.wrote = true;
-    const { sentences, rest } = takeSentences(this.buffer + text);
+    const { sentences, rest } = takeSentences(this.buffer + text, this.pieces.length === 0);
     this.buffer = rest;
     for (const sentence of sentences) this.queue(sentence);
   }
@@ -297,6 +339,11 @@ export function cutAtWord(text: string, fraction: number): string {
   const end = Math.floor(text.length * Math.max(0, fraction));
   const space = text.lastIndexOf(' ', end);
   return space <= 0 ? '' : text.slice(0, space);
+}
+
+/** The caption of a spoken phrase. Its draft words and its final text share it, so the line is not drawn twice. */
+function heardId(phrase: number): string {
+  return `heard-${phrase}`;
 }
 
 function joined(first: string, second: string): string {

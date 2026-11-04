@@ -29,13 +29,17 @@ export async function fetchProfileSkills(): Promise<ProfileSkillDto[] | null> {
 /** Adds a catalog skill the user picked. */
 export async function addProfileSkill(body: CreateProfileSkillRequest): Promise<string | null> {
   const response = await authedFetch('/api/v1/profile/skills', jsonRequest('POST', body));
-  if (response.ok) return null;
+  if (response.ok) {
+    notifyOtherTabs('profile');
+    return null;
+  }
   return readApiMessage(response, 'Could not add the skill');
 }
 
 /** Removes one profile skill. */
 export async function removeProfileSkill(skillId: number): Promise<boolean> {
   const response = await authedFetch(`/api/v1/profile/skills/${skillId}`, { method: 'DELETE' });
+  if (response.ok) notifyOtherTabs('profile');
   return response.ok;
 }
 

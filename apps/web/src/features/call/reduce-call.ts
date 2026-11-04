@@ -21,16 +21,18 @@ export interface CallViewState {
   draft: DocumentDraftDto | null;
   /** Error text from the last turn, shown until the next phrase. */
   notice: string | null;
+  /** Words of the phrase the user is still saying. The final text takes its place under the same id. */
+  hearing: Caption | null;
 }
 
 /** Call screen before Start. */
 export function emptyCall(): CallViewState {
-  return { phase: CallPhase.Idle, captions: [], cards: [], searching: false, draft: null, notice: null };
+  return { phase: CallPhase.Idle, captions: [], cards: [], searching: false, draft: null, notice: null, hearing: null };
 }
 
 /** Microphone is open. */
 export function beginListening(state: CallViewState): CallViewState {
-  return { ...state, phase: CallPhase.Listening, searching: false };
+  return { ...state, phase: CallPhase.Listening, searching: false, hearing: null };
 }
 
 /** A phrase is being read, or the reply is on its way. */
@@ -43,6 +45,11 @@ export function beginSpeaking(state: CallViewState): CallViewState {
   return { ...state, phase: CallPhase.Speaking, searching: false };
 }
 
+/** The words of the phrase so far, read while the user is still talking. */
+export function onHearing(state: CallViewState, id: string, text: string): CallViewState {
+  return { ...state, hearing: { id, role: MessageRole.User, content: text } };
+}
+
 /** A finished utterance is on its way to core-api. Searching waits for a search intent. */
 export function onFinalTranscript(state: CallViewState, id: string, text: string): CallViewState {
   return {
@@ -51,6 +58,7 @@ export function onFinalTranscript(state: CallViewState, id: string, text: string
     searching: false,
     cards: [],
     notice: null,
+    hearing: null,
     captions: pushCaption(state.captions, { id, role: MessageRole.User, content: text }),
   };
 }

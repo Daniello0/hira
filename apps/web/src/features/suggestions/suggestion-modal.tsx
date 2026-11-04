@@ -36,15 +36,15 @@ function SuggestionBody({ item }: { item: ProfileSuggestionDto }) {
   const value = suggestionValue(item);
   const run = (action: (id: string) => Promise<boolean>) => void settle(action, item.id, setBusy, setError);
   return (
-    <>
+    <form onSubmit={(event) => { event.preventDefault(); run(accept); }}>
       {value !== null ? <p className="mt-2 rounded-field bg-surface-control px-3 py-2 text-sm">{value}</p> : null}
       {canAccept ? null : <MutedText className="mt-2">{SKILL_NOT_IN_CATALOG}</MutedText>}
       {error !== null ? <AlertText className="mt-2">{error}</AlertText> : null}
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="secondary" disabled={busy} onClick={() => run(dismiss)}>Dismiss</Button>
-        <Button disabled={!canAccept || busy} onClick={() => run(accept)}>Add</Button>
+        <Button type="submit" disabled={!canAccept || busy}>Add</Button>
       </div>
-    </>
+    </form>
   );
 }
 

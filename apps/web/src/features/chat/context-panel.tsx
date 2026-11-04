@@ -61,7 +61,7 @@ function profileLines(context: AccountContext): string[] {
 function memoryLines(facts: readonly string[], crossChat: boolean): string[] {
   if (!crossChat) return ['Cross-chat memory is off'];
   if (facts.length === 0) return ['No facts yet'];
-  return [`${facts.length} facts`, ...facts.slice(0, MEMORY_PREVIEW)];
+  return [facts.length === 1 ? '1 fact' : `${facts.length} facts`, ...facts.slice(0, MEMORY_PREVIEW)];
 }
 
 function Section({ title, lines }: { title: string; lines: readonly string[] }) {

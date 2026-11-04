@@ -45,16 +45,38 @@ async function readOpenStream(response: Response, onEvent: (event: ParsedSse) =>
   }
 }
 
-/** Reads `text/event-stream` until the body closes. */
-export async function readEventStream(response: Response, onEvent: (event: ParsedSse) => void): Promise<void> {
+/**
+ * A stream silent this long is dead even if the socket is not: the server writes a keep-alive line every 15 s
+ * while it searches and writes. Giving up lets the chat reload what the server kept instead of spinning forever.
+ */
+export const STREAM_IDLE_MS = 90_000;
+
+/** Reads `text/event-stream` until the body closes. Rejects when it goes quiet for `idleMs`. */
+export async function readEventStream(response: Response, onEvent: (event: ParsedSse) => void, idleMs = STREAM_IDLE_MS): Promise<void> {
   const reader = response.body?.getReader();
   if (reader === undefined) return;
   const decoder = new TextDecoder();
   const parser = createSseParser();
-  let chunk = await reader.read();
+  let chunk = await readWithin(reader, idleMs);
   while (!chunk.done) {
     for (const event of parser.push(decoder.decode(chunk.value, { stream: true }))) onEvent(event);
-    chunk = await reader.read();
+    chunk = await readWithin(reader, idleMs);
+  }
+}
+
+async function readWithin(reader: ReadableStreamDefaultReader<Uint8Array>, idleMs: number): Promise<ReadableStreamReadResult<Uint8Array>> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const quiet = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      // Rejected first: cancelling also ends the pending read, which must not look like a normal end.
+      reject(new Error('The answer stream went quiet'));
+      void reader.cancel().catch(() => undefined);
+    }, idleMs);
+  });
+  try {
+    return await Promise.race([reader.read(), quiet]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

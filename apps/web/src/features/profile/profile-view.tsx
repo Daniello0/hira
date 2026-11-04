@@ -23,6 +23,7 @@ export function ProfileView() {
   const [skills, setSkills] = useState<ProfileSkillDto[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const clearNotice = useCallback(() => setNotice(null), []);
   const reloadSkills = useCallback(async () => {
     const next = await fetchProfileSkills().catch(() => null);
     if (next !== null) setSkills(next);
@@ -49,15 +50,18 @@ export function ProfileView() {
         description={<>Upload a resume from the <Link className="text-link underline" href="/library">library</Link>. Skills found there are offered for confirmation.</>}
       />
       {loadError ? <AlertText>Could not load the profile.</AlertText> : null}
-      <ProfileForm values={formValues} notice={notice} onSave={(body) => save(body, setNotice, reloadProfile)} />
+      <ProfileForm values={formValues} notice={notice} onSave={(body) => save(body, setNotice, reloadProfile)} onEdit={clearNotice} />
       <LocationPicker selected={locations} onSaved={setLocations} />
       <ProfileSkills skills={skills} onChange={reloadSkills} />
     </>
   );
 }
 
-async function save(body: UpdateProfileRequest, setNotice: (notice: string) => void, reload: () => Promise<void>): Promise<void> {
+/** True when saved. The form is told before the profile is read again, so the fresh copy replaces what it shows. */
+async function save(body: UpdateProfileRequest, setNotice: (notice: string) => void, reload: () => Promise<void>): Promise<boolean> {
   const message = await saveProfile(body).catch(() => 'Could not reach Hira');
   setNotice(message ?? 'Profile saved');
-  if (message === null) await reload();
+  if (message !== null) return false;
+  void reload();
+  return true;
 }
