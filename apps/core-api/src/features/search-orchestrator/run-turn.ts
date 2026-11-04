@@ -114,8 +114,9 @@ async function resolveIntent(deps: OrchestratorDeps, input: TurnInput, context: 
     const response = await deps.llm.understand(
       {
         // Whole files made understand miss its 20 s budget; the start of each tells the intent as well.
+        // Files of earlier messages stay in the history for ten turns, so they are cut the same way.
         query: withAttachmentHeads(input.content, UNDERSTAND_FILE_HEAD_CHARS),
-        history: input.history,
+        history: input.history.map((turn) => ({ ...turn, content: withAttachmentHeads(turn.content, UNDERSTAND_FILE_HEAD_CHARS) })),
         memory: context.memory,
         summary: context.summary,
         documents: context.documents,
