@@ -1,6 +1,6 @@
 # Отчёт: аудит UX, звонок, файлы в чате
 
-Ветка `fix/ux-audit-stt` (от `plan/hira-improvements`), коммиты локальные, PR не открывался.
+Ветка `fix/ux-audit-stt` (от `plan/hira-improvements`, она уже влита в `main`); PR в `main` открыт по вашей просьбе, не влит.
 Отчёт начат в 01:40, дописан 2026-11-04 в 01:55 (UTC+3). Время отправки — в сообщении чата.
 
 Сценарии и 39 подозрительных мест из кода — [scenarios.md](scenarios.md) (S01–S18, P01–P39).
@@ -102,7 +102,7 @@ OpenRouter за всю работу: **$0,0108** (5,245279 → 5,256120). Мод
 ## 6. Что стоит знать
 
 - **Диск Mac был заполнен на 99% (180 МБ свободно)** — из-за этого зависали сборки Docker. Удалил только кэш сборки hira (~3 ГБ); свободно 4,5 ГБ. `Docker.raw` — 44 ГБ, общий кэш сборки ещё ~21 ГБ (в нём и Syncra) — чистить целиком не стал.
-- Образы core-api/llm-service/retrieval-service пересобраны в 01:16, но три последних коммита core-api подложены в контейнер через `docker cp`. Перед демонстрацией пересоберите: `COMPOSE_BAKE=0 docker compose up -d --build core-api llm-service retrieval-service`.
+- Образы llm-service/retrieval-service собраны в 01:16, core-api — в 01:41 (запущен в 01:45); все с кодом ветки. После новых правок пересоберите: `COMPOSE_BAKE=0 docker compose up -d --build core-api llm-service retrieval-service`.
 - Фронтенд запущен в режиме разработки (`npm run dev`, порт 3000), контейнер `web` не поднимался.
 - В Docker-панели BuildKit зависал на запросе к реестру: его держал `buildx build hira-postgres-test` от интеграционного теста поиска; процесс я остановил.
 - В фоновой (скрытой) вкладке Next показывает «Transition was aborted because of invalid state» (View Transitions) и иногда не меняет страницу по ссылке; в видимой вкладке не наблюдалось.
